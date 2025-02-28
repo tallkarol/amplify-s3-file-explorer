@@ -4,9 +4,11 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import UserDashboard from './pages/UserDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import Layout from './components/layout/Layout';
+import LoadingSpinner from './components/common/LoadingSpinner';
 
 function App() {
-  const { user, signOut } = useAuthenticator();
+  const {} = useAuthenticator();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -34,36 +36,21 @@ function App() {
   }, []);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <LoadingSpinner size="lg" text="Loading application..." />
+      </div>
+    );
   }
 
   return (
-    <div className="app-container">
-      <header>
-        <nav className="navbar navbar-dark bg-primary">
-          <div className="container">
-            <span className="navbar-brand">S3 File Explorer</span>
-            <div>
-              <span className="text-light me-3">{user.username}</span>
-              <button 
-                className="btn btn-outline-light btn-sm"
-                onClick={signOut}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </nav>
-      </header>
-
-      <main className="container my-4">
-        <Routes>
-          <Route path="/user" element={<UserDashboard />} />
-          <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/user" replace />} />
-          <Route path="*" element={<Navigate to="/user" replace />} />
-        </Routes>
-      </main>
-    </div>
+    <Layout isAdmin={isAdmin}>
+      <Routes>
+        <Route path="/user" element={<UserDashboard />} />
+        <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/user" replace />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    </Layout>
   );
 }
 
