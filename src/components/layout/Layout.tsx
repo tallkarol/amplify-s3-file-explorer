@@ -1,6 +1,6 @@
 // src/components/layout/Layout.tsx
-import { ReactNode } from "react";
-import Navigation from "./Navigtion";
+import { ReactNode, useState } from "react";
+import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 
 interface LayoutProps {
@@ -9,19 +9,31 @@ interface LayoutProps {
 }
 
 const Layout = ({ children, isAdmin }: LayoutProps) => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+  
   return (
     <div className="d-flex flex-column min-vh-100">
-      <header>
-        <Navigation isAdmin={isAdmin} />
-      </header>
-      
-      <main className="flex-grow-1 py-4 bg-light">
-        <div className="container">
-          <div className="bg-white p-4 rounded shadow-sm">
-            {children}
+      <div className="d-flex flex-grow-1">
+        {/* Sidebar */}
+        <Sidebar 
+          isAdmin={isAdmin} 
+          collapsed={sidebarCollapsed} 
+          onToggle={toggleSidebar} 
+        />
+        
+        {/* Main content */}
+        <main className={`flex-grow-1 p-4 bg-light transition-width ${sidebarCollapsed ? 'expanded-content' : ''}`}>
+          <div className="container-fluid">
+            <div className="bg-white p-4 rounded shadow-sm">
+              {children}
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
       
       <Footer />
     </div>

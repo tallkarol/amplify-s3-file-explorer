@@ -8,11 +8,11 @@ import AlertMessage from '../common/AlertMessage';
 import { S3Item, BreadcrumbItem } from '../../types';
 
 const FileBrowser = () => {
-  const [files, setFiles] = useState<S3Item[]>([]);
+  const [setFiles] = useState<S3Item[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('/');
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
+  const [error] = useState<string | null>(null);
+  const [breadcrumbs] = useState<BreadcrumbItem[]>([]);
 
   useEffect(() => {
     // Simulate loading files
