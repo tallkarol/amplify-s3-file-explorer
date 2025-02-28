@@ -43,7 +43,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
   const statisticsFolderKey = `${event.request.userAttributes.sub}/statistics/`;
 
   // Retrieve the bucket name from the environment variable set by Amplify Storage.
-  const bucketName = process.env.STORAGE_AMPLIFYS3FILEEXPLORERSTORAGE_BUCKETNAME!;
+  const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";
   
   // Put an / object with the folder key.
   const userParams = {Bucket:bucketName, Key:userFolderKey, Body:"placeholder", ContentType:"text/plain"};
