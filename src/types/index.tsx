@@ -1,13 +1,14 @@
 // src/types/index.ts
 // S3 related types
 export interface S3Item {
-    key: string;
-    name: string;
-    isFolder: boolean;
-    lastModified?: Date;
-    size?: number;
-    parentFolder: string;
-  }
+  key: string;
+  name: string;
+  isFolder: boolean;
+  lastModified?: Date;
+  size?: number;
+  parentFolder: string;
+  isProtected?: boolean;
+}
   
   // User related types
   export interface UserProfile {

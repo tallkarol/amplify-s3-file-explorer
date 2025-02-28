@@ -6,6 +6,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import AlertMessage from '../common/AlertMessage';
 import Breadcrumb from '../common/Breadcrumb';
 import FileItem from '../user/FileItem';
+import FileUpload from '../common/FileUpload';
 import { UserProfile, S3Item, BreadcrumbItem } from '../../types';
 import { listUserFiles, getFileUrl } from '../../services/S3Service';
 
@@ -34,13 +35,19 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
     setError(null);
     
     try {
+      console.log('Fetching files for user:', selectedUser.email);
+      console.log('User UUID:', selectedUser.uuid);
+      console.log('Current path:', currentPath);
+      
       const items = await listUserFiles(selectedUser.uuid, currentPath);
+      console.log('Files retrieved:', items.length);
+      
       setFiles(items);
       updateBreadcrumbs(currentPath);
-      setLoading(false);
     } catch (err) {
       console.error('Error loading files:', err);
       setError(`Failed to load files: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -66,6 +73,7 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
   };
 
   const navigateToFolder = (path: string) => {
+    console.log('Navigating to folder path:', path);
     setCurrentPath(path);
   };
 
@@ -85,6 +93,11 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
       console.error('Error downloading file:', err);
       setError(`Failed to download file: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+
+  // Handler for when file upload or deletion completes
+  const handleActionComplete = () => {
+    fetchFiles();
   };
 
   if (!selectedUser) {
@@ -111,6 +124,7 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
           type="danger"
           title="Error loading files"
           message={error}
+          details="Check the console for more information. This might be due to permissions issues or incorrect path configuration."
         />
       ) : (
         <>
@@ -132,10 +146,22 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
               </button>
             </div>
             <div>
-              <button className="btn btn-sm btn-primary" disabled>
-                <i className="bi bi-upload me-1"></i>
-                Upload as User
-              </button>
+              {currentPath !== '/' ? (
+                <FileUpload
+                  currentPath={currentPath}
+                  userId={selectedUser.uuid}
+                  onUploadComplete={handleActionComplete}
+                />
+              ) : (
+                <button 
+                  className="btn btn-sm btn-secondary"
+                  title="Please navigate to a specific folder to upload files"
+                  disabled
+                >
+                  <i className="bi bi-upload me-1"></i>
+                  Upload
+                </button>
+              )}
             </div>
           </div>
           
@@ -144,7 +170,16 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
             <EmptyState
               icon="folder"
               title="No files found"
-              message="This folder is empty."
+              message={currentPath === '/' 
+                ? "This is the root folder. Please navigate to a specific folder to upload files." 
+                : "This folder is empty."}
+              action={currentPath !== '/' && (
+                <FileUpload
+                  currentPath={currentPath}
+                  userId={selectedUser.uuid}
+                  onUploadComplete={handleActionComplete}
+                />
+              )}
             />
           ) : (
             /* Display files when available */
@@ -153,7 +188,9 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
                 <FileItem 
                   key={index}
                   file={file}
+                  isAdmin={true} // Admin has delete privileges
                   onNavigate={handleFileAction}
+                  onActionComplete={handleActionComplete}
                 />
               ))}
             </div>

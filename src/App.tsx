@@ -47,8 +47,9 @@ function App() {
     <Layout isAdmin={isAdmin}>
       <Routes>
         <Route path="/user" element={<UserDashboard />} />
+        <Route path="/user/folder/:folderId" element={<UserDashboard />} />
         <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/user" replace />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        <Route path="*" element={<Navigate to={isAdmin ? "/admin" : "/user"} replace />} />
       </Routes>
     </Layout>
   );
