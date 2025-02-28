@@ -9,8 +9,11 @@ import Breadcrumb from '../common/Breadcrumb';
 import AlertMessage from '../common/AlertMessage';
 import FileItem from './FileItem';
 import FileUpload from '../common/FileUpload';
+import DragDropUpload from '../common/DragDropUpload'; // Import the new component
+import DragDropInfo from '../common/DragDropInfo'; // Import the info component
 import { S3Item, BreadcrumbItem } from '../../types';
 import { listUserFiles, getFileUrl } from '../../services/S3Service';
+import '../../styles/dragdrop.css'; // Import the drag and drop CSS
 
 interface FileBrowserProps {
   initialPath?: string;
@@ -147,8 +150,8 @@ const FileBrowser = ({
     }
   };
 
-  // Handler for when file upload completes
-  const handleUploadComplete = () => {
+  // Handler for when file upload or action completes
+  const handleActionComplete = () => {
     fetchFiles();
   };
 
@@ -165,6 +168,9 @@ const FileBrowser = ({
   const handleBackToDashboard = () => {
     navigate('/user');
   };
+
+  // Determine if drag and drop should be disabled
+  const isDragDropDisabled = currentPath === '/';
 
   return (
     <div>
@@ -193,7 +199,12 @@ const FileBrowser = ({
             details="Check the console for more information. This might be due to permissions issues or incorrect path configuration."
           />
         ) : (
-          <>
+          <DragDropUpload
+            currentPath={currentPath}
+            userId={userId}
+            onUploadComplete={handleActionComplete}
+            disabled={isDragDropDisabled}
+          >
             {/* Breadcrumb navigation */}
             {(!restrictToCurrentFolder || initialPath === '/') && (
               <Breadcrumb 
@@ -218,7 +229,7 @@ const FileBrowser = ({
                   <FileUpload
                     currentPath={currentPath}
                     userId={userId}
-                    onUploadComplete={handleUploadComplete}
+                    onUploadComplete={handleActionComplete}
                   />
                 ) : (
                   <button 
@@ -233,6 +244,9 @@ const FileBrowser = ({
               </div>
             </div>
             
+            {/* Drag and drop info banner */}
+            <DragDropInfo isDisabled={isDragDropDisabled} />
+            
             {files.length === 0 ? (
               /* Empty state when no files are present */
               <EmptyState
@@ -240,12 +254,12 @@ const FileBrowser = ({
                 title="No files found"
                 message={currentPath === '/' 
                   ? "This is the root folder. Please navigate to a specific folder to upload files." 
-                  : "This folder is empty. Upload files to get started."}
+                  : "This folder is empty. Upload files to get started or drag & drop files here."}
                 action={currentPath !== '/' && (
                   <FileUpload
                     currentPath={currentPath}
                     userId={userId}
-                    onUploadComplete={handleUploadComplete}
+                    onUploadComplete={handleActionComplete}
                   />
                 )}
               />
@@ -263,7 +277,7 @@ const FileBrowser = ({
                 ))}
               </div>
             )}
-          </>
+          </DragDropUpload>
         )}
       </Card>
     </div>

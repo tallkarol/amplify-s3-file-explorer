@@ -7,20 +7,35 @@ import AlertMessage from '../common/AlertMessage';
 import Breadcrumb from '../common/Breadcrumb';
 import FileItem from '../user/FileItem';
 import FileUpload from '../common/FileUpload';
+import DragDropUpload from '../common/DragDropUpload';
+import DragDropInfo from '../common/DragDropInfo';
 import { UserProfile, S3Item, BreadcrumbItem } from '../../types';
 import { listUserFiles, getFileUrl } from '../../services/S3Service';
+import '../../styles/dragdrop.css';
 
 interface AdminFileBrowserProps {
   selectedUser: UserProfile | null;
+  initialPath?: string;
+  onPathChange?: (path: string) => void;
 }
 
-const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
+const AdminFileBrowser = ({ 
+  selectedUser, 
+  initialPath = '/', 
+  onPathChange 
+}: AdminFileBrowserProps) => {
   const [files, setFiles] = useState<S3Item[]>([]);
-  const [currentPath, setCurrentPath] = useState<string>('/');
+  const [currentPath, setCurrentPath] = useState<string>(initialPath);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
 
+  // Initialize path from props
+  useEffect(() => {
+    setCurrentPath(initialPath);
+  }, [initialPath]);
+
+  // Fetch files when user or path changes
   useEffect(() => {
     if (selectedUser) {
       fetchFiles();
@@ -72,9 +87,51 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
     setBreadcrumbs(items);
   };
 
-  const navigateToFolder = (path: string) => {
-    console.log('Navigating to folder path:', path);
-    setCurrentPath(path);
+  // Fixed navigation function to properly handle folder paths
+  const navigateToFolder = (folderKey: string) => {
+    console.log('Original folder key:', folderKey);
+    
+    // Check if this is a parent folder navigation (..)
+    if (folderKey.endsWith('/..')) {
+      const parts = currentPath.split('/').filter(Boolean);
+      // Remove the last part and join back
+      parts.pop();
+      const parentPath = parts.length > 0 ? '/' + parts.join('/') + '/' : '/';
+      console.log('Navigating to parent folder:', parentPath);
+      updatePath(parentPath);
+      return;
+    }
+    
+    // For regular folder navigation:
+    // First, strip the "users/{userId}/" prefix if present
+    const userPrefix = `users/${selectedUser?.uuid}/`;
+    let cleanPath = folderKey;
+    
+    if (folderKey.startsWith(userPrefix)) {
+      cleanPath = '/' + folderKey.substring(userPrefix.length);
+      // Ensure path ends with a slash
+      if (!cleanPath.endsWith('/')) {
+        cleanPath += '/';
+      }
+    } else if (!folderKey.startsWith('/')) {
+      // If it doesn't have a leading slash, add one
+      cleanPath = '/' + folderKey;
+      // Ensure path ends with a slash
+      if (!cleanPath.endsWith('/')) {
+        cleanPath += '/';
+      }
+    }
+    
+    console.log('Navigating to folder path:', cleanPath);
+    updatePath(cleanPath);
+  };
+
+  // Update path locally and notify parent
+  const updatePath = (newPath: string) => {
+    setCurrentPath(newPath);
+    if (onPathChange) {
+      onPathChange(newPath);
+    }
   };
 
   const handleFileAction = (file: S3Item) => {
@@ -100,6 +157,31 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
     fetchFiles();
   };
 
+  // Determine if drag and drop should be disabled
+  const isDragDropDisabled = currentPath === '/' || !selectedUser;
+
+  // Function to get the title based on the path
+  const getTitleFromPath = () => {
+    if (currentPath === '/') {
+      return 'Root Directory';
+    }
+    
+    // Extract folder name from path
+    const pathParts = currentPath.split('/').filter(Boolean);
+    const folderName = pathParts[pathParts.length - 1];
+    
+    // Map common folder names to more user-friendly titles
+    const folderDisplayNames: Record<string, string> = {
+      'certificate': 'Certificates',
+      'audit-report': 'Audit Reports',
+      'auditor-resume': 'Auditor Profiles',
+      'statistics': 'Statistics & Analytics'
+    };
+    
+    return folderDisplayNames[folderName] || 
+      folderName.charAt(0).toUpperCase() + folderName.slice(1).replace(/-/g, ' ');
+  };
+
   if (!selectedUser) {
     return (
       <Card title="File Management">
@@ -115,7 +197,7 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
   return (
     <Card 
       title="File Management" 
-      subtitle={`Files for ${selectedUser.email}`}
+      subtitle={`Browsing ${getTitleFromPath()} for ${selectedUser.email}`}
     >
       {loading ? (
         <LoadingSpinner text="Loading files..." />
@@ -127,7 +209,12 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
           details="Check the console for more information. This might be due to permissions issues or incorrect path configuration."
         />
       ) : (
-        <>
+        <DragDropUpload
+          currentPath={currentPath}
+          userId={selectedUser.uuid}
+          onUploadComplete={handleActionComplete}
+          disabled={isDragDropDisabled}
+        >
           {/* Breadcrumb navigation */}
           <Breadcrumb 
             items={breadcrumbs} 
@@ -144,6 +231,16 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
                 <i className="bi bi-arrow-clockwise me-1"></i>
                 Refresh
               </button>
+              
+              {currentPath !== '/' && (
+                <button 
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => navigateToFolder(currentPath + '..')}
+                >
+                  <i className="bi bi-arrow-up me-1"></i>
+                  Up to Parent
+                </button>
+              )}
             </div>
             <div>
               {currentPath !== '/' ? (
@@ -165,6 +262,9 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
             </div>
           </div>
           
+          {/* Drag and drop info banner */}
+          <DragDropInfo isDisabled={isDragDropDisabled} />
+          
           {files.length === 0 ? (
             /* Empty state when no files are present */
             <EmptyState
@@ -172,7 +272,7 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
               title="No files found"
               message={currentPath === '/' 
                 ? "This is the root folder. Please navigate to a specific folder to upload files." 
-                : "This folder is empty."}
+                : "This folder is empty. Upload files to get started or drag & drop files here."}
               action={currentPath !== '/' && (
                 <FileUpload
                   currentPath={currentPath}
@@ -195,7 +295,7 @@ const AdminFileBrowser = ({ selectedUser }: AdminFileBrowserProps) => {
               ))}
             </div>
           )}
-        </>
+        </DragDropUpload>
       )}
     </Card>
   );

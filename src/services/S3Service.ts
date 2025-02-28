@@ -42,11 +42,17 @@ export const listUserFiles = async (userId: string, path: string = '/'): Promise
     
     // Process and organize the results
     const items: S3Item[] = [];
-    const folderPaths = new Set<string>();
+    const seenFolders = new Set<string>();
     
-    // If we're not at the root level of the user's folder, add a parent folder
-    if (directoryPath !== '/' && !directoryPath.endsWith(`users/${userId}/`)) {
-      const parentPath = directoryPath.split('/').slice(0, -2).join('/') + '/';
+    // If we're not at the root level of the user's folder, add a parent folder navigation
+    if (directoryPath !== '/') {
+      const parentParts = directoryPath.split('/').filter(Boolean);
+      parentParts.pop(); // Remove the last part
+      
+      const parentPath = parentParts.length > 0 
+        ? `/${parentParts.join('/')}/` 
+        : '/';
+      
       items.push({
         key: parentPath,
         name: '..',
@@ -56,72 +62,158 @@ export const listUserFiles = async (userId: string, path: string = '/'): Promise
       });
     }
     
-    // Process the results
-    result.items.forEach(item => {
-      // Skip the current directory placeholder
-      if (item.path === fullPath) return;
+    // First pass: identify all distinct folders
+    for (const item of result.items) {
+      // Skip the current directory itself
+      if (item.path === fullPath) continue;
       
-      // Extract relative path from the item key (remove the 'users/userId/' prefix)
-      const relativePath = item.path.replace(fullPath, '');
+      // Remove the user prefix to get the relative path
+      const relativePath = item.path.replace(`users/${userId}/`, '');
       
-      // If the item has a trailing slash or has a slash in the relative path, it's a folder or subfolder
-      const isItemFolder = item.path.endsWith('/') || relativePath.includes('/');
-      
-      if (isItemFolder) {
-        // Extract the folder name
-        let folderPath: string;
+      // Check if this is a folder (ends with /)
+      if (item.path.endsWith('/')) {
+        // It's definitely a folder - extract the folder name
+        const folderName = item.path.split('/').filter(Boolean).pop() || '';
         
-        if (item.path.endsWith('/')) {
-          // Direct subfolder
-          folderPath = item.path;
-        } else {
-          // Nested subfolder, extract the top level folder
-          const parts = relativePath.split('/');
-          folderPath = `${fullPath}${parts[0]}/`;
+        // If we're at root, check if this is a direct child folder
+        if (directoryPath === '/') {
+          const folderDepth = relativePath.split('/').filter(Boolean).length;
+          
+          // Only include top-level folders
+          if (folderDepth === 1) {
+            const folderPath = `/${relativePath.split('/')[0]}/`;
+            
+            if (!seenFolders.has(folderPath)) {
+              seenFolders.add(folderPath);
+              
+              // Check if this is a protected folder
+              const isProtected = PROTECTED_FOLDERS.includes(folderName);
+              
+              items.push({
+                key: folderPath,
+                name: folderName,
+                isFolder: true,
+                parentFolder: directoryPath,
+                lastModified: item.lastModified,
+                isProtected
+              });
+            }
+          }
         }
-        
-        // Avoid duplicate folders
-        if (!folderPaths.has(folderPath)) {
-          folderPaths.add(folderPath);
+        // If we're in a subfolder, only include direct children
+        else {
+          const relativeToCurrentDir = relativePath.replace(directoryPath.substring(1), '');
+          const relativePathParts = relativeToCurrentDir.split('/').filter(Boolean);
           
-          // Get just the folder name from the path
-          const folderName = folderPath
-            .split('/')
-            .filter(Boolean)
-            .pop() || '';
-          
-          // Check if this is a protected folder
-          const isProtected = PROTECTED_FOLDERS.includes(folderName);
-          
-          items.push({
-            key: folderPath,
-            name: folderName,
-            isFolder: true,
-            parentFolder: directoryPath,
-            lastModified: item.lastModified,
-            isProtected
-          });
+          // Only include direct children folders (depth = 1)
+          if (relativePathParts.length === 1) {
+            const folderPath = `${directoryPath}${relativePathParts[0]}/`;
+            
+            if (!seenFolders.has(folderPath)) {
+              seenFolders.add(folderPath);
+              
+              // Check if this is a protected folder
+              const isProtected = PROTECTED_FOLDERS.includes(relativePathParts[0]);
+              
+              items.push({
+                key: folderPath,
+                name: relativePathParts[0],
+                isFolder: true,
+                parentFolder: directoryPath,
+                lastModified: item.lastModified,
+                isProtected
+              });
+            }
+          }
         }
-      } else {
-        // It's a file
-        const fileName = relativePath.split('/').pop() || '';
-        
-        // Check if this file belongs to a protected folder
-        const isInProtectedFolder = PROTECTED_FOLDERS.some(folder => 
-          item.path.includes(`users/${userId}/${folder}/`)
-        );
-        
-        items.push({
-          key: item.path,
-          name: fileName,
-          isFolder: false,
-          parentFolder: directoryPath,
-          lastModified: item.lastModified,
-          size: item.size,
-          isProtected: isInProtectedFolder
-        });
       }
-    });
+      // Not a folder itself, but might be in a subfolder
+      else {
+        // For files at root, include only if they're direct children
+        if (directoryPath === '/') {
+          // Check if the file contains any subdirectories
+          if (relativePath.includes('/')) {
+            // Extract the top-level folder
+            const topFolder = relativePath.split('/')[0];
+            const folderPath = `/${topFolder}/`;
+            
+            // Add the folder if we haven't seen it yet
+            if (!seenFolders.has(folderPath)) {
+              seenFolders.add(folderPath);
+              
+              // Check if this is a protected folder
+              const isProtected = PROTECTED_FOLDERS.includes(topFolder);
+              
+              items.push({
+                key: folderPath,
+                name: topFolder,
+                isFolder: true,
+                parentFolder: directoryPath,
+                lastModified: item.lastModified,
+                isProtected
+              });
+            }
+          }
+          // Direct file in the root folder (no subdirectories)
+          else {
+            // Check if this file belongs to a protected folder
+            const isInProtectedFolder = PROTECTED_FOLDERS.includes(relativePath.split('/')[0]);
+            
+            items.push({
+              key: item.path,
+              name: relativePath,
+              isFolder: false,
+              parentFolder: directoryPath,
+              lastModified: item.lastModified,
+              size: item.size,
+              isProtected: isInProtectedFolder
+            });
+          }
+        }
+        // For files in subfolders, check if they belong to the current folder
+        else {
+          const relativeToCurrentDir = relativePath.replace(directoryPath.substring(1), '');
+          
+          // If the file has no additional path separators, it's in this directory
+          if (!relativeToCurrentDir.includes('/')) {
+            // Check if this file belongs to a protected folder
+            const currentFolder = directoryPath.split('/').filter(Boolean).pop() || '';
+            const isInProtectedFolder = PROTECTED_FOLDERS.includes(currentFolder);
+            
+            items.push({
+              key: item.path,
+              name: relativeToCurrentDir,
+              isFolder: false,
+              parentFolder: directoryPath,
+              lastModified: item.lastModified,
+              size: item.size,
+              isProtected: isInProtectedFolder
+            });
+          }
+          // Otherwise, it's in a subfolder - add the subfolder
+          else {
+            const subfolder = relativeToCurrentDir.split('/')[0];
+            const folderPath = `${directoryPath}${subfolder}/`;
+            
+            if (!seenFolders.has(folderPath)) {
+              seenFolders.add(folderPath);
+              
+              // Check if this is a protected folder
+              const isProtected = PROTECTED_FOLDERS.includes(subfolder);
+              
+              items.push({
+                key: folderPath,
+                name: subfolder,
+                isFolder: true,
+                parentFolder: directoryPath,
+                lastModified: item.lastModified,
+                isProtected
+              });
+            }
+          }
+        }
+      }
+    }
     
     // Sort: folders first, then files alphabetically
     return items.sort((a, b) => {

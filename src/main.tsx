@@ -9,6 +9,9 @@ import outputs from "../amplify_outputs.json";
 import '@aws-amplify/ui-react/styles.css';
 import { Authenticator } from "@aws-amplify/ui-react";
 import './styles/sidebar.css';
+import './styles/dragdrop.css';
+import './styles/admin.css';
+import './styles/foldergrid.css';
 
 Amplify.configure(outputs);
 

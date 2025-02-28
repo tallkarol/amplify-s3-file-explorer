@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import FileBrowser from '../components/user/FileBrowser';
 import FolderCardsView from '../components/user/FolderCardsView';
+import DragDropDemo from '../components/user/DragDropDemo'; // Import the drag and drop demo component
 
 const UserDashboard = () => {
   const { user } = useAuthenticator();
@@ -63,8 +64,11 @@ const UserDashboard = () => {
           folderDisplayName={folderInfo?.title}
         />
       ) : (
-        // Show folder card view for root
-        <FolderCardsView userId={user.userId} />
+        // Show folder card view and drag drop demo for root
+        <>
+          <FolderCardsView userId={user.userId} />
+          <DragDropDemo /> {/* Add the drag and drop demo component */}
+        </>
       )}
     </div>
   );

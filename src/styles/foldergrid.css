@@ -1,0 +1,76 @@
+/* src/styles/foldergrid.css */
+.folder-card {
+    border-radius: 12px;
+    overflow: hidden;
+    height: 100%;
+    transition: all 0.3s ease;
+  }
+  
+  .folder-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+  }
+  
+  .folder-card .card-footer {
+    border-top: 1px solid rgba(0,0,0,.05);
+    background-color: rgba(0,0,0,.02);
+    padding: 0.75rem;
+  }
+  
+  .folder-card .card-title {
+    font-weight: 600;
+  }
+  
+  /* Folder navigation bar styles */
+  .folder-nav {
+    border-radius: 8px;
+    background-color: rgba(0,0,0,.02);
+    padding: 1rem;
+    border: 1px solid rgba(0,0,0,.05);
+  }
+  
+  .folder-nav .btn {
+    border-radius: 20px;
+    transition: all 0.2s ease;
+  }
+  
+  .folder-nav .btn:hover {
+    transform: translateY(-2px);
+  }
+  
+  /* Make the folder icons more vibrant in the grid */
+  .folder-card .bi {
+    filter: drop-shadow(0 0 2px rgba(0,0,0,.1));
+  }
+  
+  /* Different colored cards for each folder type */
+  .folder-card.primary-card {
+    border-top: 4px solid var(--bs-primary);
+  }
+  
+  .folder-card.success-card {
+    border-top: 4px solid var(--bs-success);
+  }
+  
+  .folder-card.info-card {
+    border-top: 4px solid var(--bs-info);
+  }
+  
+  .folder-card.warning-card {
+    border-top: 4px solid var(--bs-warning);
+  }
+  
+  .folder-card.danger-card {
+    border-top: 4px solid var(--bs-danger);
+  }
+  
+  /* Enhance hover animations */
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+  
+  .folder-card:active .bi {
+    animation: pulse 0.3s ease-in-out;
+  }

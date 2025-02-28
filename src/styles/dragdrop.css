@@ -1,0 +1,88 @@
+/* src/styles/dragdrop.css */
+.drag-drop-container {
+    position: relative;
+    min-height: 100px;
+    transition: all 0.2s ease;
+  }
+  
+  .drag-drop-container.dragging {
+    background-color: rgba(13, 110, 253, 0.1);
+    border: 2px dashed #0d6efd;
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+  
+  .drag-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(13, 110, 253, 0.15);
+    border: 2px dashed #0d6efd;
+    border-radius: 0.5rem;
+    z-index: 999;
+    pointer-events: none;
+  }
+  
+  .drag-icon {
+    font-size: 3rem;
+    color: #0d6efd;
+    margin-bottom: 1rem;
+  }
+  
+  .drag-text {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #0d6efd;
+    margin-bottom: 0.5rem;
+  }
+  
+  .drag-subtext {
+    font-size: 0.875rem;
+    color: #6c757d;
+  }
+  
+  /* Animation for the icon */
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .animate-bounce {
+    animation: bounce 1s infinite ease-in-out;
+  }
+  
+  /* File preview item */
+  .file-preview-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  
+  .file-preview-item:last-child {
+    border-bottom: none;
+  }
+  
+  .file-preview-item .file-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 1rem;
+    flex: 1;
+  }
+  
+  .file-icon {
+    margin-right: 0.5rem;
+  }
+  
+  .file-size {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
