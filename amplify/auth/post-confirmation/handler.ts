@@ -30,6 +30,8 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     email: event.request.userAttributes.email,
     uuid: event.request.userAttributes.sub,
     profileOwner: `${event.request.userAttributes.sub}::${event.userName}`,
+    firstName: event.request.userAttributes.given_name || '', // Add this line
+    lastName: event.request.userAttributes.family_name || '',  // Add this line
   });
 
   // Create an S3 folder for the user.
@@ -41,8 +43,8 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
   const statisticsFolderKey = `${event.request.userAttributes.sub}/statistics/`;
 
   // Retrieve the bucket name from the environment variable set by Amplify Storage.
-  const bucketName = "amplify-dlw083wjllfvt-mai-s3fileexplorerstoragebuc-kykom3ik27ia";
-
+  const bucketName = process.env.STORAGE_AMPLIFYS3FILEEXPLORERSTORAGE_BUCKETNAME;
+  
   // Put an / object with the folder key.
   const userParams = {Bucket:bucketName, Key:userFolderKey, Body:"placeholder", ContentType:"text/plain"};
   const certificateParams = {Bucket:bucketName, Key:certificateFolderKey, Body:"placeholder", ContentType:"text/plain"};

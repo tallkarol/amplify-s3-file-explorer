@@ -14,6 +14,8 @@ const schema = a.schema({
       email: a.string(),
       uuid: a.string(),
       profileOwner: a.string(),
+      firstName: a.string(), // Add as optional
+      lastName: a.string(),  // Add as optional
     })
     .authorization((allow) => [
       allow.ownerDefinedIn("profileOwner"),

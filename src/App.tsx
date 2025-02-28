@@ -1,39 +1,69 @@
-import { useEffect, useState } from "react";
-import type { Schema } from "../amplify/data/resource";
-import { generateClient } from "aws-amplify/data";
-
-const client = generateClient<Schema>();
+import { useState, useEffect } from "react";
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuthenticator } from '@aws-amplify/ui-react';
+import { fetchAuthSession, signOut } from 'aws-amplify/auth';
+import UserDashboard from './pages/UserDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
+  const { user, signOut } = useAuthenticator();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
-    });
+    async function checkAdmin() {
+      try {
+        const session = await fetchAuthSession();
+        const groups = session.tokens?.idToken?.payload?.['cognito:groups'];
+        
+        // If groups exists and is an array, check for admin or developer
+        if (Array.isArray(groups)) {
+          setIsAdmin(groups.includes('admin') || groups.includes('developer'));
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    checkAdmin();
   }, []);
 
-  function createTodo() {
-    client.models.Todo.create({ content: window.prompt("Todo content") });
+  if (isLoading) {
+    return <div>Loading...</div>;
   }
 
   return (
-    <main>
-      <h1>My todos</h1>
-      <button onClick={createTodo}>+ new</button>
-      <ul>
-        {todos.map((todo) => (
-          <li key={todo.id}>{todo.content}</li>
-        ))}
-      </ul>
-      <div>
-        🥳 App successfully hosted. Try creating a new todo.
-        <br />
-        <a href="https://docs.amplify.aws/react/start/quickstart/#make-frontend-updates">
-          Review next step of this tutorial.
-        </a>
-      </div>
-    </main>
+    <div className="app-container">
+      <header>
+        <nav className="navbar navbar-dark bg-primary">
+          <div className="container">
+            <span className="navbar-brand">S3 File Explorer</span>
+            <div>
+              <span className="text-light me-3">{user.username}</span>
+              <button 
+                className="btn btn-outline-light btn-sm"
+                onClick={signOut}
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <main className="container my-4">
+        <Routes>
+          <Route path="/user" element={<UserDashboard />} />
+          <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/user" replace />} />
+          <Route path="*" element={<Navigate to="/user" replace />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
 
