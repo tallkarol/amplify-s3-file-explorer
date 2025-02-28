@@ -3,7 +3,7 @@ import { S3Item } from '../../types';
   
 interface FileItemProps {
   file: S3Item;
-  onNavigate: (path: string) => void;
+  onNavigate: (file: S3Item) => void;
 }
 
 const FileItem = ({ file, onNavigate }: FileItemProps) => {
@@ -25,6 +25,7 @@ const FileItem = ({ file, onNavigate }: FileItemProps) => {
   
   // Function to get the correct icon based on file type
   const getFileIcon = () => {
+    if (file.name === '..') return 'arrow-up';
     if (file.isFolder) return 'folder';
     
     const extension = file.name.split('.').pop()?.toLowerCase();
@@ -52,12 +53,7 @@ const FileItem = ({ file, onNavigate }: FileItemProps) => {
   
   // Handle click on the file/folder
   const handleClick = () => {
-    if (file.isFolder) {
-      onNavigate(file.key);
-    } else {
-      // In the future, this will handle file download or preview
-      console.log('File clicked:', file);
-    }
+    onNavigate(file);
   };
   
   return (
@@ -67,12 +63,12 @@ const FileItem = ({ file, onNavigate }: FileItemProps) => {
       style={{ cursor: 'pointer' }}
     >
       <div className="me-3">
-        <i className={`bi bi-${getFileIcon()} fs-4`}></i>
+        <i className={`bi bi-${getFileIcon()} fs-4 ${file.isFolder ? 'text-primary' : ''}`}></i>
       </div>
       <div className="flex-grow-1">
         <div className="d-flex justify-content-between align-items-center">
           <h6 className="mb-0">{file.name}</h6>
-          {!file.isFolder && (
+          {!file.isFolder && file.size !== undefined && (
             <span className="badge bg-secondary">{formatFileSize(file.size)}</span>
           )}
         </div>
@@ -80,6 +76,20 @@ const FileItem = ({ file, onNavigate }: FileItemProps) => {
           <small className="text-muted">{file.lastModified.toLocaleDateString()}</small>
         )}
       </div>
+      {!file.isFolder && (
+        <div className="ms-2">
+          <button 
+            className="btn btn-sm btn-outline-primary" 
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate(file);
+            }}
+            title="Download file"
+          >
+            <i className="bi bi-download"></i>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

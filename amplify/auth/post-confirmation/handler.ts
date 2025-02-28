@@ -36,11 +36,11 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
 
   // Create an S3 folder for the user.
   // Construct the folder key using the user's unique id (Cognito sub).
-  const userFolderKey = `${event.request.userAttributes.sub}/`;
-  const certificateFolderKey = `${event.request.userAttributes.sub}/certificate/`;
-  const auditReportFolderKey = `${event.request.userAttributes.sub}/audit-report/`;
-  const auditorResumeFolderKey = `${event.request.userAttributes.sub}/auditor-resume/`;
-  const statisticsFolderKey = `${event.request.userAttributes.sub}/statistics/`;
+  const userFolderKey = `users/${event.request.userAttributes.sub}/`;
+  const certificateFolderKey = `users/${event.request.userAttributes.sub}/certificate/`;
+  const auditReportFolderKey = `users/${event.request.userAttributes.sub}/audit-report/`;
+  const auditorResumeFolderKey = `users/${event.request.userAttributes.sub}/auditor-resume/`;
+  const statisticsFolderKey = `users/${event.request.userAttributes.sub}/statistics/`;
 
   // Retrieve the bucket name from the environment variable set by Amplify Storage.
   const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";

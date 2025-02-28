@@ -1,62 +1,33 @@
 // src/components/user/FileBrowser.tsx
 import { useState, useEffect } from 'react';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 import Card from '../common/Card';
 import LoadingSpinner from '../common/LoadingSpinner';
 import EmptyState from '../common/EmptyState';
 import Breadcrumb from '../common/Breadcrumb';
 import AlertMessage from '../common/AlertMessage';
+import FileItem from './FileItem';
 import { S3Item, BreadcrumbItem } from '../../types';
-
-// Helper function to format file size
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
+import { listUserFiles, getFileUrl } from '../../services/S3Service';
 
 const FileBrowser = () => {
-  const [files, setFiles] = useState<S3Item[]>([]); // This line was fixed - change from "setFiles" to "files"
+  const [files, setFiles] = useState<S3Item[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('/');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
+  const { user } = useAuthenticator();
+  const userId = user.userId;
 
   useEffect(() => {
-    // Simulate loading files
-    setLoading(true);
-    setError(null);
-    
-    // Function to update breadcrumbs based on current path
-    const updateBreadcrumbs = (path: string) => {
-      // Skip the first slash to avoid an empty first element
-      const parts = path.split('/').filter(Boolean);
+    // Function to fetch files from S3
+    const fetchFiles = async () => {
+      setLoading(true);
+      setError(null);
       
-      // Build up the breadcrumb items
-      const items: BreadcrumbItem[] = [];
-      let currentPath = '';
-      
-      parts.forEach(part => {
-        currentPath += `/${part}`;
-        items.push({
-          label: part,
-          path: currentPath
-        });
-      });
-      
-      setBreadcrumbs(items);
-    };
-    
-    // Mock loading files with a delay
-    const timer = setTimeout(() => {
       try {
-        // In a real implementation, you would fetch files from S3 here
-        // For now, we'll set an empty array
-        setFiles([]);
-        // Update breadcrumbs based on the current path
+        const items = await listUserFiles(userId, currentPath);
+        setFiles(items);
         updateBreadcrumbs(currentPath);
         setLoading(false);
       } catch (err) {
@@ -64,14 +35,52 @@ const FileBrowser = () => {
         setError(`Failed to load files: ${err instanceof Error ? err.message : String(err)}`);
         setLoading(false);
       }
-    }, 1000);
+    };
+
+    fetchFiles();
+  }, [userId, currentPath]);
+
+  // Function to update breadcrumbs based on current path
+  const updateBreadcrumbs = (path: string) => {
+    // Skip the first slash to avoid an empty first element
+    const parts = path.split('/').filter(Boolean);
     
-    return () => clearTimeout(timer);
-  }, [currentPath]);
+    // Build up the breadcrumb items
+    const items: BreadcrumbItem[] = [];
+    let currentPath = '';
+    
+    parts.forEach(part => {
+      currentPath += `/${part}`;
+      items.push({
+        label: part,
+        path: currentPath
+      });
+    });
+    
+    setBreadcrumbs(items);
+  };
 
   const navigateToFolder = (path: string) => {
     console.log('Navigating to:', path);
     setCurrentPath(path);
+  };
+
+  const handleFileAction = (file: S3Item) => {
+    if (file.isFolder) {
+      navigateToFolder(file.key);
+    } else {
+      downloadFile(file);
+    }
+  };
+
+  const downloadFile = async (file: S3Item) => {
+    try {
+      const url = await getFileUrl(file.key);
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      setError(`Failed to download file: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   return (
@@ -92,6 +101,22 @@ const FileBrowser = () => {
             onNavigate={navigateToFolder} 
           />
           
+          {/* File actions toolbar */}
+          <div className="d-flex justify-content-between align-items-center my-3">
+            <div>
+              <button className="btn btn-sm btn-outline-secondary me-2">
+                <i className="bi bi-arrow-clockwise me-1"></i>
+                Refresh
+              </button>
+            </div>
+            <div>
+              <button className="btn btn-sm btn-primary">
+                <i className="bi bi-upload me-1"></i>
+                Upload
+              </button>
+            </div>
+          </div>
+          
           {files.length === 0 ? (
             /* Empty state when no files are present */
             <EmptyState
@@ -109,31 +134,11 @@ const FileBrowser = () => {
             /* Display files when available */
             <div className="list-group mt-3">
               {files.map((file, index) => (
-                <div 
-                  key={index} 
-                  className="list-group-item list-group-item-action d-flex align-items-center"
-                  onClick={() => file.isFolder && navigateToFolder(file.key)}
-                  style={{ cursor: file.isFolder ? 'pointer' : 'default' }}
-                >
-                  <div className="me-3">
-                    <i className={`bi bi-${file.isFolder ? 'folder' : 'file-earmark'} fs-4`}></i>
-                  </div>
-                  <div className="flex-grow-1">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <h6 className="mb-0">{file.name}</h6>
-                      {file.size && (
-                        <span className="badge bg-secondary">
-                          {formatFileSize(file.size)}
-                        </span>
-                      )}
-                    </div>
-                    {file.lastModified && (
-                      <small className="text-muted">
-                        {file.lastModified.toLocaleDateString()}
-                      </small>
-                    )}
-                  </div>
-                </div>
+                <FileItem 
+                  key={index}
+                  file={file}
+                  onNavigate={handleFileAction}
+                />
               ))}
             </div>
           )}
