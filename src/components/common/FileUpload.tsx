@@ -88,7 +88,8 @@ const FileUpload = ({
           // Create notifications if admin is uploading for a user or if we want to notify admins of user uploads
           if (isAdmin && userId !== user.userId) {
             // Admin uploading for a user - notify the user
-            const adminName = `${user.attributes?.given_name || ''} ${user.attributes?.family_name || ''}`.trim() || user.username;
+            // Fix: Remove attributes access
+            const adminName = user.username;
             await notifyUserOfFileUpload(
               userId,
               adminName,
@@ -102,7 +103,8 @@ const FileUpload = ({
             // This is a placeholder that would be replaced with actual admin IDs
             const adminIds = ['ADMIN_USER_ID']; // Replace with real admin IDs
             if (adminIds.length > 0) {
-              const userName = `${user.attributes?.given_name || ''} ${user.attributes?.family_name || ''}`.trim() || user.username;
+              // Fix: Remove attributes access
+              const userName = user.username;
               await notifyAdminsOfUserFileUpload(
                 adminIds,
                 userName,

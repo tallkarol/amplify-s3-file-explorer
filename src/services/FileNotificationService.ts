@@ -16,7 +16,6 @@ export const notifyUserOfFileUpload = async (
   folderPath: string,
   fileLink?: string
 ): Promise<void> => {
-  const now = new Date().toISOString();
   
   try {
     await createNotification({
@@ -26,15 +25,14 @@ export const notifyUserOfFileUpload = async (
       message: `${adminName} has uploaded a new file "${fileName}" to your ${getFolderDisplayName(folderPath)} folder.`,
       isRead: false,
       actionLink: fileLink || `/user/folder/${getFolderNameFromPath(folderPath)}`,
-      metadata: JSON.stringify({
+      // Fix: Use object directly instead of stringifying
+      metadata: {
         fileName,
         folderPath,
         uploadedBy: adminName,
         icon: 'file-earmark-arrow-up',
         color: 'success'
-      }),
-      createdAt: now,
-      updatedAt: now
+      }
     });
   } catch (error) {
     console.error('Error creating file upload notification:', error);
@@ -55,7 +53,6 @@ export const notifyAdminsOfUserFileUpload = async (
   fileName: string,
   folderPath: string
 ): Promise<void> => {
-  const now = new Date().toISOString();
   
   try {
     // Create notification for each admin
@@ -67,15 +64,14 @@ export const notifyAdminsOfUserFileUpload = async (
         message: `${userName} has uploaded a new file "${fileName}" to their ${getFolderDisplayName(folderPath)} folder.`,
         isRead: false,
         actionLink: `/admin/user-files/${userName}/${getFolderNameFromPath(folderPath)}`,
-        metadata: JSON.stringify({
+        // Fix: Use object directly instead of stringifying
+        metadata: {
           fileName,
           folderPath,
           uploadedBy: userName,
           icon: 'file-earmark-arrow-up',
           color: 'info'
-        }),
-        createdAt: now,
-        updatedAt: now
+        }
       })
     ));
   } catch (error) {

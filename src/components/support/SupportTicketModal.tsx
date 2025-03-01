@@ -48,9 +48,8 @@ const SupportTicketModal = ({ isOpen, onClose }: SupportTicketModalProps) => {
     
     try {
       // Get user's display name
-      const userDisplayName = user.attributes?.given_name && user.attributes?.family_name
-        ? `${user.attributes.given_name} ${user.attributes.family_name}`
-        : user.username;
+      // Fix: Remove attributes access and use username directly
+      const userDisplayName = user.username;
       
       // Create the support ticket
       await createSupportTicket({
@@ -60,10 +59,11 @@ const SupportTicketModal = ({ isOpen, onClose }: SupportTicketModalProps) => {
         message,
         category,
         priority,
-        metadata: JSON.stringify({
+        // Fix: Use object directly instead of stringifying
+        metadata: {
           browserInfo: getBrowserInfo(),
           submitTime: new Date().toISOString()
-        })
+        }
       });
       
       // Show success message

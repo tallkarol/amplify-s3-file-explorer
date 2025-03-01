@@ -57,15 +57,14 @@ export const createSupportTicket = async (
         message: `${ticketData.userName} submitted a new support ticket: ${ticketData.subject}`,
         isRead: false,
         actionLink: `/admin/support-tickets/${createdTicket.id}`,
+        // Fix: Use object directly instead of string
         metadata: {
           ticketId: createdTicket.id,
           priority: createdTicket.priority,
           category: createdTicket.category,
           icon: 'headset',
           color: createdTicket.priority === 'urgent' ? 'danger' : 'primary'
-        },
-        createdAt: now,
-        updatedAt: now
+        }
       })
     ));
     
@@ -100,8 +99,7 @@ export const updateSupportTicket = async (
     
     // If admin responded to the ticket, notify the user
     if (ticketData.adminResponse && ticketData.userId) {
-      const now = new Date().toISOString();
-      
+      // Fix: Remove createdAt/updatedAt
       await createNotification({
         userId: ticketData.userId,
         type: 'system',
@@ -109,14 +107,13 @@ export const updateSupportTicket = async (
         message: `Your support ticket "${ticketData.subject || 'Support Request'}" has been updated with a response.`,
         isRead: false,
         actionLink: `/support-tickets/${ticketData.id}`,
+        // Fix: Use object directly 
         metadata: {
           ticketId: ticketData.id,
           status: ticketData.status,
           icon: 'chat-dots',
           color: 'success'
-        },
-        createdAt: now,
-        updatedAt: now
+        }
       });
     }
     
