@@ -30,7 +30,6 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
   const userId = event.request.userAttributes.sub;
   const userName = event.userName;
   const profileOwner = `${userId}::${userName}`;
-  const now = new Date().toISOString();
   
   // Create user profile
   await client.models.UserProfile.create({
@@ -64,13 +63,12 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     message: 'Thank you for joining! Your account has been successfully created. You can now start uploading and managing your files securely.',
     isRead: false,
     actionLink: '/user',
-    // FIX: Pass the object directly without JSON.stringify
+    // Pass the object directly, not as a string
     metadata: {
       icon: 'hand-thumbs-up',
       color: 'primary'
-    },
-    createdAt: now,
-    updatedAt: now
+    }
+    // Remove createdAt and updatedAt as they're handled automatically
   });
 
   // Create an S3 folder for the user.
