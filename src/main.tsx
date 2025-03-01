@@ -12,6 +12,7 @@ import './styles/sidebar.css';
 import './styles/dragdrop.css';
 import './styles/admin.css';
 import './styles/foldergrid.css';
+import './styles/profile.css';
 
 Amplify.configure(outputs);
 

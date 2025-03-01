@@ -1,15 +1,24 @@
 // src/components/common/FileUpload.tsx
 import { useState, useRef, ChangeEvent } from 'react';
 import { uploadData } from 'aws-amplify/storage';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 import AlertMessage from './AlertMessage';
+import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '../../services/FileNotificationService';
 
 interface FileUploadProps {
   currentPath: string;
   userId: string;
   onUploadComplete: () => void;
+  isAdmin?: boolean; // Flag to indicate if uploader is an admin
 }
 
-const FileUpload = ({ currentPath, userId, onUploadComplete }: FileUploadProps) => {
+const FileUpload = ({ 
+  currentPath, 
+  userId, 
+  onUploadComplete,
+  isAdmin = false
+}: FileUploadProps) => {
+  const { user } = useAuthenticator();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -75,6 +84,33 @@ const FileUpload = ({ currentPath, userId, onUploadComplete }: FileUploadProps) 
           });
           
           successCount++;
+          
+          // Create notifications if admin is uploading for a user or if we want to notify admins of user uploads
+          if (isAdmin && userId !== user.userId) {
+            // Admin uploading for a user - notify the user
+            const adminName = `${user.attributes?.given_name || ''} ${user.attributes?.family_name || ''}`.trim() || user.username;
+            await notifyUserOfFileUpload(
+              userId,
+              adminName,
+              file.name,
+              currentPath,
+              `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
+            );
+          } else if (!isAdmin) {
+            // Regular user uploading - could notify admins
+            // Note: In a real system, you'd query for all admin users
+            // This is a placeholder that would be replaced with actual admin IDs
+            const adminIds = ['ADMIN_USER_ID']; // Replace with real admin IDs
+            if (adminIds.length > 0) {
+              const userName = `${user.attributes?.given_name || ''} ${user.attributes?.family_name || ''}`.trim() || user.username;
+              await notifyAdminsOfUserFileUpload(
+                adminIds,
+                userName,
+                file.name,
+                currentPath
+              );
+            }
+          }
         } catch (err) {
           console.error('Error uploading file:', err);
           setError(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
@@ -226,6 +262,12 @@ const FileUpload = ({ currentPath, userId, onUploadComplete }: FileUploadProps) 
                     <small>
                       <i className="bi bi-info-circle me-1"></i>
                       Uploading to: {currentPath === '/' ? 'Root folder' : currentPath}
+                      {isAdmin && userId !== user.userId && (
+                        <div className="mt-1">
+                          <i className="bi bi-bell me-1"></i>
+                          The user will be notified of this upload.
+                        </div>
+                      )}
                     </small>
                   </div>
                 </div>

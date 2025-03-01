@@ -5,25 +5,14 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import UserProfileModal from '../user/UserProfileModal';
+import SupportTicketModal from '../support/SupportTicketModal';
+import NotificationIcon from '../notification/NotificationIcon';
 
 interface SidebarProps {
   isAdmin: boolean;
   collapsed: boolean;
   onToggle: () => void;
 }
-
-// Define query to get user email
-const getUserProfileQuery = /* GraphQL */ `
-  query GetUserProfile($profileOwner: String!) {
-    listUserProfiles(filter: { profileOwner: { eq: $profileOwner } }, limit: 1) {
-      items {
-        email
-        firstName
-        lastName
-      }
-    }
-  }
-`;
 
 // Response type for getUserProfile query
 interface GetUserProfileResponse {
@@ -32,6 +21,7 @@ interface GetUserProfileResponse {
       email: string;
       firstName?: string;
       lastName?: string;
+      companyName?: string;
     }>;
   };
 }
@@ -41,12 +31,28 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   const { signOut, user } = useAuthenticator();
   const [userEmail, setUserEmail] = useState('');
   const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
 
   // Create a client for making GraphQL requests
   const client = generateClient();
+  
+  // Define query to get user profile
+  const getUserProfileQuery = /* GraphQL */ `
+    query GetUserProfile($profileOwner: String!) {
+      listUserProfiles(filter: { profileOwner: { eq: $profileOwner } }, limit: 1) {
+        items {
+          email
+          firstName
+          lastName
+          companyName
+        }
+      }
+    }
+  `;
   
   // Fetch user profile
   useEffect(() => {
@@ -74,6 +80,9 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
           if (firstName || lastName) {
             setFullName(`${firstName} ${lastName}`.trim());
           }
+          
+          // Set company name if available
+          setCompanyName(items[0].companyName || '');
         } else {
           setUserEmail(user.username);
         }
@@ -89,6 +98,11 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   // Toggle profile modal
   const toggleProfileModal = () => {
     setIsProfileModalOpen(!isProfileModalOpen);
+  };
+  
+  // Toggle support ticket modal
+  const toggleSupportModal = () => {
+    setIsSupportModalOpen(!isSupportModalOpen);
   };
   
   return (
@@ -124,12 +138,18 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
                 <div className="fw-semibold text-white">
                   {fullName || userEmail}
                 </div>
-                <div className="text-light small d-flex align-items-center">
-                  <span className={`badge ${isAdmin ? 'bg-danger' : 'bg-info'} me-2`}>
+                <div className="text-light small d-flex flex-column">
+                  <span className={`badge ${isAdmin ? 'bg-danger' : 'bg-info'} me-2 mb-1 d-inline-block`} style={{ width: 'fit-content' }}>
                     {isAdmin ? 'Administrator' : 'User'}
                   </span>
                   {fullName && (
                     <span className="text-muted text-truncate">{userEmail}</span>
+                  )}
+                  {companyName && (
+                    <span className="text-muted text-truncate">
+                      <i className="bi bi-building me-1"></i>
+                      {companyName}
+                    </span>
                   )}
                 </div>
               </div>
@@ -160,6 +180,22 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
                 <i className="bi bi-house-door me-3 fs-5"></i>
                 {!collapsed && <span>Dashboard</span>}
               </Link>
+            </li>
+            
+            {/* Notifications link */}
+            <li className="nav-item mb-2">
+              <NotificationIcon collapsed={collapsed} />
+            </li>
+            
+            {/* Support link */}
+            <li className="nav-item mb-2">
+              <button
+                className="nav-link px-3 py-2 d-flex align-items-center rounded text-light hover-highlight w-100 border-0 bg-transparent"
+                onClick={toggleSupportModal}
+              >
+                <i className="bi bi-headset me-3 fs-5"></i>
+                {!collapsed && <span>Contact Support</span>}
+              </button>
             </li>
             
             {isAdmin && (
@@ -196,6 +232,12 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
       <UserProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+      
+      {/* Support ticket modal */}
+      <SupportTicketModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
       />
     </>
   );

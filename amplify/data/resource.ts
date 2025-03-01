@@ -3,6 +3,35 @@ import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-confirmation/resource";
 
 const schema = a.schema({
+  SupportTicket: a
+    .model({
+      userId: a.string(),            // User who created the ticket
+      userName: a.string(),          // User's name/email for display purposes
+      subject: a.string(),           // Support ticket subject
+      message: a.string(),           // Support ticket detailed message
+      status: a.enum([              // Ticket status
+        'new',                      // New/unread ticket
+        'in-progress',              // Being worked on
+        'resolved',                 // Issue resolved
+        'closed'                    // Ticket closed
+      ]),
+      priority: a.enum([            // Ticket priority
+        'low',                      // Low priority
+        'medium',                   // Medium priority
+        'high',                     // High priority
+        'urgent'                    // Urgent priority
+      ]),
+      category: a.string(),          // Issue category (e.g., "Technical", "Billing", etc.)
+      metadata: a.json(), // Additional metadata (browser info, etc.)
+      adminResponse: a.string(), // Admin's response to the ticket
+      responseDate: a.datetime(), // When admin responded
+      createdAt: a.datetime(),      // When ticket was created
+      updatedAt: a.datetime(),      // When ticket was last updated
+    })
+    .authorization((allow) => [
+      allow.ownerDefinedIn("userId"),
+      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
+    ]),
   
   Todo: a
     .model({
@@ -32,6 +61,7 @@ const schema = a.schema({
       email: a.string(),
       receiveNotifications: a.boolean(),
       profileOwner: a.string(),
+      // Remove the problematic belongsTo relationship for now
     })
     .authorization((allow) => [
       allow.ownerDefinedIn("profileOwner"),
@@ -57,6 +87,7 @@ const schema = a.schema({
       updatedAt: a.datetime(),
     })
     .authorization((allow) => [
+      // Fix the owner authorization to use the proper method
       allow.ownerDefinedIn("userId"),
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
