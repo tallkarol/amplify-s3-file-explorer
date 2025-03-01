@@ -13,7 +13,7 @@ const schema = a.schema({
       status: a.enum(['new', 'in-progress', 'resolved', 'closed']),
       priority: a.enum(['low', 'medium', 'high', 'urgent']),
       category: a.string(),
-      metadata: a.json(),
+      metadata: a.string(),
       adminResponse: a.string(),
       responseDate: a.datetime(),
     })
