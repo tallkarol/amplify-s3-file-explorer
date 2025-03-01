@@ -1,76 +1,161 @@
 /* src/styles/foldergrid.css */
+/* Main folder card styles */
 .folder-card {
-    border-radius: 12px;
-    overflow: hidden;
-    height: 100%;
-    transition: all 0.3s ease;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 100%;
+  transition: all 0.3s ease;
+  background-color: #fff;
+  border: none !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.folder-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.folder-card .card-body {
+  padding: 1.75rem;
+}
+
+.folder-card .card-footer {
+  background-color: rgba(0, 0, 0, 0.02);
+  padding: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.folder-card .card-title {
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+/* Folder icon styling */
+.folder-icon-container {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-bottom: 1rem;
+}
+
+.folder-card .bi {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+/* Folder navigation bar styles */
+.folder-nav {
+  border-radius: 12px;
+  background-color: #fff;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* Uniform navigation buttons */
+.navigation-button {
+  flex: 1;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  color: #495057;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  padding: 0 1rem;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.navigation-button:hover {
+  background-color: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.navigation-button.active-button {
+  color: white;
+  border-color: transparent;
+}
+
+/* Root button styling */
+.root-button {
+  flex: 0 0 48px;
+  min-width: 48px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Make navigation responsive */
+@media (max-width: 768px) {
+  .navigation-button {
+    flex: 1 0 calc(50% - 0.5rem);
   }
   
-  .folder-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+  .root-button {
+    flex: 0 0 48px;
   }
-  
-  .folder-card .card-footer {
-    border-top: 1px solid rgba(0,0,0,.05);
-    background-color: rgba(0,0,0,.02);
-    padding: 0.75rem;
-  }
-  
-  .folder-card .card-title {
-    font-weight: 600;
-  }
-  
-  /* Folder navigation bar styles */
-  .folder-nav {
-    border-radius: 8px;
-    background-color: rgba(0,0,0,.02);
-    padding: 1rem;
-    border: 1px solid rgba(0,0,0,.05);
-  }
-  
-  .folder-nav .btn {
-    border-radius: 20px;
-    transition: all 0.2s ease;
-  }
-  
-  .folder-nav .btn:hover {
-    transform: translateY(-2px);
-  }
-  
-  /* Make the folder icons more vibrant in the grid */
-  .folder-card .bi {
-    filter: drop-shadow(0 0 2px rgba(0,0,0,.1));
-  }
-  
-  /* Different colored cards for each folder type */
-  .folder-card.primary-card {
-    border-top: 4px solid var(--bs-primary);
-  }
-  
-  .folder-card.success-card {
-    border-top: 4px solid var(--bs-success);
-  }
-  
-  .folder-card.info-card {
-    border-top: 4px solid var(--bs-info);
-  }
-  
-  .folder-card.warning-card {
-    border-top: 4px solid var(--bs-warning);
-  }
-  
-  .folder-card.danger-card {
-    border-top: 4px solid var(--bs-danger);
-  }
-  
-  /* Enhance hover animations */
-  @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-  }
-  
-  .folder-card:active .bi {
-    animation: pulse 0.3s ease-in-out;
-  }
+}
+
+/* Colored cards for different folder types */
+.folder-card.primary-card {
+  border-top: 5px solid var(--bs-primary) !important;
+}
+
+.folder-card.success-card {
+  border-top: 5px solid var(--bs-success) !important;
+}
+
+.folder-card.info-card {
+  border-top: 5px solid var(--bs-info) !important;
+}
+
+.folder-card.warning-card {
+  border-top: 5px solid var(--bs-warning) !important;
+}
+
+.folder-card.danger-card {
+  border-top: 5px solid var(--bs-danger) !important;
+}
+
+.folder-card.secondary-card {
+  border-top: 5px solid var(--bs-secondary) !important;
+}
+
+/* Interactive animations */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.folder-card:active .bi {
+  animation: pulse 0.3s ease-in-out;
+}
+
+/* Badge styling */
+.folder-card .badge {
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 0.4em 0.6em;
+  font-size: 0.75rem;
+}
+
+/* Protected badge */
+.protection-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1;
+}

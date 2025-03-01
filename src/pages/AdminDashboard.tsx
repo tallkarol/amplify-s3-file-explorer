@@ -1,5 +1,8 @@
 // src/pages/AdminDashboard.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { generateClient } from 'aws-amplify/api';
+import { GraphQLQuery } from '@aws-amplify/api';
+import UserList from '../components/admin/UserList';
 import UserSelector from '../components/admin/UserSelector';
 import AdminFileBrowser from '../components/admin/AdminFileBrowser';
 import UserStatsCard from '../components/admin/UserStatsCard';
@@ -10,27 +13,110 @@ import TogglableCard from '../components/common/TogglableCard';
 import Card from '../components/common/Card';
 import { UserProfile } from '../types';
 
+// Define query to list all users
+const listUserProfilesQuery = /* GraphQL */ `
+  query ListUserProfiles {
+    listUserProfiles {
+      items {
+        id
+        email
+        uuid
+        profileOwner
+        firstName
+        lastName
+        createdAt
+      }
+    }
+  }
+`;
+
+// Response type for listUserProfiles query
+interface ListUserProfilesResponse {
+  listUserProfiles: {
+    items: UserProfile[];
+  };
+}
+
 const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('/');
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showUserList, setShowUserList] = useState(false);
+
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+  
+  // Create a client for making GraphQL requests
+  const client = generateClient();
+  
+  // Fetch all user profiles
+  const fetchUsers = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await client.graphql<GraphQLQuery<ListUserProfilesResponse>>({
+        query: listUserProfilesQuery,
+        authMode: 'userPool'
+      });
+      
+      const items = response?.data?.listUserProfiles?.items || [];
+      setUsers(items);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(`Failed to load users: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle user selection
   const handleUserSelect = (user: UserProfile | null) => {
     setSelectedUser(user);
     // Reset path to root when user changes
     setCurrentPath('/');
+    // Hide user list if it was shown
+    setShowUserList(false);
   };
   
   // Handle folder selection
   const handleFolderSelect = (folderPath: string) => {
     setCurrentPath(folderPath);
   };
+  
+  // Toggle user list view
+  const toggleUserList = () => {
+    setShowUserList(!showUserList);
+  };
 
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">Admin Dashboard</h2>
+        <button 
+          className="btn btn-outline-primary"
+          onClick={toggleUserList}
+        >
+          <i className={`bi bi-people me-2`}></i>
+          {showUserList ? 'Hide User List' : 'Show User List'}
+        </button>
       </div>
+
+      {/* User List View (when toggled) */}
+      {showUserList && (
+        <Card title="User Management" className="mb-4">
+          <UserList 
+            users={users}
+            loading={loading}
+            error={error}
+            onViewDetails={handleUserSelect}
+          />
+        </Card>
+      )}
 
       <div className="row">
         {/* Left column - User selection and stats */}

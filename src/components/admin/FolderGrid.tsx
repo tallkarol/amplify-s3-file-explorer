@@ -107,6 +107,11 @@ const FolderGrid = ({
     onSelectFolder(folderPath);
   };
   
+  // Navigate to root
+  const handleRootClick = () => {
+    onSelectFolder('/');
+  };
+  
   // Check if a folder is active (current path)
   const isFolderActive = (folderPath: string) => {
     if (currentPath === '/') return false;
@@ -133,20 +138,28 @@ const FolderGrid = ({
   // Compact view for navigation bar
   if (compact) {
     return (
-      <div className="folder-nav mb-4">
-        <div className="d-flex flex-wrap gap-2 justify-content-center">
-          {folders.map(folder => (
-            <button
-              key={folder.id}
-              className={`btn ${isFolderActive(folder.id) ? `btn-${folder.color}` : `btn-outline-${folder.color}`} px-3 py-2`}
-              onClick={() => handleFolderClick(folder.id)}
-              title={folder.name}
-            >
-              <i className={`bi bi-${folder.icon} me-2`}></i>
-              {folder.name}
-            </button>
-          ))}
-        </div>
+      <div className="folder-nav">
+        {/* Root button */}
+        <button
+          className="navigation-button root-button"
+          onClick={handleRootClick}
+          title="Back to Root"
+        >
+          <i className="bi bi-house-door-fill"></i>
+        </button>
+        
+        {/* Folder buttons */}
+        {folders.map(folder => (
+          <button
+            key={folder.id}
+            className={`navigation-button ${isFolderActive(folder.id) ? `active-button bg-${folder.color}` : ''}`}
+            onClick={() => handleFolderClick(folder.id)}
+            title={folder.name}
+          >
+            <i className={`bi bi-${folder.icon} me-2`}></i>
+            {folder.name}
+          </button>
+        ))}
       </div>
     );
   }
@@ -155,24 +168,25 @@ const FolderGrid = ({
   return (
     <div className="row g-4">
       {folders.map(folder => (
-        <div key={folder.id} className="col-md-6 col-lg-3">
+        <div key={folder.id} className="col-sm-6 col-lg-3">
           <div 
-            className={`card h-100 shadow-sm border-0 folder-card ${folder.color}-card`}
+            className={`card h-100 folder-card ${folder.color}-card`}
             onClick={() => handleFolderClick(folder.id)}
             style={{ cursor: 'pointer' }}
           >
-            <div className="card-body d-flex flex-column justify-content-center align-items-center p-4">
-              <div className={`bg-${folder.color} bg-opacity-15 p-4 rounded-circle mb-3`}>
+            {folder.isProtected && (
+              <span className="protection-badge badge bg-danger">Protected</span>
+            )}
+            
+            <div className="card-body d-flex flex-column justify-content-center align-items-center">
+              <div className={`folder-icon-container bg-${folder.color} bg-opacity-15`}>
                 <i className={`bi bi-${folder.icon} fs-1 text-${folder.color}`}></i>
               </div>
               <h4 className="card-title text-center mb-1">{folder.name}</h4>
-              {folder.isProtected && (
-                <span className="badge bg-danger mt-2">Protected</span>
-              )}
             </div>
-            <div className="card-footer bg-transparent border-top-0 text-center">
-              <span className="text-muted">
-                <i className="bi bi-arrow-right-circle me-1"></i> 
+            <div className="card-footer text-center">
+              <span className="text-muted d-flex align-items-center justify-content-center">
+                <i className="bi bi-arrow-right-circle me-2"></i> 
                 Browse Files
               </span>
             </div>
