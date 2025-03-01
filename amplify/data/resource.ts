@@ -2,7 +2,6 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-confirmation/resource";
 
-// Adding back the SupportTicket model
 const schema = a.schema({
   SupportTicket: a
     .model({
@@ -10,7 +9,7 @@ const schema = a.schema({
       userName: a.string(),
       subject: a.string(),
       message: a.string(),
-      status: a.enum(['new', 'inProgress', 'resolved', 'closed']),
+      status: a.enum(['new', 'in_progress', 'resolved', 'closed']),
       priority: a.enum(['low', 'medium', 'high', 'urgent']),
       category: a.string(),
       metadata: a.json(),
@@ -38,13 +37,18 @@ const schema = a.schema({
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
     
-  Todo: a
+  AdditionalContact: a
     .model({
-      content: a.string(),
+      name: a.string(),
+      email: a.string(),
+      receiveNotifications: a.boolean(),
+      profileOwner: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.ownerDefinedIn('profileOwner'),
+      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
+    ]),
     
-  // Keeping NotificationPreference but simplifying
   NotificationPreference: a
     .model({
       userId: a.string(),
@@ -61,7 +65,6 @@ const schema = a.schema({
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
     
-  // Simplifying Notification to remove JSON fields temporarily
   Notification: a
     .model({
       userId: a.string(),
@@ -70,13 +73,14 @@ const schema = a.schema({
       message: a.string(),
       isRead: a.boolean(),
       actionLink: a.string(),
-      // Temporarily removing metadata field
+      metadata: a.json(),
+      expiresAt: a.datetime(),
     })
     .authorization((allow) => [
       allow.ownerDefinedIn('userId'),
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
-}).authorization((allow) => [allow.resource(postConfirmation)]);;;
+}).authorization((allow) => [allow.resource(postConfirmation)]);
 
 export type Schema = ClientSchema<typeof schema>;
 
@@ -89,3 +93,4 @@ export const data = defineData({
     },
   },
 });
+
