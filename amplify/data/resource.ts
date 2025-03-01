@@ -2,25 +2,8 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-confirmation/resource";
 
-// Create a minimal schema first, then gradually add more complex parts
+// Adding back the SupportTicket model
 const schema = a.schema({
-  SupportTicket: a
-    .model({
-      userId: a.string(),
-      userName: a.string(),
-      subject: a.string(),
-      message: a.string(),
-      status: a.enum(['new', 'in-progress', 'resolved', 'closed']),
-      priority: a.enum(['low', 'medium', 'high', 'urgent']),
-      category: a.string(),
-      metadata: a.string(),
-      adminResponse: a.string(),
-      responseDate: a.datetime(),
-    })
-    .authorization((allow) => [
-      allow.ownerDefinedIn('userId'),
-      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
-    ]),
 
   UserProfile: a
     .model({
@@ -76,7 +59,7 @@ const schema = a.schema({
       allow.ownerDefinedIn('userId'),
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
-}).authorization((allow) => [allow.resource(postConfirmation)]);;
+}).authorization((allow) => [allow.resource(postConfirmation)]);;;
 
 export type Schema = ClientSchema<typeof schema>;
 
