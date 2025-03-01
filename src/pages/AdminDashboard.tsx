@@ -93,11 +93,6 @@ const AdminDashboard = () => {
     setCurrentPath(folderPath);
   };
   
-  // // Toggle user list view
-  // const toggleUserList = () => {
-  //   setShowUserList(!showUserList);
-  // };
-
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
