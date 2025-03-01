@@ -4,6 +4,23 @@ import { postConfirmation } from "../auth/post-confirmation/resource";
 
 // Adding back the SupportTicket model
 const schema = a.schema({
+  SupportTicket: a
+    .model({
+      userId: a.string(),
+      userName: a.string(),
+      subject: a.string(),
+      message: a.string(),
+      status: a.enum(['new', 'inProgress', 'resolved', 'closed']),
+      priority: a.enum(['low', 'medium', 'high', 'urgent']),
+      category: a.string(),
+      metadata: a.json(),
+      adminResponse: a.string(),
+      responseDate: a.datetime(),
+    })
+    .authorization((allow) => [
+      allow.ownerDefinedIn('userId'),
+      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
+    ]),
 
   UserProfile: a
     .model({
