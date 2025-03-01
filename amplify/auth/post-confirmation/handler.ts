@@ -1,3 +1,4 @@
+// amplify/auth/post-confirmation/handler.ts
 import type { PostConfirmationTriggerHandler } from "aws-lambda";
 import { type Schema } from "../../data/resource";
 import { Amplify } from "aws-amplify";
@@ -26,21 +27,58 @@ const client = generateClient<Schema>();
 const s3 = new AWS.S3({ region: process.env.AWS_REGION });
 
 export const handler: PostConfirmationTriggerHandler = async (event) => {
+  const userId = event.request.userAttributes.sub;
+  const userName = event.userName;
+  const profileOwner = `${userId}::${userName}`;
+  const now = new Date().toISOString();
+  
+  // Create user profile
   await client.models.UserProfile.create({
     email: event.request.userAttributes.email,
-    uuid: event.request.userAttributes.sub,
-    profileOwner: `${event.request.userAttributes.sub}::${event.userName}`,
-    firstName: event.request.userAttributes.given_name || '', // Add this line
-    lastName: event.request.userAttributes.family_name || '',  // Add this line
+    uuid: userId,
+    profileOwner: profileOwner,
+    firstName: event.request.userAttributes.given_name || '',
+    lastName: event.request.userAttributes.family_name || '',
+    companyName: '',
+    phoneNumber: event.request.userAttributes.phone_number || '',
+    preferredContactMethod: 'email',
+  });
+  
+  // Create default notification preferences
+  await client.models.NotificationPreference.create({
+    userId: userId,
+    receiveSystemNotifications: true,
+    receiveFileNotifications: true,
+    receiveAdminNotifications: true,
+    receiveUserNotifications: true,
+    emailNotifications: true,
+    inAppNotifications: true,
+    emailDigestFrequency: 'instant'
+  });
+  
+  // Create welcome notification
+  await client.models.Notification.create({
+    userId: userId,
+    type: 'system',
+    title: 'Welcome to Porter, a secure file management platform built by Sonder AI Solutions',
+    message: 'Thank you for joining! Your account has been successfully created. You can now start uploading and managing your files securely.',
+    isRead: false,
+    actionLink: '/user',
+    metadata: JSON.stringify({
+      icon: 'hand-thumbs-up',
+      color: 'primary'
+    }),
+    createdAt: now,
+    updatedAt: now
   });
 
   // Create an S3 folder for the user.
   // Construct the folder key using the user's unique id (Cognito sub).
-  const userFolderKey = `users/${event.request.userAttributes.sub}/`;
-  const certificateFolderKey = `users/${event.request.userAttributes.sub}/certificate/`;
-  const auditReportFolderKey = `users/${event.request.userAttributes.sub}/audit-report/`;
-  const auditorResumeFolderKey = `users/${event.request.userAttributes.sub}/auditor-resume/`;
-  const statisticsFolderKey = `users/${event.request.userAttributes.sub}/statistics/`;
+  const userFolderKey = `users/${userId}/`;
+  const certificateFolderKey = `users/${userId}/certificate/`;
+  const auditReportFolderKey = `users/${userId}/audit-report/`;
+  const auditorResumeFolderKey = `users/${userId}/auditor-resume/`;
+  const statisticsFolderKey = `users/${userId}/statistics/`;
 
   // Retrieve the bucket name from the environment variable set by Amplify Storage.
   const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";
