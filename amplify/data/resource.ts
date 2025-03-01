@@ -2,31 +2,8 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-confirmation/resource";
 
+// Create a minimal schema first, then gradually add more complex parts
 const schema = a.schema({
-  SupportTicket: a
-    .model({
-      userId: a.string(),
-      userName: a.string(),
-      subject: a.string(),
-      message: a.string(),
-      status: a.enum(['new', 'in-progress', 'resolved', 'closed']),
-      priority: a.enum(['low', 'medium', 'high', 'urgent']),
-      category: a.string(),
-      metadata: a.json(),
-      adminResponse: a.string(),
-      responseDate: a.datetime(),
-    })
-    .authorization((allow) => [
-      allow.ownerDefinedIn('userId'),
-      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
-    ]),
-  
-  Todo: a
-    .model({
-      content: a.string(),
-    })
-    .authorization((allow) => [allow.publicApiKey()]),
-
   UserProfile: a
     .model({
       email: a.string(),
@@ -43,34 +20,13 @@ const schema = a.schema({
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
     
-  AdditionalContact: a
+  Todo: a
     .model({
-      name: a.string(),
-      email: a.string(),
-      receiveNotifications: a.boolean(),
-      profileOwner: a.string(),
+      content: a.string(),
     })
-    .authorization((allow) => [
-      allow.ownerDefinedIn('profileOwner'),
-      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
-    ]),
+    .authorization((allow) => [allow.publicApiKey()]),
     
-  Notification: a
-    .model({
-      userId: a.string(),
-      type: a.enum(['system', 'file', 'admin', 'user']),
-      title: a.string(),
-      message: a.string(),
-      isRead: a.boolean(),
-      actionLink: a.string(),
-      metadata: a.json(),
-      expiresAt: a.datetime(),
-    })
-    .authorization((allow) => [
-      allow.ownerDefinedIn('userId'),
-      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
-    ]),
-    
+  // Keeping NotificationPreference but simplifying
   NotificationPreference: a
     .model({
       userId: a.string(),
@@ -86,6 +42,24 @@ const schema = a.schema({
       allow.ownerDefinedIn('userId'),
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
+    
+  // Simplifying Notification to remove JSON fields temporarily
+  Notification: a
+    .model({
+      userId: a.string(),
+      type: a.enum(['system', 'file', 'admin', 'user']),
+      title: a.string(),
+      message: a.string(),
+      isRead: a.boolean(),
+      actionLink: a.string(),
+      // Temporarily removing metadata field
+    })
+    .authorization((allow) => [
+      allow.ownerDefinedIn('userId'),
+      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
+    ]),
+    
+  // Removing other complex models temporarily
 });
 
 export type Schema = ClientSchema<typeof schema>;

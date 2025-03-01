@@ -55,20 +55,14 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     emailDigestFrequency: 'instant'
   });
   
-  // Create welcome notification
+  // Create welcome notification (simplified, without metadata)
   await client.models.Notification.create({
     userId: userId,
     type: 'system',
-    title: 'Welcome to Porter, a secure file management platform built by Sonder AI Solutions',
-    message: 'Thank you for joining! Your account has been successfully created. You can now start uploading and managing your files securely.',
+    title: 'Welcome to S3 Secure File Share',
+    message: 'Thank you for joining! Your account has been successfully created.',
     isRead: false,
-    actionLink: '/user',
-    // Pass the object directly, not as a string
-    metadata: {
-      icon: 'hand-thumbs-up',
-      color: 'primary'
-    }
-    // Remove createdAt and updatedAt as they're handled automatically
+    actionLink: '/user'
   });
 
   // Create an S3 folder for the user.
