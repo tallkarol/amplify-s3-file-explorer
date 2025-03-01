@@ -27,67 +27,78 @@ const client = generateClient<Schema>();
 const s3 = new AWS.S3({ region: process.env.AWS_REGION });
 
 export const handler: PostConfirmationTriggerHandler = async (event) => {
-  const userId = event.request.userAttributes.sub;
-  const userName = event.userName;
-  const profileOwner = `${userId}::${userName}`;
-  
-  // Create user profile
-  await client.models.UserProfile.create({
-    email: event.request.userAttributes.email,
-    uuid: userId,
-    profileOwner: profileOwner,
-    firstName: event.request.userAttributes.given_name || '',
-    lastName: event.request.userAttributes.family_name || '',
-    companyName: '',
-    phoneNumber: event.request.userAttributes.phone_number || '',
-    preferredContactMethod: 'email',
-  });
-  
-  // Create default notification preferences
-  await client.models.NotificationPreference.create({
-    userId: userId,
-    receiveSystemNotifications: true,
-    receiveFileNotifications: true,
-    receiveAdminNotifications: true,
-    receiveUserNotifications: true,
-    emailNotifications: true,
-    inAppNotifications: true,
-    emailDigestFrequency: 'instant'
-  });
-  
-  // Create welcome notification (simplified, without metadata)
-  await client.models.Notification.create({
-    userId: userId,
-    type: 'system',
-    title: 'Welcome to S3 Secure File Share',
-    message: 'Thank you for joining! Your account has been successfully created.',
-    isRead: false,
-    actionLink: '/user'
-  });
+  try {
+    console.log('Post-confirmation handler started');
+    const userId = event.request.userAttributes.sub;
+    const userName = event.userName;
+    const profileOwner = `${userId}::${userName}`;
+    
+    console.log('Creating user profile...');
+    // Create user profile
+    await client.models.UserProfile.create({
+      email: event.request.userAttributes.email,
+      uuid: userId,
+      profileOwner: profileOwner,
+      firstName: event.request.userAttributes.given_name || '',
+      lastName: event.request.userAttributes.family_name || '',
+      companyName: '',
+      phoneNumber: event.request.userAttributes.phone_number || '',
+      preferredContactMethod: 'email',
+    });
+    
+    console.log('Creating notification preferences...');
+    // Create default notification preferences
+    await client.models.NotificationPreference.create({
+      userId: userId,
+      receiveSystemNotifications: true,
+      receiveFileNotifications: true,
+      receiveAdminNotifications: true,
+      receiveUserNotifications: true,
+      emailNotifications: true,
+      inAppNotifications: true,
+      emailDigestFrequency: 'instant'
+    });
+    
+    console.log('Creating welcome notification...');
+    // Create welcome notification (simplified, without metadata)
+    await client.models.Notification.create({
+      userId: userId,
+      type: 'system',
+      title: 'Welcome to S3 Secure File Share',
+      message: 'Thank you for joining! Your account has been successfully created.',
+      isRead: false,
+      actionLink: '/user'
+    });
 
-  // Create an S3 folder for the user.
-  // Construct the folder key using the user's unique id (Cognito sub).
-  const userFolderKey = `users/${userId}/`;
-  const certificateFolderKey = `users/${userId}/certificate/`;
-  const auditReportFolderKey = `users/${userId}/audit-report/`;
-  const auditorResumeFolderKey = `users/${userId}/auditor-resume/`;
-  const statisticsFolderKey = `users/${userId}/statistics/`;
+    console.log('Creating S3 folders...');
+    // Create S3 folders in parallel, not sequentially
+    const userFolderKey = `users/${userId}/`;
+    const certificateFolderKey = `users/${userId}/certificate/`;
+    const auditReportFolderKey = `users/${userId}/audit-report/`;
+    const auditorResumeFolderKey = `users/${userId}/auditor-resume/`;
+    const statisticsFolderKey = `users/${userId}/statistics/`;
 
-  // Retrieve the bucket name from the environment variable set by Amplify Storage.
-  const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";
-  
-  // Put an / object with the folder key.
-  const userParams = {Bucket:bucketName, Key:userFolderKey, Body:"placeholder", ContentType:"text/plain"};
-  const certificateParams = {Bucket:bucketName, Key:certificateFolderKey, Body:"placeholder", ContentType:"text/plain"};
-  const auditReportParams = {Bucket:bucketName, Key:auditReportFolderKey, Body:"placeholder", ContentType:"text/plain"};
-  const auditorResumeParams = {Bucket:bucketName, Key:auditorResumeFolderKey, Body:"placeholder", ContentType:"text/plain"};
-  const statisticsParams = {Bucket:bucketName, Key:statisticsFolderKey, Body:"placeholder", ContentType:"text/plain"};
-
-  try {await s3.putObject(userParams).promise();} catch (error) {console.error("Error creating folder:",userFolderKey, error);}
-  try {await s3.putObject(certificateParams).promise();} catch (error) {console.error("Error creating folder:",certificateFolderKey, error);}
-  try {await s3.putObject(auditReportParams).promise();} catch (error) {console.error("Error creating folder:",auditReportFolderKey, error);}
-  try {await s3.putObject(auditorResumeParams).promise();} catch (error) {console.error("Error creating folder:",auditorResumeFolderKey, error);}
-  try {await s3.putObject(statisticsParams).promise();} catch (error) {console.error("Error creating folder:",statisticsFolderKey, error);}
-
-  return event;
+    // Retrieve the bucket name from the environment variable set by Amplify Storage.
+    const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";
+    
+    // Prepare folder creation requests
+    const folderRequests = [
+      s3.putObject({Bucket: bucketName, Key: userFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+      s3.putObject({Bucket: bucketName, Key: certificateFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+      s3.putObject({Bucket: bucketName, Key: auditReportFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+      s3.putObject({Bucket: bucketName, Key: auditorResumeFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+      s3.putObject({Bucket: bucketName, Key: statisticsFolderKey, Body: "", ContentType: "text/plain"}).promise()
+    ];
+    
+    // Execute all folder creations in parallel
+    await Promise.all(folderRequests);
+    
+    console.log('Post-confirmation handler completed successfully');
+    return event;
+  } catch (error) {
+    console.error('Error in post-confirmation handler:', error);
+    // Important: Always return the event even if there's an error
+    // This ensures the user is still created even if some post-registration steps fail
+    return event;
+  }
 };
