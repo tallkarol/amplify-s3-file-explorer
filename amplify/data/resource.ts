@@ -58,9 +58,7 @@ const schema = a.schema({
       allow.ownerDefinedIn('userId'),
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
-    
-  // Removing other complex models temporarily
-});
+}).authorization((allow) => [allow.resource(postConfirmation)]);;
 
 export type Schema = ClientSchema<typeof schema>;
 
