@@ -64,10 +64,11 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     message: 'Thank you for joining! Your account has been successfully created. You can now start uploading and managing your files securely.',
     isRead: false,
     actionLink: '/user',
-    metadata: JSON.stringify({
+    // FIX: Pass the object directly without JSON.stringify
+    metadata: {
       icon: 'hand-thumbs-up',
       color: 'primary'
-    }),
+    },
     createdAt: now,
     updatedAt: now
   });
