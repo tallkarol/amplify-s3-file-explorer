@@ -11,9 +11,14 @@ import CompactFileActivity from '../components/admin/CompactFileActivity';
 import FolderGrid from '../components/admin/FolderGrid';
 import TogglableCard from '../components/common/TogglableCard';
 import Card from '../components/common/Card';
+
+// New import for placeholders
+import ProcessTemplates from '../components/admin/ProcessTemplates';
+import ClientDashboardWidget from '../components/admin/ClientDashboardWidget';
+import WorkflowPlaceholder from '../components/admin/WorkflowPlaceholder';
+
 import { UserProfile } from '../types';
 
-// Define query to list all users
 const listUserProfilesQuery = /* GraphQL */ `
   query ListUserProfiles {
     listUserProfiles {
@@ -30,7 +35,6 @@ const listUserProfilesQuery = /* GraphQL */ `
   }
 `;
 
-// Response type for listUserProfiles query
 interface ListUserProfilesResponse {
   listUserProfiles: {
     items: UserProfile[];
@@ -44,6 +48,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showUserList, setShowUserList] = useState(false);
+  const [activeAdminView, setActiveAdminView] = useState<'file-management' | 'process-management' | 'client-management'>('file-management');
 
   // Fetch users on component mount
   useEffect(() => {
@@ -88,22 +93,47 @@ const AdminDashboard = () => {
     setCurrentPath(folderPath);
   };
   
-  // Toggle user list view
-  const toggleUserList = () => {
-    setShowUserList(!showUserList);
-  };
+  // // Toggle user list view
+  // const toggleUserList = () => {
+  //   setShowUserList(!showUserList);
+  // };
 
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">Admin Dashboard</h2>
+        <div className="btn-group" role="group" aria-label="Admin Dashboard Views">
+          
         <button 
-          className="btn btn-outline-primary"
-          onClick={toggleUserList}
-        >
-          <i className={`bi bi-people me-2`}></i>
-          {showUserList ? 'Hide User List' : 'Show User List'}
-        </button>
+            className={`btn btn-${activeAdminView === 'client-management' ? 'primary' : 'outline-primary'}`}
+            onClick={() => setActiveAdminView('file-management')}
+          >
+            <i className="bi bi-people me-2"></i>
+            Home
+          </button>
+          <button 
+            className={`btn btn-${activeAdminView === 'client-management' ? 'primary' : 'outline-primary'}`}
+            onClick={() => setActiveAdminView('client-management')}
+          >
+            <i className="bi bi-people me-2"></i>
+            Client Management
+          </button>
+          <button 
+            className={`btn btn-${activeAdminView === 'process-management' ? 'primary' : 'outline-primary'}`}
+            onClick={() => setActiveAdminView('process-management')}
+          >
+            <i className="bi bi-gear me-2"></i>
+            Workflow Automation
+          </button>
+          <button 
+            className={`btn btn-${activeAdminView === 'file-management' ? 'primary' : 'outline-primary'}`}
+            onClick={() => setActiveAdminView('file-management')}
+          >
+            <i className="bi bi-folder me-2"></i>
+            File Management
+          </button>
+          
+        </div>
       </div>
 
       {/* User List View (when toggled) */}
@@ -127,8 +157,8 @@ const AdminDashboard = () => {
             selectedUser={selectedUser}
           />
           
-          {/* Only show user-related cards when a user is selected */}
-          {selectedUser && (
+          {/* Conditional rendering based on active view */}
+          {activeAdminView === 'file-management' && selectedUser && (
             <>
               {/* User Stats */}
               <TogglableCard 
@@ -161,9 +191,20 @@ const AdminDashboard = () => {
               </TogglableCard>
             </>
           )}
+
+          {activeAdminView === 'process-management' && (
+            <>
+              <ProcessTemplates />
+              <WorkflowPlaceholder />
+            </>
+          )}
+
+          {activeAdminView === 'client-management' && (
+            <ClientDashboardWidget />
+          )}
           
-          {/* Help card when no user is selected */}
-          {!selectedUser && (
+          {/* Help card when no user is selected in file management */}
+          {!selectedUser && activeAdminView === 'file-management' && (
             <div className="card">
               <div className="card-body">
                 <h5 className="card-title">Admin File Manager</h5>
@@ -199,7 +240,7 @@ const AdminDashboard = () => {
         
         {/* Right column - File browser and folders grid */}
         <div className="col-md-8">
-          {selectedUser ? (
+          {activeAdminView === 'file-management' && selectedUser ? (
             <>
               {/* Quick Access Navigation - Only show in non-root paths */}
               {currentPath !== '/' && (
@@ -231,6 +272,45 @@ const AdminDashboard = () => {
                 />
               )}
             </>
+          ) : activeAdminView === 'process-management' ? (
+            <div className="row g-4">
+              <div className="col-12 mb-4">
+                <Card title="Process Management Overview">
+                  <div className="alert alert-info">
+                    <i className="bi bi-gear-fill me-2"></i>
+                    Streamline and automate your administrative workflows with our process management tools.
+                  </div>
+                </Card>
+              </div>
+              <div className="col-md-6">
+                <ProcessTemplates />
+              </div>
+              <div className="col-md-6">
+                <WorkflowPlaceholder />
+              </div>
+            </div>
+          ) : activeAdminView === 'client-management' ? (
+            <div className="row g-4">
+              <div className="col-12">
+                <ClientDashboardWidget />
+              </div>
+              <div className="col-12">
+                <Card title="Client Insights" subtitle="Coming Soon">
+                  <div className="alert alert-info text-center">
+                    <i className="bi bi-graph-up fs-2 mb-3 d-block text-primary"></i>
+                    <h5>Advanced Client Analytics</h5>
+                    <p className="text-muted">
+                      Comprehensive client relationship tracking, engagement scoring, 
+                      and predictive insights are currently under development.
+                    </p>
+                    <button className="btn btn-primary" disabled>
+                      <i className="bi bi-bar-chart me-2"></i>
+                      View Roadmap
+                    </button>
+                  </div>
+                </Card>
+              </div>
+            </div>
           ) : (
             <div className="card">
               <div className="card-body p-4">
@@ -251,14 +331,26 @@ const AdminDashboard = () => {
                         <div className="bg-primary bg-opacity-10 d-inline-flex p-3 rounded-circle mb-3">
                           <i className="bi bi-person-check fs-4 text-primary"></i>
                         </div>
-                        <h5 className="card-title">User Management</h5>
+                        <h5 className="card-title">Client Management</h5>
                         <p className="card-text small text-muted">
                           Manage user accounts and view detailed statistics about their storage usage.
                         </p>
                       </div>
                     </div>
                   </div>
-                  
+                  <div className="col-md-4">
+                    <div className="card h-100 admin-stat-card border-0 shadow-sm">
+                      <div className="card-body text-center p-4">
+                        <div className="bg-info bg-opacity-10 d-inline-flex p-3 rounded-circle mb-3">
+                          <i className="bi bi-diagram-3 fs-4 text-info"></i>
+                        </div>
+                        <h5 className="card-title">Workflow Automation</h5>
+                        <p className="card-text small text-muted">
+                          Assign and complete tasks and track client progress.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="col-md-4">
                     <div className="card h-100 admin-stat-card border-0 shadow-sm">
                       <div className="card-body text-center p-4">
@@ -272,20 +364,7 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="col-md-4">
-                    <div className="card h-100 admin-stat-card border-0 shadow-sm">
-                      <div className="card-body text-center p-4">
-                        <div className="bg-info bg-opacity-10 d-inline-flex p-3 rounded-circle mb-3">
-                          <i className="bi bi-graph-up fs-4 text-info"></i>
-                        </div>
-                        <h5 className="card-title">Usage Analytics</h5>
-                        <p className="card-text small text-muted">
-                          View file activity and storage usage statistics for all users.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+
                 </div>
                 
                 <div className="alert alert-primary d-flex" role="alert">

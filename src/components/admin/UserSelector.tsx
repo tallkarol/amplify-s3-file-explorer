@@ -119,7 +119,7 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
     <div className="user-selector mb-4">
       <div className="card">
         <div className="card-body">
-          <h5 className="card-title mb-3">User Selection</h5>
+          <h5 className="card-title mb-3">Client Selection</h5>
           
           <div className="position-relative">
             <div className="d-flex align-items-center mb-2">
@@ -137,7 +137,7 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
                 ) : (
                   <>
                     <i className="bi bi-search me-2"></i>
-                    <span>Select a user to manage files</span>
+                    <span>Select a client to manage files</span>
                   </>
                 )}
               </button>
