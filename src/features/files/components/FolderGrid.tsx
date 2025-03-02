@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { listUserFiles } from '../services/S3Service';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import AlertMessage from '../../../components/common/AlertMessage';
-import '../../../styles/FolderGrid.css';
+import '../../../styles/foldergrid.css'
 
 interface FolderInfo {
   id: string;       // Folder path
