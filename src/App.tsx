@@ -3,9 +3,19 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import UserDashboard from './pages/UserDashboard';
-import AdminDashboard from './pages/AdminDashboard';
 import Layout from './components/layout/Layout';
+import AdminLayout from './components/layout/AdminLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
+
+// Import Admin Pages
+import AdminHome from './pages/admin/AdminHome';
+import AdminClientManagement from './pages/admin/AdminClientManagement';
+import AdminFileManagement from './pages/admin/AdminFileManagement';
+import AdminWorkflowManagement from './pages/admin/AdminWorkflowManagement';
+import AdminInbox from './pages/admin/AdminInbox';
+import AdminCalendar from './pages/admin/AdminCalendar';
+import AdminSettings from './pages/admin/AdminSettings';
+import AdminSupport from './pages/admin/AdminSupport';
 
 function App() {
   const {} = useAuthenticator();
@@ -44,14 +54,47 @@ function App() {
   }
 
   return (
-    <Layout isAdmin={isAdmin}>
-      <Routes>
-        <Route path="/user" element={<UserDashboard />} />
-        <Route path="/user/folder/:folderId" element={<UserDashboard />} />
-        <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/user" replace />} />
-        <Route path="*" element={<Navigate to={isAdmin ? "/admin" : "/user"} replace />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      {/* Admin Routes */}
+      <Route path="/admin/*" element={
+        isAdmin ? (
+          <AdminLayout>
+            <Routes>
+              <Route path="/" element={<AdminHome />} />
+              <Route path="/clients" element={<AdminClientManagement />} />
+              <Route path="/files" element={<AdminFileManagement />} />
+              <Route path="/workflows" element={<AdminWorkflowManagement />} />
+              <Route path="/inbox" element={<AdminInbox />} />
+              <Route path="/calendar" element={<AdminCalendar />} />
+              <Route path="/settings" element={<AdminSettings />} />
+              <Route path="/support" element={<AdminSupport />} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
+            </Routes>
+          </AdminLayout>
+        ) : (
+          <Navigate to="/user" replace />
+        )
+      } />
+      
+      {/* User Routes */}
+      <Route path="/user/*" element={
+        <Layout isAdmin={isAdmin}>
+          <Routes>
+            <Route path="/" element={<UserDashboard />} />
+            <Route path="/folder/:folderId" element={<UserDashboard />} />
+            <Route path="*" element={<Navigate to="/user" replace />} />
+          </Routes>
+        </Layout>
+      } />
+      
+      {/* Default redirect */}
+      <Route path="/" element={
+        <Navigate to={isAdmin ? "/admin" : "/user"} replace />
+      } />
+      <Route path="*" element={
+        <Navigate to={isAdmin ? "/admin" : "/user"} replace />
+      } />
+    </Routes>
   );
 }
 

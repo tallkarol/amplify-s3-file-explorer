@@ -4,7 +4,7 @@ import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import UserList from '../components/admin/UserList';
 import UserSelector from '../components/admin/UserSelector';
-import AdminFileBrowser from '../components/admin/AdminFileBrowser';
+import AdminFileBrowser from './admin/AdminFileBrowser';
 import UserStatsCard from '../components/admin/UserStatsCard';
 import UserActionsCard from '../components/admin/UserActionsCard';
 import CompactFileActivity from '../components/admin/CompactFileActivity';

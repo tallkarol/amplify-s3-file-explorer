@@ -8,6 +8,8 @@ import { Amplify } from "aws-amplify";
 import outputs from "../amplify_outputs.json";
 import '@aws-amplify/ui-react/styles.css';
 import { Authenticator } from "@aws-amplify/ui-react";
+
+// Import all global styles
 import './styles/sidebar.css';
 import './styles/dragdrop.css';
 import './styles/admin.css';
