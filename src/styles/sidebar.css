@@ -56,3 +56,160 @@
     margin-left: 0;
   }
 }
+
+/* Add to src/styles/sidebar.css or create a new file */
+
+/* Developer sidebar dropdown styles */
+.sidebar .dropdown-menu {
+  background-color: rgba(33, 37, 41, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0;
+  padding: 0.5rem 0;
+}
+
+.sidebar .nav-item .dropdown-toggle::after {
+  margin-left: auto;
+}
+
+.sidebar .dropdown-item {
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.5rem 1.5rem;
+  font-size: 0.9rem;
+}
+
+.sidebar .dropdown-item:hover, 
+.sidebar .dropdown-item:focus {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Dropdown menu animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar .dropdown-menu.show {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* Nested navigation items */
+.sidebar .nav-item .nav .nav-item .nav-link {
+  padding-left: 2.5rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.sidebar .nav-item .nav .nav-item .nav-link:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Special styling for different portal links */
+.sidebar .nav-link.admin-link:hover {
+  color: #dc3545 !important;
+}
+
+.sidebar .nav-link.user-link:hover {
+  color: #0d6efd !important;
+}
+
+.sidebar .nav-link.dev-link:hover {
+  color: #0dcaf0 !important;
+}
+
+/* Add to src/styles/sidebar.css or create a new file */
+
+/* Shared sidebar dropdown styles */
+.sidebar .dropdown-menu {
+  background-color: rgba(33, 37, 41, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0;
+  padding: 0.5rem 0;
+}
+
+.sidebar .nav-item .dropdown-toggle::after {
+  margin-left: auto;
+}
+
+.sidebar .dropdown-item {
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.5rem 1.5rem;
+  font-size: 0.9rem;
+}
+
+.sidebar .dropdown-item:hover, 
+.sidebar .dropdown-item:focus {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Dropdown menu animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar .dropdown-menu.show {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* Nested navigation items */
+.sidebar .nav-item .nav .nav-item .nav-link {
+  padding-left: 2.5rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.sidebar .nav-item .nav .nav-item .nav-link:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Special styling for different portal links */
+.sidebar .nav-link.admin-link:hover {
+  color: #dc3545 !important;
+}
+
+.sidebar .nav-link.user-link:hover {
+  color: #0d6efd !important;
+}
+
+.sidebar .nav-link.dev-link:hover {
+  color: #0dcaf0 !important;
+}
+
+/* Folder shortcuts special styling */
+.sidebar .folder-shortcut {
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.sidebar .folder-shortcut:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar .folder-shortcut.active {
+  background-color: rgba(13, 110, 253, 0.1);
+  border-left-color: var(--folder-color, #0d6efd);
+}
+
+/* Color coding for different folder types */
+.sidebar .folder-certificate {
+  --folder-color: #0d6efd;
+}
+
+.sidebar .folder-audit-report {
+  --folder-color: #198754;
+}
+
+.sidebar .folder-auditor-resume {
+  --folder-color: #0dcaf0;
+}
+
+.sidebar .folder-statistics {
+  --folder-color: #ffc107;
+}

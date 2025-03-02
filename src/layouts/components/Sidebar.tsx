@@ -1,4 +1,4 @@
-// src/components/layout/Sidebar.tsx
+// src/layouts/components/Sidebar.tsx
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
@@ -34,8 +34,10 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   const [companyName, setCompanyName] = useState('');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [foldersExpanded, setFoldersExpanded] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
+  const isActiveFolder = (folder: string) => location.pathname.includes(`/folder/${folder}`);
 
   // Create a client for making GraphQL requests
   const client = generateClient();
@@ -104,6 +106,19 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   const toggleSupportModal = () => {
     setIsSupportModalOpen(!isSupportModalOpen);
   };
+
+  // Toggle folders dropdown
+  const toggleFolders = () => {
+    setFoldersExpanded(!foldersExpanded);
+  };
+
+  // Folder shortcuts data
+  const folderShortcuts = [
+    { id: 'certificate', name: 'Certificates', icon: 'award', color: 'primary' },
+    { id: 'audit-report', name: 'Audit Reports', icon: 'file-earmark-text', color: 'success' },
+    { id: 'auditor-resume', name: 'Auditor Profiles', icon: 'person-badge', color: 'info' },
+    { id: 'statistics', name: 'Statistics', icon: 'graph-up', color: 'warning' }
+  ];
   
   return (
     <>
@@ -182,6 +197,60 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
               </Link>
             </li>
             
+            {/* Folders dropdown */}
+            <li className="nav-item mb-2">
+              {collapsed ? (
+                <Link
+                  to="/user"
+                  className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+                    location.pathname.includes('/folder/') 
+                      ? 'active bg-primary text-white' 
+                      : 'text-light hover-highlight'
+                  }`}
+                >
+                  <i className="bi bi-folder me-3 fs-5"></i>
+                </Link>
+              ) : (
+                <a
+                  href="#"
+                  className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+                    location.pathname.includes('/folder/') 
+                      ? 'active bg-primary text-white' 
+                      : 'text-light hover-highlight'
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleFolders();
+                  }}
+                >
+                  <i className="bi bi-folder me-3 fs-5"></i>
+                  <div className="d-flex justify-content-between align-items-center w-100">
+                    <span>My Folders</span>
+                    <i className={`bi bi-chevron-${foldersExpanded ? 'up' : 'down'}`}></i>
+                  </div>
+                </a>
+              )}
+              
+              {/* Folder dropdown items - only show when sidebar expanded and dropdown toggled */}
+              {!collapsed && foldersExpanded && (
+                <div className="ms-4 mt-2">
+                  <ul className="nav flex-column">
+                    {folderShortcuts.map(folder => (
+                      <li className="nav-item mb-1" key={folder.id}>
+                        <Link 
+                          to={`/user/folder/${folder.id}`} 
+                          className={`nav-link py-1 ${isActiveFolder(folder.id) ? `text-${folder.color} fw-bold` : 'text-light opacity-75'} hover-highlight`}
+                        >
+                          <i className={`bi bi-${folder.icon} me-2 text-${folder.color}`}></i> 
+                          {folder.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </li>
+            
             {/* Notifications link */}
             <li className="nav-item mb-2">
               <NotificationIcon collapsed={collapsed} />
@@ -204,7 +273,7 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
                   to="/admin" 
                   className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
                     isActive('/admin') 
-                      ? 'active bg-primary text-white' 
+                      ? 'active bg-danger text-white' 
                       : 'text-light hover-highlight'
                   }`}
                 >

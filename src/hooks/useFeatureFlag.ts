@@ -8,17 +8,28 @@ import { Feature } from '../config/features';
  * @returns An object with the feature state and methods to control it
  */
 export const useFeatureFlag = (featureId: string) => {
-  const { isEnabled, toggleFeature, enableFeature, disableFeature, getFeatureConfig } = useFeatureFlags();
+  const { 
+    isEnabled, 
+    toggleFeature, 
+    enableFeature, 
+    disableFeature, 
+    getFeatureConfig,
+    hasFeatureAccess,
+    userGroups
+  } = useFeatureFlags();
   
   const enabled = isEnabled(featureId);
   const featureConfig = getFeatureConfig(featureId);
+  const hasAccess = hasFeatureAccess(featureId);
   
   return {
     enabled,
     toggle: () => toggleFeature(featureId),
     enable: () => enableFeature(featureId),
     disable: () => disableFeature(featureId),
-    config: featureConfig as Feature | undefined
+    config: featureConfig as Feature | undefined,
+    hasAccess,
+    userGroups
   };
 };
 

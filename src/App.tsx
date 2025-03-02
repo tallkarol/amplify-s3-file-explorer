@@ -5,6 +5,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import UserDashboard from './pages/user/UserDashboard';
 import Layout from './layouts/UserLayout';
 import AdminLayout from './layouts/AdminLayout';
+import DeveloperLayout from './layouts/DeveloperLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
 // Import Admin Pages
@@ -17,32 +18,43 @@ import AdminCalendar from './pages/admin/AdminCalendar';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminSupport from './pages/admin/AdminSupport';
 
+// Import Developer Pages
+import DeveloperDashboard from './pages/developer/DeveloperDashboard';
+import DeveloperFeatureToggleManagement from '@components/developer/FeatureToggleManagement';
+
+
 function App() {
   const {} = useAuthenticator();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'developer' | 'user'>('user');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function checkAdmin() {
+    async function checkUserRole() {
       try {
         const session = await fetchAuthSession();
         const groups = session.tokens?.idToken?.payload?.['cognito:groups'];
         
-        // If groups exists and is an array, check for admin or developer
+        // Check user groups and set role accordingly
         if (Array.isArray(groups)) {
-          setIsAdmin(groups.includes('admin') || groups.includes('developer'));
+          if (groups.includes('admin')) {
+            setUserRole('admin');
+          } else if (groups.includes('developer')) {
+            setUserRole('developer');
+          } else {
+            setUserRole('user');
+          }
         } else {
-          setIsAdmin(false);
+          setUserRole('user');
         }
       } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
+        console.error('Error checking user role:', error);
+        setUserRole('user');
       } finally {
         setIsLoading(false);
       }
     }
 
-    checkAdmin();
+    checkUserRole();
   }, []);
 
   if (isLoading) {
@@ -57,7 +69,7 @@ function App() {
     <Routes>
       {/* Admin Routes */}
       <Route path="/admin/*" element={
-        isAdmin ? (
+        userRole === 'admin' || userRole === 'developer' ? (
           <AdminLayout>
             <Routes>
               <Route path="/" element={<AdminHome />} />
@@ -76,9 +88,27 @@ function App() {
         )
       } />
       
+      {/* Developer Routes */}
+      <Route path="/developer/*" element={
+        userRole === 'developer' || userRole === 'admin' ? (
+          <DeveloperLayout>
+            <Routes>
+              <Route path="/" element={<DeveloperDashboard />} />
+              <Route path="/feature" element={<DeveloperFeatureToggleManagement />} />
+              <Route path="/support" element={<DeveloperDashboard />} />
+              <Route path="/debug" element={<DeveloperDashboard />} />
+              <Route path="/api-docs" element={<DeveloperDashboard />} />
+              <Route path="*" element={<Navigate to="/developer" replace />} />
+            </Routes>
+          </DeveloperLayout>
+        ) : (
+          <Navigate to="/user" replace />
+        )
+      } />
+      
       {/* User Routes */}
       <Route path="/user/*" element={
-        <Layout isAdmin={isAdmin}>
+        <Layout isAdmin={userRole === 'admin'}>
           <Routes>
             <Route path="/" element={<UserDashboard />} />
             <Route path="/folder/:folderId" element={<UserDashboard />} />
@@ -89,10 +119,18 @@ function App() {
       
       {/* Default redirect */}
       <Route path="/" element={
-        <Navigate to={isAdmin ? "/admin" : "/user"} replace />
+        <Navigate to={
+          userRole === 'admin' ? "/admin" : 
+          userRole === 'developer' ? "/developer" : 
+          "/user"
+        } replace />
       } />
       <Route path="*" element={
-        <Navigate to={isAdmin ? "/admin" : "/user"} replace />
+        <Navigate to={
+          userRole === 'admin' ? "/admin" : 
+          userRole === 'developer' ? "/developer" : 
+          "/user"
+        } replace />
       } />
     </Routes>
   );

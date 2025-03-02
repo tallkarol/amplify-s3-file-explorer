@@ -1,7 +1,6 @@
 // src/components/developer/FeatureTogglePanel.tsx
 import React, { useState } from 'react';
 import { useFeatureFlags } from '../../contexts/FeatureFlagsContext';
-import Card from '../../components/common/Card';
 import { Feature } from '../../config/features';
 
 interface FeatureTogglePanelProps {
@@ -9,14 +8,15 @@ interface FeatureTogglePanelProps {
 }
 
 const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ className = '' }) => {
-  const { allFeatures, flags, toggleFeature, resetToDefaults } = useFeatureFlags();
+  const { allFeatures, flags, toggleFeature, resetToDefaults, userGroups, hasFeatureAccess, isEnabled } = useFeatureFlags();
   const [filter, setFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [showOnlyAccessible, setShowOnlyAccessible] = useState<boolean>(false);
   
   // Get unique categories
   const categories = ['all', ...new Set(allFeatures.map(feature => feature.category))];
   
-  // Filter features based on search term and category
+  // Filter features based on search term, category, and accessibility
   const filteredFeatures = allFeatures.filter(feature => {
     const matchesSearch = filter === '' || 
       feature.name.toLowerCase().includes(filter.toLowerCase()) ||
@@ -24,7 +24,9 @@ const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ className = '' 
       
     const matchesCategory = categoryFilter === 'all' || feature.category === categoryFilter;
     
-    return matchesSearch && matchesCategory;
+    const matchesAccessibility = !showOnlyAccessible || hasFeatureAccess(feature.id);
+    
+    return matchesSearch && matchesCategory && matchesAccessibility;
   });
   
   // Group features by category
@@ -37,21 +39,46 @@ const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ className = '' 
     groupedFeatures[feature.category].push(feature);
   });
   
+  // Format the allowed groups for display
+  const formatAllowedGroups = (groups?: string[]) => {
+    if (!groups || groups.length === 0) {
+      return 'All Users';
+    }
+    return groups.join(', ');
+  };
+  
+  // Show if current user has access to a feature
+  const getUserAccessLabel = (feature: Feature) => {
+    const hasAccess = hasFeatureAccess(feature.id);
+    return hasAccess 
+      ? <span className="badge bg-success">Access Granted</span>
+      : <span className="badge bg-secondary">No Access</span>;
+  };
+  
   return (
-    <Card className={className}>
+    <div className={className}>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h5 className="mb-0">Feature Flags</h5>
-        <button 
-          className="btn btn-sm btn-outline-secondary"
-          onClick={resetToDefaults}
-        >
-          <i className="bi bi-arrow-counterclockwise me-2"></i>
-          Reset to Defaults
-        </button>
+        <div>
+          <button 
+            className="btn btn-sm btn-outline-secondary me-2"
+            onClick={resetToDefaults}
+          >
+            <i className="bi bi-arrow-counterclockwise me-2"></i>
+            Reset to Defaults
+          </button>
+          <button
+            className="btn btn-sm btn-outline-info"
+            title="View Your User Groups"
+          >
+            <i className="bi bi-people-fill me-1"></i>
+            Your Groups: {userGroups.length > 0 ? userGroups.join(', ') : 'None'}
+          </button>
+        </div>
       </div>
       
       <div className="row mb-4 g-3">
-        <div className="col-md-8">
+        <div className="col-md-6">
           <div className="input-group">
             <span className="input-group-text bg-light border-end-0">
               <i className="bi bi-search text-muted"></i>
@@ -65,7 +92,7 @@ const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ className = '' 
             />
           </div>
         </div>
-        <div className="col-md-4">
+        <div className="col-md-3">
           <select 
             className="form-select"
             value={categoryFilter}
@@ -77,6 +104,20 @@ const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ className = '' 
               </option>
             ))}
           </select>
+        </div>
+        <div className="col-md-3">
+          <div className="form-check form-switch pt-2">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="showOnlyAccessible"
+              checked={showOnlyAccessible}
+              onChange={(e) => setShowOnlyAccessible(e.target.checked)}
+            />
+            <label className="form-check-label" htmlFor="showOnlyAccessible">
+              Show only accessible features
+            </label>
+          </div>
         </div>
       </div>
       
@@ -94,25 +135,48 @@ const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ className = '' 
               </h6>
               
               <div className="list-group mb-3">
-                {features.map(feature => (
-                  <div key={feature.id} className="list-group-item list-group-item-action d-flex align-items-center">
-                    <div className="flex-grow-1">
-                      <div className="d-flex justify-content-between">
-                        <h6 className="mb-1">{feature.name}</h6>
-                        <div className="form-check form-switch">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={`toggle-${feature.id}`}
-                            checked={flags[feature.id] || false}
-                            onChange={() => toggleFeature(feature.id)}
-                          />
+                {features.map(feature => {
+                  const canAccess = hasFeatureAccess(feature.id);
+                  const isFeatureEnabled = isEnabled(feature.id);
+                  
+                  return (
+                    <div 
+                      key={feature.id} 
+                      className={`list-group-item list-group-item-action d-flex align-items-center ${!canAccess ? 'opacity-75' : ''}`}
+                    >
+                      <div className="flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-center">
+                          <h6 className="mb-1">
+                            {feature.name}
+                            {' '}
+                            {getUserAccessLabel(feature)}
+                          </h6>
+                          <div className="form-check form-switch">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id={`toggle-${feature.id}`}
+                              checked={flags[feature.id] || false}
+                              onChange={() => toggleFeature(feature.id)}
+                              disabled={!canAccess}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-muted mb-2 small">{feature.description}</p>
+                        <div className="d-flex justify-content-between align-items-center">
+                          <small className="text-secondary">
+                            Allowed Groups: <span className="badge bg-info text-dark">{formatAllowedGroups(feature.allowedGroups)}</span>
+                          </small>
+                          <small className="text-secondary">
+                            Status: {isFeatureEnabled ? 
+                              <span className="badge bg-success">Enabled</span> : 
+                              <span className="badge bg-danger">Disabled</span>}
+                          </small>
                         </div>
                       </div>
-                      <p className="text-muted mb-0 small">{feature.description}</p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -126,12 +190,13 @@ const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ className = '' 
             <strong>About Feature Flags</strong>
             <p className="mb-0 mt-1">
               Feature flags allow enabling or disabling specific functionality without code changes.
-              Changes will be saved in your browser and persist between sessions.
+              Some features may be restricted to specific user groups.
+              Your current groups: <strong>{userGroups.length > 0 ? userGroups.join(', ') : 'None'}</strong>
             </p>
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
 
