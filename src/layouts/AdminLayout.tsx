@@ -1,7 +1,7 @@
 // src/components/layout/AdminLayout.tsx
 import { ReactNode, useState } from "react";
-import AdminSidebar from "./componeents/AdminSidebar";
-import Footer from "./componeents/Footer";
+import AdminSidebar from "./components/AdminSidebar";
+import Footer from "./components/Footer";
 
 interface AdminLayoutProps {
   children: ReactNode;

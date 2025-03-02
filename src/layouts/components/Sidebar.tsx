@@ -112,7 +112,7 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
         <div className="sidebar-header d-flex justify-content-between align-items-center p-3 border-bottom border-secondary">
           <Link to="/" className="text-decoration-none text-white d-flex align-items-center">
             <i className="bi bi-folder-fill fs-4 me-2 text-primary"></i>
-            {!collapsed && <span className="fs-5 fw-semibold">S3 Explorer</span>}
+            {!collapsed && <span className="fs-5 fw-semibold">Client Portal</span>}
           </Link>
           <button 
             className="btn btn-sm text-light border-0" 

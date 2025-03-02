@@ -1,7 +1,7 @@
 // src/components/layout/Layout.tsx
 import { ReactNode, useState } from "react";
-import Sidebar from "./componeents/Sidebar";
-import Footer from "./componeents/Footer";
+import Sidebar from "./components/Sidebar";
+import Footer from "./components/Footer";
 
 interface LayoutProps {
   children: ReactNode;
