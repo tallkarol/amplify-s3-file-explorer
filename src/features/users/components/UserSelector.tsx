@@ -1,82 +1,82 @@
-// src/components/admin/UserSelector.tsx
+// src/features/users/components/UserSelector.tsx
 import { useState, useEffect } from 'react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import { UserProfile, ListUserProfilesResponse } from '../../../types';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import AlertMessage from '../../../components/common/AlertMessage';
-import EmptyState from '../../../components/common/EmptyState';
+import Card from '../../../components/common/Card';
 
 interface UserSelectorProps {
   onUserSelect: (user: UserProfile | null) => void;
   selectedUser: UserProfile | null;
 }
 
-// Define the query
-const listUserProfilesQuery = /* GraphQL */ `
-  query ListUserProfiles {
-    listUserProfiles {
-      items {
-        id
-        email
-        uuid
-        profileOwner
-        firstName
-        lastName
-        createdAt
-      }
-    }
-  }
-`;
-
 const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Fetch users on component mount
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // Filter users when search term changes
-  useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredUsers(users);
-    } else {
-      const lowercaseSearch = searchTerm.toLowerCase();
-      setFilteredUsers(
-        users.filter(user => {
-          return (
-            user.email.toLowerCase().includes(lowercaseSearch) ||
-            (user.firstName?.toLowerCase() || '').includes(lowercaseSearch) ||
-            (user.lastName?.toLowerCase() || '').includes(lowercaseSearch)
-          );
-        })
-      );
-    }
-  }, [searchTerm, users]);
+  // Filter users based on search term
+  const filteredUsers = users.filter(user => {
+    if (searchTerm.trim() === '') return true;
+    
+    const lowercaseSearch = searchTerm.toLowerCase();
+    return (
+      user.email.toLowerCase().includes(lowercaseSearch) ||
+      (user.firstName?.toLowerCase() || '').includes(lowercaseSearch) ||
+      (user.lastName?.toLowerCase() || '').includes(lowercaseSearch)
+    );
+  });
 
+  // Fetch users from API
   async function fetchUsers() {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('Fetching users...');
       
       // Create a client for making GraphQL requests
       const client = generateClient();
-            
-      // Use the query with proper typing
+      
+      // List user profiles query
       const response = await client.graphql<GraphQLQuery<ListUserProfilesResponse>>({
-        query: listUserProfilesQuery,
+        query: `
+          query ListUserProfiles {
+            listUserProfiles {
+              items {
+                id
+                email
+                uuid
+                profileOwner
+                firstName
+                lastName
+                createdAt
+              }
+            }
+          }
+        `,
         authMode: 'userPool'
       });
       
-      // Safely access the data with proper typing
-      const items = response?.data?.listUserProfiles?.items || [];
+      console.log('GraphQL response received:', response);
+      
+      // Check if we got valid data
+      if (!response.data || !response.data.listUserProfiles) {
+        throw new Error('Invalid response structure');
+      }
+      
+      const items = response.data.listUserProfiles.items || [];
+      console.log(`Fetched ${items.length} users`);
+      
       setUsers(items);
-      setFilteredUsers(items);
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(`Failed to load users: ${err instanceof Error ? err.message : String(err)}`);
@@ -85,21 +85,13 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
     }
   }
 
-  // Toggle dropdown visibility
-  const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);
-    if (!isDropdownOpen && searchTerm) {
-      setSearchTerm('');
-    }
-  };
-
   // Handle user selection
   const handleSelectUser = (user: UserProfile) => {
+    console.log('Selected user:', user);
     onUserSelect(user);
-    setIsDropdownOpen(false);
   };
 
-  // Format user display name
+  // Get display name for a user
   const getUserDisplayName = (user: UserProfile) => {
     if (user.firstName && user.lastName) {
       return `${user.firstName} ${user.lastName}`;
@@ -107,154 +99,215 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
     return user.email;
   };
 
-  // Get the label for the selector button
-  const getSelectorLabel = () => {
-    if (selectedUser) {
-      return getUserDisplayName(selectedUser);
+  // Get initials for user avatar
+  const getUserInitials = (user: UserProfile) => {
+    if (user.firstName && user.lastName) {
+      return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`;
     }
-    return 'Select a user';
+    return user.email.charAt(0).toUpperCase();
+  };
+
+  // Get background color based on user name (consistent for each user)
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      '#4361ee', '#3a0ca3', '#7209b7', '#f72585', '#4cc9f0', 
+      '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51', '#264653'
+    ];
+    
+    // Use the first characters of name to pick a consistent color
+    const charSum = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[charSum % colors.length];
+  };
+
+  // Format date for better display
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Unknown';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 1) return 'Today';
+    if (diffDays <= 2) return 'Yesterday';
+    if (diffDays <= 7) return `${diffDays} days ago`;
+    
+    return date.toLocaleDateString(undefined, { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
   return (
-    <div className="user-selector mb-4">
-      <div className="card">
-        <div className="card-body">
-          <h5 className="card-title mb-3">Client Selection</h5>
-          
-          <div className="position-relative">
-            <div className="d-flex align-items-center mb-2">
-              <button 
-                className="btn btn-outline-primary dropdown-toggle flex-grow-1 text-start d-flex align-items-center"
-                onClick={toggleDropdown}
-                type="button"
-                aria-expanded={isDropdownOpen}
-              >
-                {selectedUser ? (
-                  <>
-                    <i className="bi bi-person-circle me-2"></i>
-                    <span className="text-truncate">{getSelectorLabel()}</span>
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-search me-2"></i>
-                    <span>Select a client to manage files</span>
-                  </>
-                )}
-              </button>
-              
-              {selectedUser && (
-                <button 
-                  className="btn btn-outline-secondary ms-2" 
+    <Card>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h5 className="mb-0">Client Selection</h5>
+        <button 
+          className="btn btn-sm btn-outline-primary"
+          onClick={fetchUsers}
+          disabled={loading}
+          title="Refresh client list"
+        >
+          <i className="bi bi-arrow-clockwise me-1"></i>
+          Refresh
+        </button>
+      </div>
+      
+      {/* Search input with nicer styling */}
+      <div className="mb-4">
+        <div className="input-group input-group-lg shadow-sm">
+          <span className="input-group-text bg-white border-end-0">
+            <i className="bi bi-search text-primary"></i>
+          </span>
+          <input
+            type="text"
+            className="form-control border-start-0"
+            placeholder="Search clients..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ borderRadius: '0.375rem' }}
+          />
+          {searchTerm && (
+            <button
+              className="btn btn-outline-secondary border-start-0"
+              onClick={() => setSearchTerm('')}
+              title="Clear search"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {/* Selected user card with better styling */}
+      {selectedUser && (
+        <div className="mb-4">
+          <div className="card border-primary shadow-sm">
+            <div className="card-body p-3">
+              <div className="d-flex align-items-center">
+                <div 
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    backgroundColor: getAvatarColor(getUserDisplayName(selectedUser)),
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    marginRight: '12px'
+                  }}
+                >
+                  {getUserInitials(selectedUser)}
+                </div>
+                <div className="flex-grow-1">
+                  <h6 className="mb-0 fw-bold">{getUserDisplayName(selectedUser)}</h6>
+                  <p className="mb-0 text-muted small">{selectedUser.email}</p>
+                </div>
+                <button
+                  className="btn btn-sm btn-outline-danger"
                   onClick={() => onUserSelect(null)}
-                  type="button"
                   title="Clear selection"
                 >
                   <i className="bi bi-x-lg"></i>
                 </button>
-              )}
-            </div>
-            
-            {isDropdownOpen && (
-              <div className="card dropdown-menu position-absolute w-100 p-0 shadow-sm" style={{ display: 'block', zIndex: 1000 }}>
-                <div className="p-2 border-bottom">
-                  <div className="input-group">
-                    <span className="input-group-text bg-light border-end-0">
-                      <i className="bi bi-search text-muted"></i>
-                    </span>
-                    <input
-                      type="text"
-                      className="form-control border-start-0 bg-light"
-                      placeholder="Search users..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-                
-                <div className="dropdown-items-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                  {loading ? (
-                    <div className="p-3">
-                      <LoadingSpinner size="sm" text="Loading users..." />
-                    </div>
-                  ) : error ? (
-                    <div className="p-3">
-                      <AlertMessage type="danger" message={error} />
-                    </div>
-                  ) : filteredUsers.length === 0 ? (
-                    <div className="p-3">
-                      <EmptyState 
-                        icon="search" 
-                        title="No users found" 
-                        message={searchTerm ? `No users match "${searchTerm}"` : "No users available"} 
-                      />
-                    </div>
-                  ) : (
-                    <ul className="list-group list-group-flush">
-                      {filteredUsers.map(user => (
-                        <li 
-                          key={user.id} 
-                          className={`list-group-item list-group-item-action ${selectedUser?.id === user.id ? 'active' : ''}`}
-                          onClick={() => handleSelectUser(user)}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <div className="d-flex align-items-center">
-                            <div className="flex-shrink-0">
-                              <i className="bi bi-person-circle me-2"></i>
-                            </div>
-                            <div className="flex-grow-1 ms-2">
-                              <div className="fw-medium">{getUserDisplayName(user)}</div>
-                              <div className="small text-muted">{user.email}</div>
-                            </div>
-                            {user.createdAt && (
-                              <div className="flex-shrink-0 small text-muted">
-                                Joined: {new Date(user.createdAt).toLocaleDateString()}
-                              </div>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                
-                <div className="p-2 border-top d-flex justify-content-between align-items-center">
-                  <small className="text-muted">
-                    {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
-                  </small>
-                  <button 
-                    className="btn btn-sm btn-outline-secondary" 
-                    onClick={toggleDropdown}
-                  >
-                    Close
-                  </button>
-                </div>
               </div>
-            )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User list with improved styling */}
+      {loading ? (
+        <div className="text-center p-4">
+          <LoadingSpinner text="Loading clients..." />
+        </div>
+      ) : error ? (
+        <AlertMessage type="danger" message={error} />
+      ) : filteredUsers.length > 0 ? (
+        <div className="user-list">
+          <div className="mb-2 d-flex justify-content-between align-items-center small text-muted px-2">
+            <span>
+              {filteredUsers.length} {filteredUsers.length === 1 ? 'client' : 'clients'} found
+            </span>
+            <span>
+              {searchTerm && `Showing results for "${searchTerm}"`}
+            </span>
           </div>
           
-          {selectedUser && (
-            <div className="user-info mt-3 p-3 bg-light rounded">
-              <div className="d-flex align-items-center">
-                <div className="flex-shrink-0 bg-white rounded-circle p-2">
-                  <i className="bi bi-person-circle fs-3 text-primary"></i>
+          <div className="list-group shadow-sm rounded" style={{maxHeight: '400px', overflowY: 'auto'}}>
+            {filteredUsers.map(user => (
+              <button
+                key={user.id}
+                className={`list-group-item list-group-item-action d-flex align-items-center p-3 position-relative ${selectedUser?.id === user.id ? 'active' : ''}`}
+                onClick={() => handleSelectUser(user)}
+              >
+                {/* User avatar */}
+                <div 
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    backgroundColor: getAvatarColor(getUserDisplayName(user)),
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    marginRight: '12px'
+                  }}
+                >
+                  {getUserInitials(user)}
                 </div>
-                <div className="flex-grow-1 ms-3">
-                  <h6 className="mb-0">{getUserDisplayName(selectedUser)}</h6>
-                  <p className="text-muted mb-0">{selectedUser.email}</p>
-                  {selectedUser.createdAt && (
-                    <small className="text-muted">
-                      <i className="bi bi-calendar me-1"></i>
-                      Joined: {new Date(selectedUser.createdAt).toLocaleDateString()}
-                    </small>
-                  )}
+                
+                {/* User info */}
+                <div className="flex-grow-1 d-flex flex-column">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="fw-medium">{getUserDisplayName(user)}</span>
+                    {user.createdAt && (
+                      <span className="badge bg-light text-dark small">
+                        Joined: {formatDate(user.createdAt)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-muted small">{user.email}</span>
                 </div>
-              </div>
-            </div>
-          )}
+                
+                {/* Selection indicator */}
+                {selectedUser?.id === user.id && (
+                  <div 
+                    className="position-absolute" 
+                    style={{
+                      top: '50%',
+                      right: '12px',
+                      transform: 'translateY(-50%)'
+                    }}
+                  >
+                    <i className="bi bi-check-circle-fill text-success fs-5"></i>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-    </div>
+      ) : (
+        <div className="text-center p-4 bg-light rounded shadow-sm">
+          <i className="bi bi-people text-muted fs-1 mb-2"></i>
+          <h6>{searchTerm ? `No users match "${searchTerm}"` : "No users available"}</h6>
+          <p className="text-muted mb-0">
+            {searchTerm ? (
+              <button className="btn btn-link p-0" onClick={() => setSearchTerm('')}>
+                Clear search
+              </button>
+            ) : "Try refreshing the list"}
+          </p>
+        </div>
+      )}
+    </Card>
   );
 };
 

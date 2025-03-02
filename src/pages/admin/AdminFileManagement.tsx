@@ -3,11 +3,15 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import UserSelector from '../../features/users/components/UserSelector';
-import AdminFileBrowser from './AdminFileBrowser';
-import FolderGrid from '../../features/files/components/FolderGrid';
 import Card from '../../components/common/Card';
+import AlertMessage from '../../components/common/AlertMessage';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import FolderGrid from '../../features/files/components/FolderGrid';
 import { UserProfile } from '../../types';
+
+// Import the updated components
+import AdminFileBrowser from './AdminFileBrowser';
+import UserSelector from '../../features/users/components/UserSelector';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {
@@ -19,7 +23,8 @@ const AdminFileManagement = () => {
   const location = useLocation();
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('/');
-  const [loading, setLoading] = useState<boolean>(false);
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Create a client for making GraphQL requests
   const client = generateClient();
@@ -30,13 +35,16 @@ const AdminFileManagement = () => {
     const userId = urlParams.get('userId');
     
     if (userId) {
+      console.log('URL contains userId parameter:', userId);
       fetchUserByUuid(userId);
+    } else {
+      setInitialLoading(false);
     }
   }, [location.search]);
   
   // Define query to fetch a specific user by UUID
   const getUserByUuidQuery = /* GraphQL */ `
-    query ListUserProfiles($filter: ModelUserProfileFilterInput) {
+    query GetUserByUuid($filter: ModelUserProfileFilterInput) {
       listUserProfiles(filter: $filter, limit: 1) {
         items {
           id
@@ -54,9 +62,12 @@ const AdminFileManagement = () => {
   
   // Fetch user by UUID
   const fetchUserByUuid = async (uuid: string) => {
-    setLoading(true);
+    setInitialLoading(true);
+    setError(null);
     
     try {
+      console.log('Fetching user with UUID:', uuid);
+      
       const response = await client.graphql<GraphQLQuery<ListUserProfilesResponse>>({
         query: getUserByUuidQuery,
         variables: {
@@ -69,154 +80,112 @@ const AdminFileManagement = () => {
         authMode: 'userPool'
       });
       
+      console.log('Response from getUserByUuid:', response);
+      
       const items = response?.data?.listUserProfiles?.items || [];
       if (items.length > 0) {
+        console.log('User found:', items[0]);
         setSelectedUser(items[0]);
+      } else {
+        console.log('No user found with UUID:', uuid);
+        setError(`No user found with ID: ${uuid}`);
       }
     } catch (err) {
       console.error('Error fetching user by UUID:', err);
+      setError(`Failed to load user: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
-  // Handle user selection
+  // Handle user selection from UserSelector
   const handleUserSelect = (user: UserProfile | null) => {
+    console.log('User selected:', user);
     setSelectedUser(user);
     // Reset path to root when user changes
     setCurrentPath('/');
   };
   
-  // Handle folder selection
+  // Handle folder selection from FolderGrid
   const handleFolderSelect = (folderPath: string) => {
+    console.log('Folder selected:', folderPath);
     setCurrentPath(folderPath);
   };
   
-  // Handle path change
+  // Handle path change from AdminFileBrowser
   const handlePathChange = (path: string) => {
+    console.log('Path changed to:', path);
     setCurrentPath(path);
   };
-  
-  // Get navigation breadcrumb text
-  const getNavText = () => {
-    if (!selectedUser) {
-      return 'Select a client to manage their files';
-    }
-    
-    if (currentPath === '/') {
-      return `Browsing root folder for ${selectedUser.firstName || selectedUser.email}`;
-    }
-    
-    // Extract folder name from path
-    const folderName = currentPath.split('/').filter(Boolean)[0];
-    const folderDisplayNames: Record<string, string> = {
-      'certificate': 'Certificates',
-      'audit-report': 'Audit Reports',
-      'auditor-resume': 'Auditor Profiles',
-      'statistics': 'Statistics & Analytics'
-    };
-    
-    const displayName = folderDisplayNames[folderName] || folderName;
-    return `Browsing ${displayName} for ${selectedUser.firstName || selectedUser.email}`;
-  };
-  
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h2 className="mb-0">File Management</h2>
-          <p className="text-muted mb-0">{getNavText()}</p>
+          <p className="text-muted mb-0">
+            {selectedUser 
+              ? `Managing files for ${selectedUser.firstName || selectedUser.email}` 
+              : 'Select a client to manage their files'}
+          </p>
         </div>
       </div>
       
-      <div className="row">
-        {/* Left column - User selection */}
-        <div className="col-md-4 mb-4 mb-md-0">
-          {/* User Selector Component */}
-          <UserSelector 
-            onUserSelect={handleUserSelect}
-            selectedUser={selectedUser}
-          />
-          
-          {/* Help card when no user is selected */}
-          {!selectedUser && (
-            <div className="card">
-              <div className="card-body">
-                <h5 className="card-title">File Manager Instructions</h5>
-                <p className="card-text text-muted">
-                  Use the client selector above to choose a client whose files you want to manage. Once selected, you can:
-                </p>
-                <ul className="list-group list-group-flush mb-3">
-                  <li className="list-group-item">
-                    <i className="bi bi-folder me-2 text-primary"></i>
-                    Browse client's folder structure
-                  </li>
-                  <li className="list-group-item">
-                    <i className="bi bi-upload me-2 text-primary"></i>
-                    Upload files to client's folders
-                  </li>
-                  <li className="list-group-item">
-                    <i className="bi bi-download me-2 text-primary"></i>
-                    Download client's files
-                  </li>
-                  <li className="list-group-item">
-                    <i className="bi bi-trash me-2 text-primary"></i>
-                    Delete files (if not in protected folders)
-                  </li>
-                </ul>
+      {initialLoading ? (
+        <Card>
+          <LoadingSpinner text="Loading..." />
+        </Card>
+      ) : error ? (
+        <AlertMessage 
+          type="danger" 
+          message={error} 
+          dismissible 
+          onDismiss={() => setError(null)} 
+        />
+      ) : (
+        <div className="row">
+          {/* Left column - User selection */}
+          <div className="col-md-4 mb-4">
+            <UserSelector 
+              onUserSelect={handleUserSelect}
+              selectedUser={selectedUser}
+            />
+            
+            {!selectedUser && (
+              <Card title="Instructions" className="mt-3">
                 <div className="alert alert-info mb-0">
                   <i className="bi bi-info-circle me-2"></i>
-                  As an admin, you have additional privileges to manage client files while respecting protected folder restrictions.
+                  Select a client from the list above to browse their files and folders.
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Right column - File browser and folders grid */}
-        <div className="col-md-8">
-          {loading ? (
-            <div className="text-center p-5">
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <p className="mt-2">Loading user data...</p>
-            </div>
-          ) : selectedUser && (
-            <>
-              {/* Quick Access Navigation - Only show in non-root paths */}
-              {currentPath !== '/' && (
-                <FolderGrid 
-                  userId={selectedUser.uuid}
-                  onSelectFolder={handleFolderSelect} 
-                  compact={true}
-                  currentPath={currentPath}
-                />
-              )}
-            
-              {/* For root path, show folder grid */}
-              {currentPath === '/' ? (
-                <Card title="Client Storage">
-                  <div className="mb-3">
-                    <p className="text-muted">Select a folder to manage files for <strong>{selectedUser.email}</strong>:</p>
-                    </div>
-                  <FolderGrid 
-                    userId={selectedUser.uuid}
-                    onSelectFolder={handleFolderSelect} 
+              </Card>
+            )}
+          </div>
+          
+          {/* Right column - File browser */}
+          <div className="col-md-8">
+            {selectedUser && (
+              <>
+                {/* For root path, show folder grid */}
+                {currentPath === '/' ? (
+                  <Card title={`Folders for ${selectedUser.firstName || selectedUser.email}`}>
+                    <FolderGrid 
+                      userId={selectedUser.uuid}
+                      onSelectFolder={handleFolderSelect} 
+                    />
+                  </Card>
+                ) : (
+                  /* For non-root paths, show file browser */
+                  <AdminFileBrowser 
+                    selectedUser={selectedUser} 
+                    initialPath={currentPath}
+                    onPathChange={handlePathChange}
                   />
-                </Card>
-              ) : (
-                /* For non-root paths, show file browser */
-                <AdminFileBrowser 
-                  selectedUser={selectedUser} 
-                  initialPath={currentPath}
-                  onPathChange={handlePathChange}
-                />
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
