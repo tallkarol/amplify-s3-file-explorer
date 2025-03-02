@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import UserDashboard from './pages/UserDashboard';
-import Layout from './components/layout/Layout';
-import AdminLayout from './components/layout/AdminLayout';
+import UserDashboard from './pages/user/UserDashboard';
+import Layout from './layouts/UserLayout';
+import AdminLayout from './layouts/AdminLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
 // Import Admin Pages
-import AdminHome from './pages/admin/AdminHome';
+import AdminHome from './pages/admin/AdminDashboard';
 import AdminClientManagement from './pages/admin/AdminClientManagement';
 import AdminFileManagement from './pages/admin/AdminFileManagement';
 import AdminWorkflowManagement from './pages/admin/AdminWorkflowManagement';

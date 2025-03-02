@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import UserSelector from '../../components/admin/UserSelector';
+import UserSelector from '../../features/users/components/UserSelector';
 import AdminFileBrowser from './AdminFileBrowser';
-import FolderGrid from '../../components/admin/FolderGrid';
+import FolderGrid from '../../features/files/components/FolderGrid';
 import Card from '../../components/common/Card';
 import { UserProfile } from '../../types';
 
@@ -83,6 +83,7 @@ const AdminFileManagement = () => {
   // Handle user selection
   const handleUserSelect = (user: UserProfile | null) => {
     setSelectedUser(user);
+    // Reset path to root when user changes
     setCurrentPath('/');
   };
   
@@ -186,7 +187,7 @@ const AdminFileManagement = () => {
               {/* Quick Access Navigation - Only show in non-root paths */}
               {currentPath !== '/' && (
                 <FolderGrid 
-                  user={selectedUser} 
+                  userId={selectedUser.uuid}
                   onSelectFolder={handleFolderSelect} 
                   compact={true}
                   currentPath={currentPath}
@@ -198,9 +199,9 @@ const AdminFileManagement = () => {
                 <Card title="Client Storage">
                   <div className="mb-3">
                     <p className="text-muted">Select a folder to manage files for <strong>{selectedUser.email}</strong>:</p>
-                  </div>
+                    </div>
                   <FolderGrid 
-                    user={selectedUser} 
+                    userId={selectedUser.uuid}
                     onSelectFolder={handleFolderSelect} 
                   />
                 </Card>

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { Notification } from '../types';
-import { getNotifications, markAsRead, deleteNotification } from '../services/NotificationService';
+import { getNotifications, markAsRead, deleteNotification } from '../features/notifications/services/NotificationService';
 import Card from '../components/common/Card';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import AlertMessage from '../components/common/AlertMessage';

@@ -2,13 +2,13 @@
 import { useState, useEffect } from 'react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import UserList from '../../components/admin/UserList';
-import UserStatsCard from '../../components/admin/UserStatsCard';
-import UserActionsCard from '../../components/admin/UserActionsCard';
-import CompactFileActivity from '../../components/admin/CompactFileActivity';
+import UserList from '../../features/users/components/UserList';
+import UserStatsCard from '../../features/users/components/UserStatsCard';
+import UserActionsCard from '../../features/users/components/UserActionsCard';
+import CompactFileActivity from '../../features/files/components/CompactFileActivity';
 import Card from '../../components/common/Card';
 import AlertMessage from '../../components/common/AlertMessage';
-import RootFolderList from '../../components/admin/RootFolderList';
+import RootFolderList from '../../features/files/components/RootFolderList';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import TogglableCard from '../../components/common/TogglableCard';
 import { UserProfile } from '../../types';
