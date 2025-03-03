@@ -49,7 +49,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
           </li>
           
           {/* Inbox */}
-          <li className="nav-item mb-2">
+          {/* <li className="nav-item mb-2">
             <Link 
               to="/admin/inbox" 
               className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
@@ -71,10 +71,10 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
                 </span>
               )}
             </Link>
-          </li>
+          </li> */}
           
           {/* Calendar */}
-          <li className="nav-item mb-2">
+          {/* <li className="nav-item mb-2">
             <Link 
               to="/admin/calendar" 
               className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
@@ -86,7 +86,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               <i className="bi bi-calendar3 me-3 fs-5"></i>
               {!collapsed && <span>Calendar</span>}
             </Link>
-          </li>
+          </li> */}
           
           {/* Client Management */}
           <li className="nav-item mb-2">
@@ -99,12 +99,12 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               }`}
             >
               <i className="bi bi-people me-3 fs-5"></i>
-              {!collapsed && <span>Clients</span>}
+              {!collapsed && <span>Client Manager</span>}
             </Link>
           </li>
           
           {/* Workflow Management */}
-          <li className="nav-item mb-2">
+          {/* <li className="nav-item mb-2">
             <Link 
               to="/admin/workflows" 
               className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
@@ -116,7 +116,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               <i className="bi bi-diagram-3 me-3 fs-5"></i>
               {!collapsed && <span>Workflows</span>}
             </Link>
-          </li>
+          </li> */}
           
           {/* File Management */}
           <li className="nav-item mb-2">
@@ -136,43 +136,8 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
       </div>
       
       {/* Divider */}
-      <div className="border-top border-secondary my-2"></div>
-      
-      {/* Additional admin links */}
-      <div className="sidebar-nav p-2">
-        <ul className="nav flex-column">
-          {/* Settings */}
-          <li className="nav-item mb-2">
-            <Link 
-              to="/admin/settings" 
-              className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                isActive('/admin/settings') 
-                  ? 'active bg-primary text-white' 
-                  : 'text-light hover-highlight'
-              }`}
-            >
-              <i className="bi bi-gear me-3 fs-5"></i>
-              {!collapsed && <span>Settings</span>}
-            </Link>
-          </li>
-          
-          {/* Help & Support */}
-          <li className="nav-item mb-2">
-            <Link 
-              to="/admin/support" 
-              className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                isActive('/admin/support') 
-                  ? 'active bg-primary text-white' 
-                  : 'text-light hover-highlight'
-              }`}
-            >
-              <i className="bi bi-question-circle me-3 fs-5"></i>
-              {!collapsed && <span>Help & Support</span>}
-            </Link>
-          </li>
-        </ul>
-      </div>
-      
+      {/* <div className="border-top border-secondary my-2"></div> */}
+        
       {/* Sidebar footer with back to user dashboard link */}
       <div className="sidebar-footer mt-auto p-3 border-top border-secondary d-flex flex-column gap-2">
         <Link 
@@ -180,7 +145,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
           className="btn btn-outline-light btn-sm w-100 d-flex align-items-center justify-content-center"
         >
           <i className="bi bi-layout-text-window me-2"></i>
-          {!collapsed && <span>User Dashboard</span>}
+          {!collapsed && <span>Preview User Dashboard</span>}
         </Link>
         
         <button 

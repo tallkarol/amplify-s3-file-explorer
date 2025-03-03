@@ -3,14 +3,14 @@ import { useState, useEffect } from 'react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import UserList from '../../features/users/components/UserList';
-import UserStatsCard from '../../features/users/components/UserStatsCard';
+// import UserStatsCard from '../../features/users/components/UserStatsCard';
 import UserActionsCard from '../../features/users/components/UserActionsCard';
-import CompactFileActivity from '../../features/files/components/CompactFileActivity';
+// import CompactFileActivity from '../../features/files/components/CompactFileActivity';
 import Card from '../../components/common/Card';
 import AlertMessage from '../../components/common/AlertMessage';
 import RootFolderList from '../../features/files/components/RootFolderList';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import TogglableCard from '../../components/common/TogglableCard';
+// import TogglableCard from '../../components/common/TogglableCard';
 import { UserProfile } from '../../types';
 
 interface ListUserProfilesResponse {
@@ -214,26 +214,6 @@ const AdminClientManagement = () => {
                 </div>
                 
                 <div className="col-lg-8">
-                  {/* Storage Statistics */}
-                  <TogglableCard 
-                    title="Storage Statistics" 
-                    subtitle="User storage usage overview"
-                    className="mb-4"
-                    initiallyExpanded={true}
-                  >
-                    <UserStatsCard user={selectedUser} />
-                  </TogglableCard>
-                  
-                  {/* File Activity */}
-                  <TogglableCard 
-                    title="File Activity" 
-                    subtitle="Recent file activity trends"
-                    className="mb-4"
-                    initiallyExpanded={true}
-                  >
-                    <CompactFileActivity user={selectedUser} />
-                  </TogglableCard>
-                  
                   {/* User Folders Quick Access */}
                   <Card title="Client Folders" className="mb-4">
                     <RootFolderList 
@@ -242,45 +222,6 @@ const AdminClientManagement = () => {
                     />
                   </Card>
                   
-                  {/* Activity Log - Placeholder */}
-                  <Card title="Recent Activity Log">
-                    <div className="list-group list-group-flush">
-                      {[...Array(5)].map((_, index) => (
-                        <div key={index} className="list-group-item border-0 px-0 py-2">
-                          <div className="d-flex align-items-center">
-                            <div className="bg-light rounded p-2 me-3">
-                              <i className={`bi bi-${['file-earmark', 'person-check', 'cloud-upload', 'shield-lock', 'envelope-open'][index % 5]} text-secondary`}></i>
-                            </div>
-                            <div className="flex-grow-1">
-                              <h6 className="mb-0 small">
-                                {[
-                                  'Logged in to account',
-                                  'Updated profile information',
-                                  'Uploaded new document to Certificates folder',
-                                  'Changed password',
-                                  'Submitted support ticket'
-                                ][index % 5]}
-                              </h6>
-                              <small className="text-muted">
-                                {[
-                                  '2 hours ago',
-                                  'Yesterday, 15:30',
-                                  '3 days ago',
-                                  'Last week',
-                                  '2 weeks ago'
-                                ][index % 5]}
-                              </small>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-center mt-3">
-                      <button className="btn btn-sm btn-outline-primary">
-                        View Complete Activity History
-                      </button>
-                    </div>
-                  </Card>
                 </div>
               </div>
             )

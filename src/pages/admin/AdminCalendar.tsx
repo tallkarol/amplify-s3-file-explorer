@@ -42,23 +42,6 @@ const AdminCalendar = () => {
       time: '2:00 PM - 3:00 PM',
       type: 'meeting',
       description: 'Discuss changes to the document approval workflow'
-    },
-    {
-      id: '4',
-      title: 'Follow up with Global Solutions',
-      date: '2025-03-07',
-      time: '1:00 PM',
-      type: 'task',
-      client: 'Global Solutions',
-      description: 'Check on status of missing audit reports'
-    },
-    {
-      id: '5',
-      title: 'System Maintenance',
-      date: '2025-03-10',
-      time: '11:00 PM - 2:00 AM',
-      type: 'reminder',
-      description: 'Scheduled downtime for system updates'
     }
   ];
   

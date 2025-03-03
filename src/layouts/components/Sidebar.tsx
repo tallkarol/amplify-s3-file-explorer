@@ -5,8 +5,8 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import UserProfileModal from '../../features/users/components/UserProfileModal';
-import SupportTicketModal from '../../features/support/components/SupportTicketModal';
-import NotificationIcon from '../../features/notifications/components/NotificationIcon';
+// import SupportTicketModal from '../../features/support/components/SupportTicketModal';
+// import NotificationIcon from '../../features/notifications/components/NotificationIcon';
 
 interface SidebarProps {
   isAdmin: boolean;
@@ -33,7 +33,7 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  // const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [foldersExpanded, setFoldersExpanded] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
@@ -103,9 +103,9 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   };
   
   // Toggle support ticket modal
-  const toggleSupportModal = () => {
-    setIsSupportModalOpen(!isSupportModalOpen);
-  };
+  // const toggleSupportModal = () => {
+  //   setIsSupportModalOpen(!isSupportModalOpen);
+  // };
 
   // Toggle folders dropdown
   const toggleFolders = () => {
@@ -170,14 +170,6 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
               </div>
             )}
           </div>
-          {!collapsed && (
-            <div className="text-end mt-2">
-              <span className="badge bg-light text-dark">
-                <i className="bi bi-pencil me-1"></i>
-                Edit Profile
-              </span>
-            </div>
-          )}
         </div>
         
         {/* Navigation links */}
@@ -251,13 +243,13 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
               )}
             </li>
             
-            {/* Notifications link */}
+            {/* Notifications link
             <li className="nav-item mb-2">
               <NotificationIcon collapsed={collapsed} />
-            </li>
+            </li> */}
             
             {/* Support link */}
-            <li className="nav-item mb-2">
+            {/* <li className="nav-item mb-2">
               <button
                 className="nav-link px-3 py-2 d-flex align-items-center rounded text-light hover-highlight w-100 border-0 bg-transparent"
                 onClick={toggleSupportModal}
@@ -265,28 +257,22 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
                 <i className="bi bi-headset me-3 fs-5"></i>
                 {!collapsed && <span>Contact Support</span>}
               </button>
-            </li>
-            
-            {isAdmin && (
-              <li className="nav-item mb-2">
-                <Link 
-                  to="/admin" 
-                  className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                    isActive('/admin') 
-                      ? 'active bg-danger text-white' 
-                      : 'text-light hover-highlight'
-                  }`}
-                >
-                  <i className="bi bi-speedometer2 me-3 fs-5"></i>
-                  {!collapsed && <span>Admin</span>}
-                </Link>
-              </li>
-            )}
+            </li> */}
           </ul>
         </div>
         
         {/* Sidebar footer with sign out */}
         <div className="sidebar-footer mt-auto p-3 border-top border-secondary">
+        
+        {isAdmin && (<Link 
+          to="/admin" 
+          className="btn btn-outline-light mb-1 btn-sm w-100 d-flex align-items-center justify-content-center"
+        >
+          <i className="bi bi-speedometer2 me-2"></i>
+          {!collapsed && <span>Admin Dashboard</span>}
+        </Link>)}
+        
+
           <button 
             onClick={signOut}
             className="btn btn-outline-light btn-sm w-100 d-flex align-items-center justify-content-center"
@@ -304,10 +290,10 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
       />
       
       {/* Support ticket modal */}
-      <SupportTicketModal
+      {/* <SupportTicketModal
         isOpen={isSupportModalOpen}
         onClose={() => setIsSupportModalOpen(false)}
-      />
+      /> */}
     </>
   );
 };

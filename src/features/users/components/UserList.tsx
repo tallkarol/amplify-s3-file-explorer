@@ -192,10 +192,10 @@ const UserList = ({ users, loading, error, onViewDetails }: UserListProps) => {
                     <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Never'}</td>
                     <td>
                       <button 
-                        className="btn btn-sm btn-primary"
+                        className="btn btn-md btn-primary"
                         onClick={() => onViewDetails(user)}
                       >
-                        View Files
+                        Manage Client
                       </button>
                     </td>
                   </tr>

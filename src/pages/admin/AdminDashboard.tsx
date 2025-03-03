@@ -29,6 +29,8 @@ const AdminHome = () => {
     storageTotal: 1000
   });
   
+  console.log('metrics:', metrics);
+
   // Create a client for making GraphQL requests
   const client = generateClient();
   
@@ -77,86 +79,6 @@ const AdminHome = () => {
     fetchMetrics();
   }, []);
   
-  // Recent activities data
-  const recentActivities = [
-    {
-      id: 1,
-      title: 'New documents uploaded',
-      description: '3 certificates uploaded to Acme Corp\'s folder',
-      icon: 'file-earmark-arrow-up',
-      iconBg: 'bg-primary',
-      time: '2 hours ago'
-    },
-    {
-      id: 2,
-      title: 'New client registered',
-      description: 'John Smith created a new account',
-      icon: 'person-plus',
-      iconBg: 'bg-success',
-      time: '5 hours ago'
-    },
-    {
-      id: 3,
-      title: 'Workflow completed',
-      description: 'Document approval process completed for Global Partners',
-      icon: 'check2-circle',
-      iconBg: 'bg-accent',
-      time: 'Yesterday'
-    },
-    {
-      id: 4,
-      title: 'New support ticket',
-      description: 'Tech Solutions Inc. submitted a high priority ticket',
-      icon: 'chat-dots',
-      iconBg: 'bg-danger',
-      time: 'Yesterday'
-    },
-    {
-      id: 5,
-      title: 'Storage quota warning',
-      description: 'Atlas Enterprise approaching 90% of storage quota',
-      icon: 'hdd-stack',
-      iconBg: 'bg-warning',
-      time: '2 days ago'
-    }
-  ];
-  
-  // Upcoming events data
-  const upcomingEvents = [
-    {
-      id: 1,
-      title: 'Client Review Meeting',
-      description: 'Quarterly review with Acme Corporation',
-      date: 'Today, 2:00 PM',
-      priority: 'high'
-    },
-    {
-      id: 2,
-      title: 'Document Submission Deadline',
-      description: 'Tech Innovations compliance documents due',
-      date: 'Tomorrow, 11:59 PM',
-      priority: 'urgent'
-    },
-    {
-      id: 3,
-      title: 'System Maintenance',
-      description: 'Scheduled downtime for updates',
-      date: 'March 5, 2025',
-      priority: 'medium'
-    }
-  ];
-  
-  // Get priority color
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'danger';
-      case 'high': return 'warning';
-      case 'medium': return 'primary';
-      case 'low': return 'secondary';
-      default: return 'secondary';
-    }
-  };
-  
   return (
     <div>
       {/* Header with greeting and date */}
@@ -166,12 +88,6 @@ const AdminHome = () => {
           <p className="text-muted mb-0">
             Welcome back • {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
-        </div>
-        <div>
-          <button className="btn btn-accent">
-            <i className="bi bi-download me-2"></i>
-            Export Dashboard
-          </button>
         </div>
       </div>
       
@@ -184,7 +100,7 @@ const AdminHome = () => {
           
           {/* Quick action row */}
           <div className="row g-4 mb-4">
-            <div className="col-lg-8">
+            <div className="col-lg-12">
               <div className="card h-100">
                 <div className="card-header d-flex justify-content-between align-items-center">
                   <h5 className="mb-0">Quick Actions</h5>
@@ -210,29 +126,29 @@ const AdminHome = () => {
                           <div className="overview-card-icon mx-auto bg-light">
                             <i className="bi bi-folder text-primary"></i>
                           </div>
-                          <h5 className="mt-3 mb-1">File Manager</h5>
+                          <h5 className="mt-3 mb-1">File Management</h5>
                           <p className="text-muted small mb-0">Browse and manage files</p>
                         </div>
                       </Link>
                     </div>
                     
                     <div className="col-md-4 p-3">
-                      <Link to="/admin/workflows" className="d-block text-decoration-none">
+                      {/* <Link to="/admin/workflows" className="d-block text-decoration-none"> */}
                         <div className="text-center py-4 px-2 rounded hover-transform">
                           <div className="overview-card-icon mx-auto bg-light">
                             <i className="bi bi-diagram-3 text-primary"></i>
                           </div>
-                          <h5 className="mt-3 mb-1">Workflows</h5>
+                          <h5 className="text-muted mt-3 mb-1">Workflow Management <span className='small'>(coming soon)</span></h5>
                           <p className="text-muted small mb-0">Automate business processes</p>
                         </div>
-                      </Link>
+                      {/* </Link> */}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             
-            <div className="col-lg-4">
+            {/* <div className="col-lg-4">
               <div className="card h-100">
                 <div className="card-header">
                   <h5 className="mb-0">
@@ -286,11 +202,11 @@ const AdminHome = () => {
               </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
           
           {/* Recent activity and system status */}
-          <div className="row g-4">
+          {/* <div className="row g-4">
             <div className="col-lg-8">
               <div className="activity-feed h-100">
                 <div className="activity-feed-header">
@@ -359,7 +275,7 @@ const AdminHome = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
         </>
       )}
     </div>

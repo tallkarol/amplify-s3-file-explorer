@@ -42,17 +42,6 @@ const UserActionsCard = ({ user }: UserActionsCardProps) => {
             </div>
           </div>
         );
-      case 'export-data':
-        return (
-          <div className="alert alert-info">
-            <h6 className="alert-heading">Export User Data?</h6>
-            <p>This will generate an export file with all of {user.email}'s data and file list.</p>
-            <div className="d-flex justify-content-end">
-              <button className="btn btn-sm btn-outline-secondary me-2" onClick={cancelAction}>Cancel</button>
-              <button className="btn btn-sm btn-info" onClick={executeAction}>Export Data</button>
-            </div>
-          </div>
-        );
       case 'suspend-account':
         return (
           <div className="alert alert-danger">
@@ -85,19 +74,6 @@ const UserActionsCard = ({ user }: UserActionsCardProps) => {
             <div>
               <div className="fw-medium">Reset Password</div>
               <small className="text-muted">Send a password reset link to the user</small>
-            </div>
-          </button>
-          
-          <button 
-            className="list-group-item list-group-item-action d-flex align-items-center"
-            onClick={() => handleActionClick('export-data')}
-          >
-            <div className="bg-info bg-opacity-10 p-2 rounded me-3">
-              <i className="bi bi-download text-info"></i>
-            </div>
-            <div>
-              <div className="fw-medium">Export User Data</div>
-              <small className="text-muted">Download a report of all user data</small>
             </div>
           </button>
           

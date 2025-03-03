@@ -61,16 +61,6 @@ const AdminInbox = () => {
       date: '2 days ago',
       read: true, 
       priority: 'low'
-    },
-    {
-      id: '5',
-      type: 'support',
-      subject: 'Request for additional folder',
-      sender: 'Jane Doe (jane@innovate.com)',
-      content: 'I would like to request an additional folder for storing project-specific documents. Our current folder structure doesn\'t accommodate our new project requirements.',
-      date: '3 days ago',
-      read: true,
-      priority: 'low'
     }
   ];
   
