@@ -12,6 +12,7 @@ import RootFolderList from '../../features/files/components/RootFolderList';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 // import TogglableCard from '../../components/common/TogglableCard';
 import { UserProfile } from '../../types';
+import UserAllFiles from '@/features/users/components/UserAllFiles';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {
@@ -221,7 +222,10 @@ const AdminClientManagement = () => {
                       onSelectFolder={() => navigateToUserFiles()}
                     />
                   </Card>
-                  
+                  <UserAllFiles 
+                    userId={selectedUser.uuid} 
+                    userName={selectedUser.firstName || selectedUser.email}
+                  />
                 </div>
               </div>
             )

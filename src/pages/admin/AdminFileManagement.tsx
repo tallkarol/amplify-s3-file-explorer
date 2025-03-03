@@ -12,6 +12,7 @@ import { UserProfile } from '../../types';
 // Import the updated components
 import AdminFileBrowser from './AdminFileBrowser';
 import UserSelector from '../../features/users/components/UserSelector';
+import UserAllFiles from '@/features/users/components/UserAllFiles';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {
@@ -167,19 +168,25 @@ const AdminFileManagement = () => {
               <>
                 {/* For root path, show folder grid */}
                 {currentPath === '/' ? (
+                <>
                   <Card title={`Folders for ${selectedUser.firstName || selectedUser.email}`}>
                     <FolderGrid 
                       userId={selectedUser.uuid}
                       onSelectFolder={handleFolderSelect} 
                     />
                   </Card>
+                  <UserAllFiles 
+                    userId={selectedUser.uuid} 
+                    userName={selectedUser.firstName || selectedUser.email}
+                  />
+                </>
                 ) : (
                   /* For non-root paths, show file browser */
-                  <AdminFileBrowser 
-                    selectedUser={selectedUser} 
-                    initialPath={currentPath}
-                    onPathChange={handlePathChange}
-                  />
+                    <AdminFileBrowser 
+                      selectedUser={selectedUser} 
+                      initialPath={currentPath}
+                      onPathChange={handlePathChange}
+                    />
                 )}
               </>
             )}

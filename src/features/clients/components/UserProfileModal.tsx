@@ -1,4 +1,4 @@
-// src/features/users/components/UserProfileModal.tsx
+// src/components/user/UserProfileModal.tsx
 import { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
@@ -61,11 +61,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
     setError(null);
     
     try {
-      console.log('Starting profile fetch for user:', user.userId);
-      // The post-confirmation handler in amplify/auth/post-confirmation/handler.ts 
-      // uses this format for profileOwner: `${userId}::${userName}`
       const profileOwner = `${user.userId}::${user.username}`;
-      console.log('Using profileOwner:', profileOwner);
       
       const response = await client.graphql<GraphQLQuery<GetUserProfileWithContactsResponse>>({
         query: getUserProfileWithContacts,
@@ -75,9 +71,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
         authMode: 'userPool'
       });
       
-      console.log('Profile API response:', response);
       const profileItems = response?.data?.listUserProfiles?.items || [];
-      console.log('Retrieved profile items:', profileItems.length);
       
       if (profileItems.length > 0) {
         const userProfile = profileItems[0];
@@ -90,17 +84,13 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
         
         // Set additional contacts
         const contactItems = response?.data?.listAdditionalContacts?.items || [];
-        console.log('Retrieved contact items:', contactItems.length);
         setAdditionalContacts(contactItems);
       } else {
-        console.warn('No profile found with profileOwner:', profileOwner);
         setError('Profile not found. Please contact support.');
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('Error message:', errorMessage);
-      setError(`Failed to load profile: ${errorMessage}`);
+      setError(`Failed to load profile: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -115,26 +105,21 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
     setSuccess(null);
     
     try {
-      console.log('Updating profile with ID:', profile.id);
-      const updateInput = {
-        id: profile.id,
-        firstName,
-        lastName,
-        companyName,
-        phoneNumber,
-        preferredContactMethod
-      };
-      console.log('Update input:', updateInput);
-      
-      const response = await client.graphql<GraphQLQuery<any>>({
+      await client.graphql<GraphQLQuery<any>>({
         query: updateUserProfileMutation,
         variables: {
-          input: updateInput
+          input: {
+            id: profile.id,
+            firstName,
+            lastName,
+            companyName,
+            phoneNumber,
+            preferredContactMethod
+          }
         },
         authMode: 'userPool'
       });
       
-      console.log('Profile update response:', response);
       setSuccess('Profile updated successfully!');
       
       // Close modal after a short delay to show success message
@@ -157,7 +142,6 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
     setError(null);
     
     try {
-      console.log('Adding new contact for profileOwner:', profile.profileOwner);
       const response = await client.graphql<GraphQLQuery<any>>({
         query: createAdditionalContactMutation,
         variables: {
@@ -171,7 +155,6 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
         authMode: 'userPool'
       });
       
-      console.log('Add contact response:', response);
       const newContact = response.data?.createAdditionalContact;
       if (newContact) {
         setAdditionalContacts([...additionalContacts, newContact]);
@@ -193,7 +176,6 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
   // Toggle notification preference for a contact
   const handleToggleNotifications = async (contact: AdditionalContact) => {
     try {
-      console.log('Toggling notifications for contact:', contact.id);
       const response = await client.graphql<GraphQLQuery<any>>({
         query: updateAdditionalContactMutation,
         variables: {
@@ -205,7 +187,6 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
         authMode: 'userPool'
       });
       
-      console.log('Toggle notifications response:', response);
       const updatedContact = response.data?.updateAdditionalContact;
       if (updatedContact) {
         setAdditionalContacts(additionalContacts.map(c => 
@@ -223,7 +204,6 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
     setDeletingContactId(contactId);
     
     try {
-      console.log('Deleting contact:', contactId);
       await client.graphql<GraphQLQuery<any>>({
         query: deleteAdditionalContactMutation,
         variables: {
