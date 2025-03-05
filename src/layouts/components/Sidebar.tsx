@@ -4,9 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import UserProfileModal from '../../features/users/components/UserProfileModal';
-// import SupportTicketModal from '../../features/support/components/SupportTicketModal';
-// import NotificationIcon from '../../features/notifications/components/NotificationIcon';
+import UserProfileModal from '../../features/clients/components/UserProfileModal';
 
 interface SidebarProps {
   isAdmin: boolean;

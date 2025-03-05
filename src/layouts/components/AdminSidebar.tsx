@@ -48,46 +48,6 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
             </Link>
           </li>
           
-          {/* Inbox */}
-          {/* <li className="nav-item mb-2">
-            <Link 
-              to="/admin/inbox" 
-              className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                isActive('/admin/inbox') 
-                  ? 'active bg-primary text-white' 
-                  : 'text-light hover-highlight'
-              }`}
-            >
-              <i className="bi bi-inbox me-3 fs-5"></i>
-              {!collapsed && (
-                <div className="d-flex justify-content-between align-items-center w-100">
-                  <span>Inbox</span>
-                  <span className="badge bg-danger rounded-pill">3</span>
-                </div>
-              )}
-              {collapsed && (
-                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ marginLeft: '-1rem' }}>
-                  3
-                </span>
-              )}
-            </Link>
-          </li> */}
-          
-          {/* Calendar */}
-          {/* <li className="nav-item mb-2">
-            <Link 
-              to="/admin/calendar" 
-              className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                isActive('/admin/calendar') 
-                  ? 'active bg-primary text-white' 
-                  : 'text-light hover-highlight'
-              }`}
-            >
-              <i className="bi bi-calendar3 me-3 fs-5"></i>
-              {!collapsed && <span>Calendar</span>}
-            </Link>
-          </li> */}
-          
           {/* Client Management */}
           <li className="nav-item mb-2">
             <Link 
@@ -102,21 +62,6 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               {!collapsed && <span>Client Manager</span>}
             </Link>
           </li>
-          
-          {/* Workflow Management */}
-          {/* <li className="nav-item mb-2">
-            <Link 
-              to="/admin/workflows" 
-              className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                isActive('/admin/workflows') 
-                  ? 'active bg-primary text-white' 
-                  : 'text-light hover-highlight'
-              }`}
-            >
-              <i className="bi bi-diagram-3 me-3 fs-5"></i>
-              {!collapsed && <span>Workflows</span>}
-            </Link>
-          </li> */}
           
           {/* File Management */}
           <li className="nav-item mb-2">
@@ -134,9 +79,6 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
           </li>
         </ul>
       </div>
-      
-      {/* Divider */}
-      {/* <div className="border-top border-secondary my-2"></div> */}
         
       {/* Sidebar footer with back to user dashboard link */}
       <div className="sidebar-footer mt-auto p-3 border-top border-secondary d-flex flex-column gap-2">

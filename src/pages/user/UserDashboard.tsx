@@ -2,7 +2,7 @@
 import { useParams } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import FileBrowser from '../../features/files/components/FileBrowser';
-import FolderCardsView from '../../features/users/components/FolderCardsView';
+import FolderCardsView from '../../features/clients/components/FolderCardsView';
 import DragDropDemo from '../../features/files/components/DragDropDemo'; // Import the drag and drop demo component
 
 const UserDashboard = () => {

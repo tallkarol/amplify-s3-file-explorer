@@ -2,28 +2,19 @@ import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { FeatureFlagsProvider } from './contexts/FeatureFlagsContext';
 import UserDashboard from './pages/user/UserDashboard';
 import Layout from './layouts/UserLayout';
 import AdminLayout from './layouts/AdminLayout';
 import DeveloperLayout from './layouts/DeveloperLayout';
 import LoadingSpinner from './components/common/LoadingSpinner';
-import FeatureWrapper from './components/common/FeatureWrapper';
 
 // Import Admin Pages
 import AdminHome from './pages/admin/AdminDashboard';
 import AdminClientManagement from './pages/admin/AdminClientManagement';
 import AdminFileManagement from './pages/admin/AdminFileManagement';
-import AdminWorkflowManagement from './pages/admin/AdminWorkflowManagement';
-import AdminInbox from './pages/admin/AdminInbox';
-import AdminCalendar from './pages/admin/AdminCalendar';
-import AdminSettings from './pages/admin/AdminSettings';
-import AdminSupport from './pages/admin/AdminSupport';
 
 // Import Developer Pages
 import DeveloperDashboard from './pages/developer/DeveloperDashboard';
-import FeatureToggleManagement from './components/developer/FeatureToggleManagement';
-import NotificationsPage from './pages/Notifications';
 
 function App() {
   const { user } = useAuthenticator();
@@ -68,7 +59,6 @@ function App() {
   }
 
   return (
-    <FeatureFlagsProvider>
       <Routes>
         {/* Admin Routes */}
         <Route path="/admin/*" element={
@@ -78,18 +68,6 @@ function App() {
                 <Route path="/" element={<AdminHome />} />
                 <Route path="/clients" element={<AdminClientManagement />} />
                 <Route path="/files" element={<AdminFileManagement />} />
-                <Route path="/workflows" element={
-                  <FeatureWrapper 
-                    featureId="workflow_automation" 
-                    fallback={<AdminHome />}
-                  >
-                    <AdminWorkflowManagement />
-                  </FeatureWrapper>
-                } />
-                <Route path="/inbox" element={<AdminInbox />} />
-                <Route path="/calendar" element={<AdminCalendar />} />
-                <Route path="/settings" element={<AdminSettings />} />
-                <Route path="/support" element={<AdminSupport />} />
                 <Route path="*" element={<Navigate to="/admin" replace />} />
               </Routes>
             </AdminLayout>
@@ -104,10 +82,8 @@ function App() {
             <DeveloperLayout>
               <Routes>
                 <Route path="/" element={<DeveloperDashboard />} />
-                <Route path="/features" element={<FeatureToggleManagement />} />
-                <Route path="/support" element={<DeveloperDashboard />} />
-                <Route path="/debug" element={<DeveloperDashboard />} />
-                <Route path="/api-docs" element={<DeveloperDashboard />} />
+                <Route path="/user" element={<UserDashboard />} />
+                <Route path="/admin" element={<AdminHome />} />
                 <Route path="*" element={<Navigate to="/developer" replace />} />
               </Routes>
             </DeveloperLayout>
@@ -127,18 +103,6 @@ function App() {
           </Layout>
         } />
         
-        {/* Notifications Route */}
-        <Route path="/notifications" element={
-          <Layout isAdmin={userRole === 'admin'}>
-            <FeatureWrapper 
-              featureId="real_time_notifications" 
-              fallback={<Navigate to="/user" replace />}
-            >
-              <NotificationsPage />
-            </FeatureWrapper>
-          </Layout>
-        } />
-        
         {/* Default redirect */}
         <Route path="/" element={
           <Navigate to={
@@ -155,7 +119,6 @@ function App() {
           } replace />
         } />
       </Routes>
-    </FeatureFlagsProvider>
   );
 }
 

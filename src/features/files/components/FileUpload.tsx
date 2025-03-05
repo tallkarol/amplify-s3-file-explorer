@@ -3,7 +3,7 @@ import { useState, useRef, ChangeEvent } from 'react';
 import { uploadData } from 'aws-amplify/storage';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import AlertMessage from '../../../components/common/AlertMessage';
-import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '../services/FileNotificationService';
+import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
 
 interface FileUploadProps {
   currentPath: string;

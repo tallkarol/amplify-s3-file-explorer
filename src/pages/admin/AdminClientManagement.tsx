@@ -1,18 +1,14 @@
 // src/pages/admin/AdminClientManagement.tsx
 import { useState, useEffect } from 'react';
-import { generateClient } from 'aws-amplify/api';
-import { GraphQLQuery } from '@aws-amplify/api';
-import UserList from '../../features/users/components/UserList';
-// import UserStatsCard from '../../features/users/components/UserStatsCard';
-import UserActionsCard from '../../features/users/components/UserActionsCard';
-// import CompactFileActivity from '../../features/files/components/CompactFileActivity';
-import Card from '../../components/common/Card';
-import AlertMessage from '../../components/common/AlertMessage';
-import RootFolderList from '../../features/files/components/RootFolderList';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-// import TogglableCard from '../../components/common/TogglableCard';
-import { UserProfile } from '../../types';
-import UserAllFiles from '@/features/users/components/UserAllFiles';
+import { GraphQLQuery, generateClient } from '@aws-amplify/api';
+import UserList from '@/features/clients/components/UserList';
+import UserActionsCard from '@/features/clients/components/UserActionsCard';
+import Card from '@/components/common/Card';
+import AlertMessage from '@/components/common/AlertMessage';
+import RootFolderList from '@/features/files/components/RootFolderList';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { UserProfile } from '@/types';
+import UserAllFiles from '@/features/clients/components/UserAllFiles';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {
