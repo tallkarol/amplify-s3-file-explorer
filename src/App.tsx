@@ -11,7 +11,7 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 // Import Admin Pages
 import AdminHome from './pages/admin/AdminDashboard';
 import AdminClientManagement from './pages/admin/AdminClientManagement';
-import AdminFileManagement from './pages/admin/AdminFileManagement';
+import AdminFileManagement from './features/files/pages/AdminFileManagement';
 
 // Import Developer Pages
 import DeveloperDashboard from './pages/developer/DeveloperDashboard';

@@ -1,16 +1,16 @@
 // src/pages/admin/AdminFileBrowser.tsx
 import { useState, useEffect } from 'react';
-import Card from '../../components/common/Card';
-import EmptyState from '../../components/common/EmptyState';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import AlertMessage from '../../components/common/AlertMessage';
-import FileItem from '../../features/files/components/FileItem';
-import FileUpload from '../../features/files/components/FileUpload';
-import DragDropUpload from '../../components/common/DragDropUpload';
-import DragDropInfo from '../../components/common/DragDropInfo';
-import { UserProfile, S3Item, BreadcrumbItem } from '../../types';
-import { listUserFiles, getFileUrl } from '../../features/files/services/S3Service';
-import '../../styles/dragdrop.css';
+import Card from '@/components/common/Card';
+import EmptyState from '@/components/common/EmptyState';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import AlertMessage from '@/components/common/AlertMessage';
+import FileItem from '@/features/files/components/FileItem';
+import FileUpload from '@/features/files/components/FileUpload';
+import DragDropUpload from '@/components/common/DragDropUpload';
+import DragDropInfo from '@/components/common/DragDropInfo';
+import { UserProfile, S3Item, BreadcrumbItem } from '@/types';
+import { listUserFiles, getFileUrl } from '@/features/files/services/S3Service';
+import '@/styles/dragdrop.css';
 
 interface AdminFileBrowserProps {
   selectedUser: UserProfile | null;
