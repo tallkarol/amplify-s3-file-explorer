@@ -1,18 +1,11 @@
-// src/components/user/UserProfileModal.tsx
+// src/features/clients/components/UserProfileModal.tsx
 import { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import { UserProfile, AdditionalContact, GetUserProfileWithContactsResponse } from '../../../types';
+import { UserProfile, AdditionalContact } from '../../../types';
 import AlertMessage from '../../../components/common/AlertMessage';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import {
-  getUserProfileWithContacts,
-  updateUserProfileMutation,
-  createAdditionalContactMutation,
-  updateAdditionalContactMutation,
-  deleteAdditionalContactMutation
-} from '../../notifications/graphql/notifications';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -49,53 +42,237 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
   const client = generateClient();
 
   // Fetch user profile and contacts on modal open
-  useEffect(() => {
+  useEffect(() => {    
     if (isOpen) {
       fetchUserProfileWithContacts();
     }
   }, [isOpen]);
 
-  // Fetch user profile and additional contacts from API
-  const fetchUserProfileWithContacts = async () => {
-    setLoading(true);
-    setError(null);
-    
+  // Debug function to help troubleshoot profile issues
+  const debugUserProfile = async () => {
     try {
-      const profileOwner = `${user.userId}::${user.username}`;
+      console.log('Starting profile debugging...');
+      const userId = user.userId;
+      const username = user.username;
       
-      const response = await client.graphql<GraphQLQuery<GetUserProfileWithContactsResponse>>({
-        query: getUserProfileWithContacts,
-        variables: {
-          profileOwner
-        },
+      console.log('User ID:', userId);
+      console.log('Username:', username);
+      
+      // Try different profile query patterns
+      const profileOwner = `${userId}::${username}`;
+      console.log('Trying profileOwner format:', profileOwner);
+      
+      // Query 1: By profileOwner
+      const queryByOwner = /* GraphQL */ `
+        query GetUserProfileByOwner($profileOwner: String!) {
+          listUserProfiles(filter: { profileOwner: { eq: $profileOwner } }, limit: 10) {
+            items {
+              id
+              email
+              uuid
+              profileOwner
+            }
+          }
+        }
+      `;
+      
+      const ownerResponse = await client.graphql<GraphQLQuery<any>>({
+        query: queryByOwner,
+        variables: { profileOwner },
         authMode: 'userPool'
       });
       
-      const profileItems = response?.data?.listUserProfiles?.items || [];
+      console.log('Query by owner result:', ownerResponse?.data?.listUserProfiles?.items);
       
-      if (profileItems.length > 0) {
-        const userProfile = profileItems[0];
-        setProfile(userProfile);
-        setFirstName(userProfile.firstName || '');
-        setLastName(userProfile.lastName || '');
-        setCompanyName(userProfile.companyName || '');
-        setPhoneNumber(userProfile.phoneNumber || '');
-        setPreferredContactMethod(userProfile.preferredContactMethod || 'email');
-        
-        // Set additional contacts
-        const contactItems = response?.data?.listAdditionalContacts?.items || [];
-        setAdditionalContacts(contactItems);
-      } else {
-        setError('Profile not found. Please contact support.');
-      }
+      // Query 2: By UUID
+      const queryByUuid = /* GraphQL */ `
+        query GetUserProfileByUuid($uuid: String!) {
+          listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
+            items {
+              id
+              email
+              uuid
+              profileOwner
+            }
+          }
+        }
+      `;
+      
+      const uuidResponse = await client.graphql<GraphQLQuery<any>>({
+        query: queryByUuid,
+        variables: { uuid: userId },
+        authMode: 'userPool'
+      });
+      
+      console.log('Query by UUID result:', uuidResponse?.data?.listUserProfiles?.items);
+      
+      // Query 3: List all profiles (limit 10)
+      const listAllQuery = /* GraphQL */ `
+        query ListAllProfiles {
+          listUserProfiles(limit: 10) {
+            items {
+              id
+              uuid
+              profileOwner
+              email
+            }
+          }
+        }
+      `;
+      
+      const listResponse = await client.graphql<GraphQLQuery<any>>({
+        query: listAllQuery,
+        authMode: 'userPool'
+      });
+      
+      console.log('List all profiles result (limit 10):', listResponse?.data?.listUserProfiles?.items);
+      
     } catch (err) {
-      console.error('Error fetching profile:', err);
-      setError(`Failed to load profile: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setLoading(false);
+      console.error('Debug error:', err);
     }
   };
+
+
   
+// Fetch user profile and additional contacts from API
+const fetchUserProfileWithContacts = async () => {
+  setLoading(true);
+  setError(null);
+  
+  try {
+    // Use userId directly
+    const userId = user.userId;
+    
+    const queryByUuid = /* GraphQL */ `
+      query GetUserProfileByUuid($uuid: String!) {
+        listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
+          items {
+            id
+            email
+            uuid
+            profileOwner
+            firstName
+            lastName
+            companyName
+            phoneNumber
+            preferredContactMethod
+          }
+        }
+      }
+    `;
+    
+    const response = await client.graphql<GraphQLQuery<any>>({
+      query: queryByUuid,
+      variables: { uuid: userId },
+      authMode: 'userPool'
+    });
+    
+    console.log('Query response:', response);
+    
+    const items = response?.data?.listUserProfiles?.items;
+    if (items && items.length > 0) {
+      const userProfile = items[0];
+      
+      // Set the profile state with whatever we got
+      setProfile(userProfile);
+      
+      // Initialize form fields with empty strings for any missing fields
+      setFirstName('');
+      setLastName('');
+      setCompanyName('');
+      setPhoneNumber('');
+      setPreferredContactMethod('email');
+      
+      // Then override with actual values if they exist
+      if (userProfile.firstName) setFirstName(userProfile.firstName);
+      if (userProfile.lastName) setLastName(userProfile.lastName);
+      if (userProfile.companyName) setCompanyName(userProfile.companyName);
+      if (userProfile.phoneNumber) setPhoneNumber(userProfile.phoneNumber);
+      if (userProfile.preferredContactMethod) setPreferredContactMethod(userProfile.preferredContactMethod);
+      
+      // Fetch additional contacts if needed
+      if (userProfile.profileOwner) {
+        try {
+          const contactsQuery = /* GraphQL */ `
+            query GetAdditionalContacts($profileOwner: String!) {
+              listAdditionalContacts(filter: { profileOwner: { eq: $profileOwner } }) {
+                items {
+                  id
+                  name
+                  email
+                  receiveNotifications
+                  profileOwner
+                  createdAt
+                  updatedAt
+                }
+              }
+            }
+          `;
+          
+          const contactsResponse = await client.graphql<GraphQLQuery<any>>({
+            query: contactsQuery,
+            variables: {
+              profileOwner: userProfile.profileOwner
+            },
+            authMode: 'userPool'
+          });
+          
+          const contactItems = contactsResponse?.data?.listAdditionalContacts?.items || [];
+          setAdditionalContacts(contactItems);
+        } catch (err) {
+          console.error('Error fetching contacts:', err);
+          setAdditionalContacts([]);
+        }
+      }
+    } else {
+      console.error('No profile found');
+      setError('Profile not found. Please contact support.');
+    }
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    setError(`Failed to load profile: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Add this debugging function to your component
+const listAllProfiles = async () => {
+  try {
+    console.log('Listing all profiles to debug...');
+    
+    const listAllQuery = /* GraphQL */ `
+      query ListAllProfiles {
+        listUserProfiles(limit: 100) {
+          items {
+            id
+            email
+            uuid
+            profileOwner
+          }
+        }
+      }
+    `;
+    
+    const response = await client.graphql<GraphQLQuery<any>>({
+      query: listAllQuery,
+      authMode: 'userPool'
+    });
+    
+    console.log('All profiles:', response?.data?.listUserProfiles?.items);
+    console.log('Looking for UUID:', user.userId);
+    
+    // Check if any profile has this UUID
+    const matchingProfiles = response?.data?.listUserProfiles?.items.filter(
+      (profile: any) => profile.uuid === user.userId
+    );
+    
+    console.log('Matching profiles:', matchingProfiles);
+  } catch (err) {
+    console.error('Error listing profiles:', err);
+  }
+};
+
   // Save user profile changes
   const handleSaveProfile = async () => {
     if (!profile) return;
@@ -230,6 +407,67 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
     setNewContactReceiveNotifications(true);
     setShowAddContactForm(false);
   };
+
+  // Define necessary mutations
+  const updateUserProfileMutation = /* GraphQL */ `
+    mutation UpdateUserProfile(
+      $input: UpdateUserProfileInput!
+    ) {
+      updateUserProfile(input: $input) {
+        id
+        email
+        firstName
+        lastName
+        companyName
+        phoneNumber
+        preferredContactMethod
+        profileOwner
+        updatedAt
+      }
+    }
+  `;
+
+  const createAdditionalContactMutation = /* GraphQL */ `
+    mutation CreateAdditionalContact(
+      $input: CreateAdditionalContactInput!
+    ) {
+      createAdditionalContact(input: $input) {
+        id
+        name
+        email
+        receiveNotifications
+        profileOwner
+        createdAt
+        updatedAt
+      }
+    }
+  `;
+
+  const updateAdditionalContactMutation = /* GraphQL */ `
+    mutation UpdateAdditionalContact(
+      $input: UpdateAdditionalContactInput!
+    ) {
+      updateAdditionalContact(input: $input) {
+        id
+        name
+        email
+        receiveNotifications
+        profileOwner
+        updatedAt
+      }
+    }
+  `;
+
+  const deleteAdditionalContactMutation = /* GraphQL */ `
+    mutation DeleteAdditionalContact(
+      $input: DeleteAdditionalContactInput!
+    ) {
+      deleteAdditionalContact(input: $input) {
+        id
+        profileOwner
+      }
+    }
+  `;
   
   if (!isOpen) return null;
   
@@ -556,7 +794,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
                 {activeTab === 'profile' && (
                   <button 
                     type="button" 
-                    className="btn btn-primary" 
+                    className="btn btn-success" 
                     onClick={handleSaveProfile}
                     disabled={loading}
                   >
@@ -568,6 +806,14 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
                     ) : 'Save Changes'}
                   </button>
                 )}
+                
+                {/* Debug button - remove in production */}
+                <button type="button" className="btn btn-sm btn-secondary" onClick={debugUserProfile}>
+                    Debug
+                </button>
+                <button type="button" className="btn btn-sm btn-secondary" onClick={listAllProfiles}>
+                    Debug Profiles
+                </button>
               </div>
             </div>
           </div>
