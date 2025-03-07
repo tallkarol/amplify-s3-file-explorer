@@ -83,7 +83,7 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
           {/* Debug Tools */}
           <li className="nav-item mb-2">
             <Link 
-              to="/developer" 
+              to="/developer/debug" 
               className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
                 isActive('/developer/debug') 
                   ? 'active bg-info text-white' 

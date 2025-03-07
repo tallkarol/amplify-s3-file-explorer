@@ -15,6 +15,7 @@ import AdminFileManagement from './features/files/pages/AdminFileManagement';
 
 // Import Developer Pages
 import DeveloperDashboard from './pages/developer/DeveloperDashboard';
+import DebugTools from "./pages/developer/DebugTools";
 
 function App() {
   const { user } = useAuthenticator();
@@ -84,6 +85,7 @@ function App() {
                 <Route path="/" element={<DeveloperDashboard />} />
                 <Route path="/user" element={<UserDashboard />} />
                 <Route path="/admin" element={<AdminHome />} />
+                <Route path="/debug" element={<DebugTools />} />
                 <Route path="*" element={<Navigate to="/developer" replace />} />
               </Routes>
             </DeveloperLayout>

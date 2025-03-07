@@ -21,6 +21,23 @@ const schema = a.schema({
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
 
+    ErrorLog: a
+    .model({
+      userId: a.string(),
+      timestamp: a.timestamp(),
+      logId: a.string(),
+      errorType: a.string(),
+      errorMessage: a.string(),
+      stackTrace: a.string(),
+      component: a.string(),
+      deviceInfo: a.json(),
+    })
+    .authorization((allow) => [
+      allow.groups(["developer"]).to(["read", "create", "update", "delete"]),
+      allow.groups(["admin"]).to(["read", "create"]),
+      allow.owner().to(["create"]),
+    ]),
+
   UserProfile: a
     .model({
       email: a.string(),

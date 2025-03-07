@@ -6,6 +6,7 @@ import { GraphQLQuery } from '@aws-amplify/api';
 import { UserProfile, AdditionalContact } from '../../../types';
 import AlertMessage from '../../../components/common/AlertMessage';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
   const { user } = useAuthenticator();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [additionalContacts, setAdditionalContacts] = useState<AdditionalContact[]>([]);
+  const {isDeveloper} = useUserRole();
   
   // Profile form fields
   const [firstName, setFirstName] = useState('');
@@ -808,12 +810,16 @@ const listAllProfiles = async () => {
                 )}
                 
                 {/* Debug button - remove in production */}
-                <button type="button" className="btn btn-sm btn-secondary" onClick={debugUserProfile}>
-                    Debug
-                </button>
-                <button type="button" className="btn btn-sm btn-secondary" onClick={listAllProfiles}>
-                    Debug Profiles
-                </button>
+                {isDeveloper && (
+                  <>
+                    <button type="button" className="btn btn-sm btn-secondary" onClick={debugUserProfile}>
+                      Debug
+                    </button>
+                    <button type="button" className="btn btn-sm btn-secondary" onClick={listAllProfiles}>
+                      Debug Profiles
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

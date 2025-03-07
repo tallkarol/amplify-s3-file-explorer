@@ -37,9 +37,9 @@ const DeveloperDashboard = () => {
                     </Link>
                   </div>
                   <div className="col-md-3 mb-3 mb-md-0">
-                    <Link to="/developer/" className="btn btn-outline-secondary d-flex align-items-center justify-content-center flex-column py-4 h-100 w-100">
+                    <Link to="/developer/debug" className="btn btn-outline-secondary d-flex align-items-center justify-content-center flex-column py-4 h-100 w-100">
                       <i className="bi bi-bug fs-1 mb-2"></i>
-                      <span>Debug Tools (coming soon)</span>
+                      <span>Debug Tools</span>
                     </Link>
                   </div>
                 </div>
