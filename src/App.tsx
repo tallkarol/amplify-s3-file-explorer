@@ -2,20 +2,21 @@ import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import UserDashboard from './pages/user/UserDashboard';
-import Layout from './layouts/UserLayout';
-import AdminLayout from './layouts/AdminLayout';
-import DeveloperLayout from './layouts/DeveloperLayout';
-import LoadingSpinner from './components/common/LoadingSpinner';
+import UserDashboard from '@/pages/user/UserDashboard';
+import Layout from '@/layouts/UserLayout';
+import AdminLayout from '@/layouts/AdminLayout';
+import DeveloperLayout from '@/layouts/DeveloperLayout';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 
 // Import Admin Pages
-import AdminHome from './pages/admin/AdminDashboard';
-import AdminClientManagement from './pages/admin/AdminClientManagement';
-import AdminFileManagement from './features/files/pages/AdminFileManagement';
+import AdminHome from '@/pages/admin/AdminDashboard';
+import AdminClientManagement from '@/pages/admin/AdminClientManagement';
+import AdminFileManagement from '@/features/files/pages/AdminFileManagement';
 
 // Import Developer Pages
-import DeveloperDashboard from './pages/developer/DeveloperDashboard';
-import DebugTools from "./pages/developer/DebugTools";
+import DeveloperDashboard from '@/pages/developer/DeveloperDashboard';
+import DebugTools from "@/pages/developer/DebugTools";
+import ErrorBoundary from "@/components/error/ErrorBoundary";
 
 function App() {
   const { user } = useAuthenticator();
@@ -60,6 +61,7 @@ function App() {
   }
 
   return (
+    <ErrorBoundary>
       <Routes>
         {/* Admin Routes */}
         <Route path="/admin/*" element={
@@ -121,6 +123,7 @@ function App() {
           } replace />
         } />
       </Routes>
+    </ErrorBoundary>
   );
 }
 

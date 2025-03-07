@@ -1,97 +1,16 @@
 // src/pages/developer/DebugTools.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 import Card from '../../components/common/Card';
 import AlertMessage from '../../components/common/AlertMessage';
 import { useUserRole } from '../../hooks/useUserRole';
-
-// Simple interface for error logs
-interface ErrorLog {
-  id: string;
-  timestamp: string;
-  message: string;
-  stack?: string;
-  userAgent?: string;
-  component?: string;
-  userId?: string;
-}
+import ServiceHealth from '../../components/developer/ServiceHealth';
+import UserValidator from '../../components/developer/UserValidator';
 
 const DebugTools = () => {
   const { isDeveloper } = useUserRole();
-  const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
-  const [systemInfo, setSystemInfo] = useState<Record<string, any>>({});
-  const [activeTab, setActiveTab] = useState('logs');
-
-  useEffect(() => {
-    // Load error logs from localStorage on component mount
-    loadErrorLogs();
-    // Collect system information
-    collectSystemInfo();
-  }, []);
-
-  // Load saved error logs
-  const loadErrorLogs = () => {
-    try {
-      const savedLogs = localStorage.getItem('dev_error_logs');
-      if (savedLogs) {
-        setErrorLogs(JSON.parse(savedLogs));
-      }
-    } catch (error) {
-      console.error('Failed to load error logs:', error);
-    }
-  };
-
-  // Collect basic system information
-  const collectSystemInfo = () => {
-    const info = {
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      language: navigator.language,
-      cookiesEnabled: navigator.cookieEnabled,
-      screenResolution: `${window.screen.width}x${window.screen.height}`,
-      viewportSize: `${window.innerWidth}x${window.innerHeight}`,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      timestamp: new Date().toISOString(),
-    };
-    setSystemInfo(info);
-  };
-
-  // Clear all logs
-  const clearLogs = () => {
-    if (confirm('Are you sure you want to clear all error logs?')) {
-      localStorage.removeItem('dev_error_logs');
-      setErrorLogs([]);
-    }
-  };
-
-  // Generate a test error
-  const generateTestError = () => {
-    try {
-      // Deliberately cause an error
-      throw new Error('This is a test error generated from the debug tools page');
-    } catch (error) {
-      if (error instanceof Error) {
-        logError(error);
-      }
-    }
-  };
-
-  // Log an error (would normally be called from an error boundary or try/catch)
-  const logError = (error: Error, component?: string) => {
-    const newLog: ErrorLog = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      message: error.message,
-      stack: error.stack,
-      userAgent: navigator.userAgent,
-      component: component || 'DebugTools',
-      userId: 'developer' // In a real app, get from authentication
-    };
-
-    // Add to state and localStorage
-    const updatedLogs = [newLog, ...errorLogs];
-    setErrorLogs(updatedLogs);
-    localStorage.setItem('dev_error_logs', JSON.stringify(updatedLogs));
-  };
+  const { user } = useAuthenticator();
+  const [activeTab, setActiveTab] = useState('health');
 
   // If not a developer, show access denied
   if (!isDeveloper) {
@@ -105,107 +24,198 @@ const DebugTools = () => {
   }
 
   return (
-    <div>
+    <div className="debug-tools">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Developer Debug Tools</h2>
+        <div>
+          <h2 className="mb-1">Developer Debug Tools</h2>
+          <p className="text-muted mb-0">
+            Tools for testing and validating application functionality
+          </p>
+        </div>
+        <div className="badge bg-dark p-2">
+          <i className="bi bi-code-slash me-1"></i>
+          Developer Mode
+        </div>
       </div>
 
       <div className="row mb-4">
-        <div className="col-md-3">
-          <Card title="Debug Actions">
-            <div className="d-grid gap-2">
-              <button
-                className="btn btn-primary"
-                onClick={() => generateTestError()}
-              >
-                <i className="bi bi-bug me-2"></i>
-                Generate Test Error
-              </button>
-              <button
-                className="btn btn-outline-danger"
-                onClick={clearLogs}
-              >
-                <i className="bi bi-trash me-2"></i>
-                Clear Error Logs
-              </button>
+        <div className="col-md-12">
+          <div className="card border-0 shadow-sm">
+            <div className="card-header bg-dark text-white">
+              <ul className="nav nav-tabs card-header-tabs">
+                <li className="nav-item">
+                  <button
+                    className={`nav-link ${activeTab === 'health' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('health')}
+                  >
+                    <i className="bi bi-activity me-2"></i>
+                    Service Health
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    className={`nav-link ${activeTab === 'user' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('user')}
+                  >
+                    <i className="bi bi-person-check me-2"></i>
+                    User Validator
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    className={`nav-link ${activeTab === 'error' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('error')}
+                  >
+                    <i className="bi bi-bug me-2"></i>
+                    Error Generator
+                  </button>
+                </li>
+              </ul>
             </div>
-          </Card>
-        </div>
-        <div className="col-md-9">
-          <Card>
-            <ul className="nav nav-tabs">
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeTab === 'logs' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('logs')}
-                >
-                  <i className="bi bi-exclamation-triangle me-2"></i>
-                  Error Logs
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
-                  className={`nav-link ${activeTab === 'system' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('system')}
-                >
-                  <i className="bi bi-info-circle me-2"></i>
-                  System Info
-                </button>
-              </li>
-            </ul>
 
-            <div className="p-3">
-              {activeTab === 'logs' && (
-                <>
-                  <h5>Error Logs</h5>
-                  {errorLogs.length === 0 ? (
-                    <div className="alert alert-info">
-                      No error logs found. Generate a test error to see how it works.
+            <div className="card-body p-4">
+              {activeTab === 'health' && <ServiceHealth />}
+              
+              {activeTab === 'user' && <UserValidator />}
+              
+              {activeTab === 'error' && (
+                <Card title="Error Generator">
+                  <div className="alert alert-warning mb-4">
+                    <div className="d-flex">
+                      <div className="me-3">
+                        <i className="bi bi-exclamation-triangle-fill fs-3"></i>
+                      </div>
+                      <div>
+                        <h5 className="alert-heading">Test Error Generation</h5>
+                        <p className="mb-0">
+                          Use these buttons to generate different types of errors. This helps test your error 
+                          handling and logging system.
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="list-group">
-                      {errorLogs.map(log => (
-                        <div key={log.id} className="list-group-item">
-                          <div className="d-flex justify-content-between">
-                            <h6 className="mb-1">{log.message}</h6>
-                            <small>{new Date(log.timestamp).toLocaleString()}</small>
-                          </div>
-                          {log.component && (
-                            <p className="mb-1">
-                              <strong>Component:</strong> {log.component}
-                            </p>
-                          )}
-                          {log.stack && (
-                            <pre className="bg-light p-2 mt-2 rounded text-danger" style={{ fontSize: '0.8rem', overflow: 'auto' }}>
-                              {log.stack}
-                            </pre>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {activeTab === 'system' && (
-                <>
-                  <h5>System Information</h5>
-                  <div className="table-responsive">
-                    <table className="table table-bordered table-hover">
-                      <tbody>
-                        {Object.entries(systemInfo).map(([key, value]) => (
-                          <tr key={key}>
-                            <th scope="row" style={{ width: '30%' }}>{key}</th>
-                            <td>{String(value)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
-                </>
+
+                  <div className="row g-4">
+                    <div className="col-md-4">
+                      <div className="card h-100 border-danger">
+                        <div className="card-body">
+                          <h5 className="card-title">
+                            <i className="bi bi-exclamation-octagon-fill text-danger me-2"></i>
+                            Runtime Error
+                          </h5>
+                          <p className="card-text">
+                            Triggers a JavaScript runtime error with a stack trace.
+                          </p>
+                          <button 
+                            className="btn btn-outline-danger"
+                            onClick={() => {
+                              try {
+                                // Deliberately cause an error
+                                const obj = null;
+                                // @ts-ignore - This will throw an error
+                                obj.nonExistentMethod();
+                              } catch (error) {
+                                console.error("Runtime error:", error);
+                                alert("Runtime error generated. Check console.");
+                              }
+                            }}
+                          >
+                            Generate Runtime Error
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-4">
+                      <div className="card h-100 border-warning">
+                        <div className="card-body">
+                          <h5 className="card-title">
+                            <i className="bi bi-hdd-network-fill text-warning me-2"></i>
+                            API Error
+                          </h5>
+                          <p className="card-text">
+                            Simulates a failed API call with error response.
+                          </p>
+                          <button 
+                            className="btn btn-outline-warning"
+                            onClick={() => {
+                              try {
+                                // Deliberately cause an error
+                                throw new Error("API request failed: 404 Not Found");
+                              } catch (error) {
+                                console.error("API error:", error);
+                                alert("API error generated. Check console.");
+                              }
+                            }}
+                          >
+                            Generate API Error
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-4">
+                      <div className="card h-100 border-primary">
+                        <div className="card-body">
+                          <h5 className="card-title">
+                            <i className="bi bi-browser-chrome text-primary me-2"></i>
+                            UI Error
+                          </h5>
+                          <p className="card-text">
+                            Simulates a UI rendering error in a component.
+                          </p>
+                          <button 
+                            className="btn btn-outline-primary"
+                            onClick={() => {
+                              try {
+                                // Deliberately cause an error
+                                throw new Error("UI Rendering Error: Failed to render component");
+                              } catch (error) {
+                                console.error("UI error:", error);
+                                alert("UI error generated. Check console.");
+                              }
+                            }}
+                          >
+                            Generate UI Error
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               )}
             </div>
-          </Card>
+          </div>
+        </div>
+      </div>
+
+      <div className="card bg-light border-0 shadow-sm">
+        <div className="card-body">
+          <h5>Developer Environment Info</h5>
+          <div className="table-responsive">
+            <table className="table table-borderless table-sm mb-0">
+              <tbody>
+                <tr>
+                  <th scope="row" style={{ width: '200px' }}>User ID</th>
+                  <td><code>{user.userId}</code></td>
+                </tr>
+                <tr>
+                  <th scope="row">Username</th>
+                  <td><code>{user.username}</code></td>
+                </tr>
+                <tr>
+                  <th scope="row">Role</th>
+                  <td>
+                    <span className="badge bg-info">Developer</span>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">Current Time</th>
+                  <td>{new Date().toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
