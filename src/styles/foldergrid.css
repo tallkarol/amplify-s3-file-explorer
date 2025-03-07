@@ -159,3 +159,111 @@
   right: 1rem;
   z-index: 1;
 }
+
+  .folder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .folder-card {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    color: white;
+    height: 170px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  .folder-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  }
+
+  .folder-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to bottom, transparent 20%, rgba(0, 0, 0, 0.7) 100%);
+    z-index: 1;
+  }
+
+  .folder-icon {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 5rem;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+  }
+
+  .folder-card:hover .folder-icon {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+
+  .folder-content {
+    position: relative;
+    z-index: 2;
+    padding: 1.5rem;
+  }
+
+  .folder-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+
+  .folder-description {
+    opacity: 0.9;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35em 0.65em;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    line-height: 1;
+    white-space: nowrap;
+    vertical-align: middle;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
+  }
+
+  .folder-indicator {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    background-color: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+  }
+
+  @media (max-width: 576px) {
+    .folder-grid {
+      grid-template-columns: 1fr;
+    }
+  }

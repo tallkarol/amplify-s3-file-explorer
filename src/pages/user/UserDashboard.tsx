@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import FileBrowser from '@/features/files/components/FileBrowser';
 import FolderGrid from '@/features/files/components/FolderGrid';
-import UserAllFiles from '@/features/files/components/UserAllFiles'; // Added import
+import UserAllFiles from '@/features/files/components/UserAllFiles';
 import Card from '@/components/common/Card'; 
 import DragDropDemo from '@/features/files/components/DragDropDemo';
 
