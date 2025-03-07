@@ -116,7 +116,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               }`}
             >
               <i className="bi bi-people me-3 fs-5"></i>
-              {!collapsed && <span>Client Manager</span>}
+              {!collapsed && <span>Clients</span>}
             </Link>
           </li>
           
@@ -131,7 +131,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               }`}
             >
               <i className="bi bi-folder me-3 fs-5"></i>
-              {!collapsed && <span>File Manager</span>}
+              {!collapsed && <span>Files</span>}
             </Link>
           </li>
         </ul>

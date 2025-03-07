@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import { UserProfile, AdditionalContact } from '../../../types';
-import AlertMessage from '../../../components/common/AlertMessage';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { UserProfile, AdditionalContact } from '@/types';
+import AlertMessage from '@/components/common/AlertMessage';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface UserProfileModalProps {
@@ -473,360 +473,387 @@ const listAllProfiles = async () => {
   
   if (!isOpen) return null;
   
-  return (
-    <>
-      {/* Modal overlay */}
-      <div className="modal-backdrop" style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        zIndex: 1040,
-        display: 'block',
-        backdropFilter: 'blur(3px)',
-        transition: 'opacity 0.15s linear'
-      }}>
-      
-        {/* Modal */}
-        <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1050 }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content border-0 shadow">
-            
-              {/* Modern styled header */}
-              <div className="modal-header border-0 pb-0">
-                <div className="w-100 text-center position-relative">
-                  <div className="position-absolute top-0 start-0">
-                    <button 
-                      type="button" 
-                      className="btn-close" 
-                      onClick={onClose}
-                      aria-label="Close"
-                    ></button>
-                  </div>
-                  
-                  <div className="mt-3 mb-2">
-                    <div className="bg-primary bg-opacity-10 d-inline-flex p-4 rounded-circle mb-2">
-                      <i className="bi bi-person-circle text-primary" style={{ fontSize: '2rem' }}></i>
-                    </div>
-                    <h4 className="mb-0 fw-bold">Edit Profile</h4>
-                    <p className="text-muted">{profile?.email}</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Tab navigation */}
-              <div className="px-4">
-                <ul className="nav nav-tabs nav-fill border-0">
-                  <li className="nav-item">
-                    <button 
-                      className={`nav-link border-0 ${activeTab === 'profile' ? 'active text-primary' : 'text-muted'}`}
-                      onClick={() => setActiveTab('profile')}
-                    >
-                      <i className="bi bi-person me-2"></i>
-                      Profile
-                    </button>
-                  </li>
-                  <li className="nav-item">
-                    <button 
-                      className={`nav-link border-0 ${activeTab === 'contacts' ? 'active text-primary' : 'text-muted'}`}
-                      onClick={() => setActiveTab('contacts')}
-                    >
-                      <i className="bi bi-people me-2"></i>
-                      Additional Contacts
-                    </button>
-                  </li>
-                  <li className="nav-item">
-                    <button 
-                      className={`nav-link border-0 ${activeTab === 'notifications' ? 'active text-primary' : 'text-muted'}`}
-                      onClick={() => setActiveTab('notifications')}
-                    >
-                      <i className="bi bi-bell me-2"></i>
-                      Notifications
-                    </button>
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="modal-body px-4 pt-4">
-                {error && <AlertMessage type="danger" message={error} dismissible onDismiss={() => setError(null)} />}
-                {success && <AlertMessage type="success" message={success} />}
-                
-                {loading ? (
-                  <div className="text-center p-5">
-                    <LoadingSpinner text="Loading profile..." />
-                  </div>
-                ) : (
-                  /* Profile Tab Content */
-                  activeTab === 'profile' ? (
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <div className="form-floating">
-                          <input 
-                            type="text"
-                            id="firstName"
-                            className="form-control" 
-                            value={firstName}
-                            onChange={(e) => setFirstName(e.target.value)}
-                            placeholder="Enter your first name"
-                          />
-                          <label htmlFor="firstName">First Name</label>
-                        </div>
-                      </div>
-                      
-                      <div className="col-md-6">
-                        <div className="form-floating">
-                          <input 
-                            type="text"
-                            id="lastName" 
-                            className="form-control" 
-                            value={lastName}
-                            onChange={(e) => setLastName(e.target.value)}
-                            placeholder="Enter your last name"
-                          />
-                          <label htmlFor="lastName">Last Name</label>
-                        </div>
-                      </div>
-                      
-                      <div className="col-12">
-                        <div className="form-floating">
-                          <input 
-                            type="text"
-                            id="companyName" 
-                            className="form-control" 
-                            value={companyName}
-                            onChange={(e) => setCompanyName(e.target.value)}
-                            placeholder="Enter your company name"
-                          />
-                          <label htmlFor="companyName">Company Name</label>
-                        </div>
-                      </div>
-                      
-                      <div className="col-md-6">
-                        <div className="form-floating">
-                          <input 
-                            type="tel"
-                            id="phoneNumber" 
-                            className="form-control" 
-                            value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
-                            placeholder="Enter your phone number"
-                          />
-                          <label htmlFor="phoneNumber">Phone Number</label>
-                        </div>
-                      </div>
-                      
-                      <div className="col-md-6">
-                        <div className="form-floating">
-                          <select 
-                            id="preferredContactMethod" 
-                            className="form-select"
-                            value={preferredContactMethod}
-                            onChange={(e) => setPreferredContactMethod(e.target.value as 'email' | 'phone')}
-                          >
-                            <option value="email">Email</option>
-                            <option value="phone">Phone</option>
-                          </select>
-                          <label htmlFor="preferredContactMethod">Preferred Contact Method</label>
-                        </div>
-                      </div>
-                    </div>
-                  ) : 
-                  
-                  /* Additional Contacts Tab Content */
-                  activeTab === 'contacts' ? (
-                    <div>
-                      {/* Contacts List */}
-                      {additionalContacts.length > 0 ? (
-                        <div className="mb-4">
-                          <div className="list-group">
-                            {additionalContacts.map(contact => (
-                              <div key={contact.id} className="list-group-item border-0 bg-light rounded mb-2 p-3">
-                                <div className="d-flex justify-content-between align-items-center">
-                                  <div>
-                                    <h6 className="mb-0">{contact.name}</h6>
-                                    <p className="text-muted mb-0 small">{contact.email}</p>
-                                  </div>
-                                  <div className="d-flex align-items-center">
-                                    <div className="form-check form-switch me-3">
-                                      <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id={`notification-toggle-${contact.id}`}
-                                        checked={contact.receiveNotifications}
-                                        onChange={() => handleToggleNotifications(contact)}
-                                      />
-                                      <label className="form-check-label small" htmlFor={`notification-toggle-${contact.id}`}>
-                                        Notifications
-                                      </label>
-                                    </div>
-                                    <button
-                                      className="btn btn-sm btn-outline-danger"
-                                      onClick={() => handleDeleteContact(contact.id)}
-                                      disabled={deletingContactId === contact.id}
-                                    >
-                                      {deletingContactId === contact.id ? (
-                                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                      ) : (
-                                        <i className="bi bi-trash"></i>
-                                      )}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="alert alert-light text-center mb-4">
-                          <i className="bi bi-people fs-4 d-block mb-2 text-muted"></i>
-                          <p className="mb-0">No additional contacts added yet.</p>
-                        </div>
-                      )}
-                      
-                      {/* Add New Contact Form */}
-                      {showAddContactForm ? (
-                        <div className="card border-0 shadow-sm mb-3">
-                          <div className="card-body p-3">
-                            <h6 className="card-title">Add New Contact</h6>
-                            <div className="row g-2 mb-3">
-                              <div className="col-md-5">
-                                <input
-                                  type="text"
-                                  className="form-control"
-                                  placeholder="Name"
-                                  value={newContactName}
-                                  onChange={(e) => setNewContactName(e.target.value)}
-                                />
-                              </div>
-                              <div className="col-md-5">
-                                <input
-                                  type="email"
-                                  className="form-control"
-                                  placeholder="Email"
-                                  value={newContactEmail}
-                                  onChange={(e) => setNewContactEmail(e.target.value)}
-                                />
-                              </div>
-                              <div className="col-md-2">
-                                <div className="form-check form-switch pt-2">
-                                  <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    id="newContactNotifications"
-                                    checked={newContactReceiveNotifications}
-                                    onChange={(e) => setNewContactReceiveNotifications(e.target.checked)}
-                                  />
-                                  <label className="form-check-label small" htmlFor="newContactNotifications">
-                                    Notify
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="d-flex justify-content-end">
-                              <button
-                                className="btn btn-outline-secondary btn-sm me-2"
-                                onClick={resetContactForm}
-                                disabled={savingContact}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                className="btn btn-primary btn-sm"
-                                onClick={handleAddContact}
-                                disabled={!newContactName || !newContactEmail || savingContact}
-                              >
-                                {savingContact ? (
-                                  <>
-                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                    Saving...
-                                  </>
-                                ) : 'Add Contact'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          className="btn btn-primary w-100"
-                          onClick={() => setShowAddContactForm(true)}
-                        >
-                          <i className="bi bi-plus-circle me-2"></i>
-                          Add New Contact
-                        </button>
-                      )}
-                      
-                      <div className="alert alert-info mt-4 mb-0">
-                        <div className="d-flex">
-                          <div className="me-3">
-                            <i className="bi bi-info-circle-fill fs-5"></i>
-                          </div>
-                          <div>
-                            <strong>Additional Contacts</strong> are people who may be included in notifications about your account. Toggle their notification status to control whether they receive emails.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : 
-                  
-                  /* Notifications Tab - Placeholder for future implementation */
-                  activeTab === 'notifications' ? (
-                    <div>
-                      <div className="alert alert-light border text-center py-5">
-                        <i className="bi bi-bell fs-1 d-block mb-3 text-muted"></i>
-                        <h5>Notification Settings Coming Soon</h5>
-                        <p className="text-muted mb-0">This feature will allow you to manage your notification preferences.</p>
-                      </div>
-                    </div>
-                  ) : null
-                )}
-              </div>
-              
-              <div className="modal-footer border-0 pt-2">
-                <button 
-                  type="button" 
-                  className="btn btn-outline-secondary" 
-                  onClick={onClose}
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-                
-                {activeTab === 'profile' && (
+  // src/features/clients/components/UserProfileModal.tsx
+// Only showing key styling changes, other code remains the same
+
+return (
+  <>
+    {/* Modal overlay with improved blur effect */}
+    <div className="modal-backdrop" style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      zIndex: 1040,
+      display: 'block',
+      backdropFilter: 'blur(4px)',
+      transition: 'opacity 0.2s ease'
+    }}>
+    
+      {/* Modal with improved shadows and rounded corners */}
+      <div className="modal d-block" tabIndex={-1} style={{ zIndex: 1050 }}>
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-content border-0 shadow-lg rounded-4">
+          
+            {/* Enhanced modal header */}
+            <div className="modal-header border-0 pb-0">
+              <div className="w-100 text-center position-relative">
+                <div className="position-absolute top-0 start-0">
                   <button 
                     type="button" 
-                    className="btn btn-success" 
-                    onClick={handleSaveProfile}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        Saving...
-                      </>
-                    ) : 'Save Changes'}
-                  </button>
-                )}
+                    className="btn-close" 
+                    onClick={onClose}
+                    aria-label="Close"
+                  ></button>
+                </div>
                 
-                {/* Debug button - remove in production */}
-                {isDeveloper && (
-                  <>
-                    <button type="button" className="btn btn-sm btn-secondary" onClick={debugUserProfile}>
-                      Debug
-                    </button>
-                    <button type="button" className="btn btn-sm btn-secondary" onClick={listAllProfiles}>
-                      Debug Profiles
-                    </button>
-                  </>
-                )}
+                {/* Updated avatar styling to match document cards */}
+                <div className="my-3">
+                  <div className="bg-primary-subtle rounded-circle d-inline-flex p-4 mb-3">
+                    <i className="bi bi-person-circle text-primary" style={{ fontSize: '2.25rem' }}></i>
+                  </div>
+                  <h4 className="mb-1 fw-bold">Edit Profile</h4>
+                  <p className="text-muted mb-0">{profile?.email}</p>
+                </div>
               </div>
+            </div>
+            
+            {/* Enhanced tab navigation */}
+            <div className="px-4">
+              <ul className="nav nav-tabs nav-fill border-0 gap-1">
+                <li className="nav-item">
+                  <button 
+                    className={`nav-link border-0 rounded-3 ${activeTab === 'profile' ? 'active bg-primary-subtle text-primary' : 'text-muted'}`}
+                    onClick={() => setActiveTab('profile')}
+                  >
+                    <i className="bi bi-person me-2"></i>
+                    Profile
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button 
+                    className={`nav-link border-0 rounded-3 ${activeTab === 'contacts' ? 'active bg-primary-subtle text-primary' : 'text-muted'}`}
+                    onClick={() => setActiveTab('contacts')}
+                  >
+                    <i className="bi bi-people me-2"></i>
+                    Additional Contacts
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button 
+                    className={`nav-link border-0 rounded-3 ${activeTab === 'notifications' ? 'active bg-primary-subtle text-primary' : 'text-muted'}`}
+                    onClick={() => setActiveTab('notifications')}
+                  >
+                    <i className="bi bi-bell me-2"></i>
+                    Notifications
+                  </button>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="modal-body px-4 pt-4">
+              {error && <AlertMessage type="danger" message={error} dismissible onDismiss={() => setError(null)} />}
+              {success && <AlertMessage type="success" message={success} />}
+              
+              {loading ? (
+                <div className="text-center p-5">
+                  <LoadingSpinner text="Loading profile..." />
+                </div>
+              ) : (
+                /* Profile Tab Content - with enhanced form styling */
+                activeTab === 'profile' ? (
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <div className="form-floating">
+                        <input 
+                          type="text"
+                          id="firstName"
+                          className="form-control rounded-3 border-light-subtle" 
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="Enter your first name"
+                        />
+                        <label htmlFor="firstName">First Name</label>
+                      </div>
+                    </div>
+                    
+                    <div className="col-md-6">
+                      <div className="form-floating">
+                        <input 
+                          type="text"
+                          id="lastName" 
+                          className="form-control rounded-3 border-light-subtle" 
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Enter your last name"
+                        />
+                        <label htmlFor="lastName">Last Name</label>
+                      </div>
+                    </div>
+                    
+                    <div className="col-12">
+                      <div className="form-floating">
+                        <input 
+                          type="text"
+                          id="companyName" 
+                          className="form-control rounded-3 border-light-subtle" 
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          placeholder="Enter your company name"
+                        />
+                        <label htmlFor="companyName">Company Name</label>
+                      </div>
+                    </div>
+                    
+                    <div className="col-md-6">
+                      <div className="form-floating">
+                        <input 
+                          type="tel"
+                          id="phoneNumber" 
+                          className="form-control rounded-3 border-light-subtle" 
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          placeholder="Enter your phone number"
+                        />
+                        <label htmlFor="phoneNumber">Phone Number</label>
+                      </div>
+                    </div>
+                    
+                    <div className="col-md-6">
+                      <div className="form-floating">
+                        <select 
+                          id="preferredContactMethod" 
+                          className="form-select rounded-3 border-light-subtle"
+                          value={preferredContactMethod}
+                          onChange={(e) => setPreferredContactMethod(e.target.value as 'email' | 'phone')}
+                        >
+                          <option value="email">Email</option>
+                          <option value="phone">Phone</option>
+                        </select>
+                        <label htmlFor="preferredContactMethod">Preferred Contact Method</label>
+                      </div>
+                    </div>
+                  </div>
+                ) : 
+                
+                /* Additional Contacts Tab Content - with document card styling */
+                activeTab === 'contacts' ? (
+                  <div>
+                    {/* Contacts List - styled as document cards */}
+                    {additionalContacts.length > 0 ? (
+                      <div className="file-document-list mb-4">
+                        {additionalContacts.map(contact => (
+                          <div key={contact.id} className="file-document-item">
+                            <div className={`file-document-icon bg-info-subtle text-info`}>
+                              <i className="bi bi-person"></i>
+                            </div>
+                            
+                            <div className="file-document-content">
+                              <div className="file-document-title">
+                                {contact.name}
+                                {contact.receiveNotifications && (
+                                  <span className="badge bg-success-subtle text-success ms-2 fs-8">Notifications On</span>
+                                )}
+                              </div>
+                              
+                              <div className="file-document-description">
+                                <span>
+                                  <i className="bi bi-envelope me-1 opacity-50"></i>
+                                  {contact.email}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="file-document-actions">
+                              <div className="form-check form-switch me-3">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`notification-toggle-${contact.id}`}
+                                  checked={contact.receiveNotifications}
+                                  onChange={() => handleToggleNotifications(contact)}
+                                />
+                                <label className="form-check-label small" htmlFor={`notification-toggle-${contact.id}`}>
+                                  Notifications
+                                </label>
+                              </div>
+                              <button
+                                className="btn btn-sm btn-outline-danger file-action-btn"
+                                onClick={() => handleDeleteContact(contact.id)}
+                                disabled={deletingContactId === contact.id}
+                              >
+                                {deletingContactId === contact.id ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                  <i className="bi bi-trash"></i>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="alert alert-light text-center mb-4 rounded-4 shadow-sm">
+                        <i className="bi bi-people fs-4 d-block mb-2 text-muted"></i>
+                        <p className="mb-0">No additional contacts added yet.</p>
+                      </div>
+                    )}
+                    
+                    {/* Add New Contact Form - using document card styling */}
+                    {showAddContactForm ? (
+                      <div className="file-document-item">
+                        <div className="file-document-icon bg-primary-subtle text-primary">
+                          <i className="bi bi-person-plus"></i>
+                        </div>
+                        
+                        <div className="file-document-content">
+                          <div className="file-document-title mb-2">
+                            Add New Contact
+                          </div>
+                          
+                          <div className="row g-2">
+                            <div className="col-md-5">
+                              <input
+                                type="text"
+                                className="form-control rounded-3 border-light-subtle"
+                                placeholder="Name"
+                                value={newContactName}
+                                onChange={(e) => setNewContactName(e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-5">
+                              <input
+                                type="email"
+                                className="form-control rounded-3 border-light-subtle"
+                                placeholder="Email"
+                                value={newContactEmail}
+                                onChange={(e) => setNewContactEmail(e.target.value)}
+                              />
+                            </div>
+                            <div className="col-md-2">
+                              <div className="form-check form-switch pt-2">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id="newContactNotifications"
+                                  checked={newContactReceiveNotifications}
+                                  onChange={(e) => setNewContactReceiveNotifications(e.target.checked)}
+                                />
+                                <label className="form-check-label small" htmlFor="newContactNotifications">
+                                  Notify
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="file-document-actions">
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={resetContactForm}
+                            disabled={savingContact}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="btn btn-sm btn-primary ms-2"
+                            onClick={handleAddContact}
+                            disabled={!newContactName || !newContactEmail || savingContact}
+                          >
+                            {savingContact ? (
+                              <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                Saving...
+                              </>
+                            ) : 'Add Contact'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn btn-primary rounded-3 w-100"
+                        onClick={() => setShowAddContactForm(true)}
+                      >
+                        <i className="bi bi-plus-circle me-2"></i>
+                        Add New Contact
+                      </button>
+                    )}
+                    
+                    <div className="alert alert-info rounded-4 mt-4 mb-0">
+                      <div className="d-flex">
+                        <div className="me-3">
+                          <i className="bi bi-info-circle-fill fs-5"></i>
+                        </div>
+                        <div>
+                          <strong>Additional Contacts</strong> are people who may be included in notifications about your account. Toggle their notification status to control whether they receive emails.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : 
+                
+                /* Notifications Tab - with document-style card */
+                activeTab === 'notifications' ? (
+                  <div className="file-document-item py-5">
+                    <div className="text-center w-100">
+                      <div className="bg-warning-subtle text-warning rounded-circle d-inline-flex p-4 mb-3">
+                        <i className="bi bi-bell fs-1"></i>
+                      </div>
+                      <h5>Notification Settings Coming Soon</h5>
+                      <p className="text-muted mb-0">This feature will allow you to manage your notification preferences.</p>
+                    </div>
+                  </div>
+                ) : null
+              )}
+            </div>
+            
+            <div className="modal-footer border-0 pt-2 pb-4">
+              <button 
+                type="button" 
+                className="btn btn-outline-secondary rounded-3" 
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              
+              {activeTab === 'profile' && (
+                <button 
+                  type="button" 
+                  className="btn btn-success rounded-3" 
+                  onClick={handleSaveProfile}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Saving...
+                    </>
+                  ) : 'Save Changes'}
+                </button>
+              )}
+              
+              {/* Debug buttons with improved styling */}
+              {isDeveloper && (
+                <div className="ms-auto me-3">
+                  <div className="btn-group btn-group-sm">
+                    <button type="button" className="btn btn-outline-secondary" onClick={debugUserProfile}>
+                      <i className="bi bi-bug me-1"></i> Debug
+                    </button>
+                    <button type="button" className="btn btn-outline-secondary" onClick={listAllProfiles}>
+                      <i className="bi bi-list-ul me-1"></i> List Profiles
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-    </>
-  );
-};
+    </div>
+  </>
+)};
 
 export default UserProfileModal;

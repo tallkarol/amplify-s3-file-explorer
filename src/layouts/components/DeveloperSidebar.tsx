@@ -1,4 +1,5 @@
 // src/layouts/components/DeveloperSidebar.tsx
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 
@@ -11,7 +12,18 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
   const location = useLocation();
   const { signOut } = useAuthenticator();
   
+  // Track dropdown open states
+  const [workflowsOpen, setWorkflowsOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [clientsOpen, setClientsOpen] = useState(false);
+  
+  // Helper function to check if a path is active
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path);
+  
+  // Helper function to check if a dropdown should be open based on current path
+  const isDropdownActive = (paths: string[]) => {
+    return paths.some(path => isActive(path));
+  };
 
   return (
     <div className={`sidebar bg-dark ${collapsed ? 'collapsed' : ''}`}>
@@ -47,6 +59,148 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
               {!collapsed && <span>Developer Dashboard</span>}
             </Link>
           </li>
+          
+          {/* WORKFLOWS DROPDOWN */}
+          <li className="nav-item mb-2">
+            <button
+              className={`nav-link px-3 py-2 d-flex align-items-center rounded w-100 border-0 ${
+                isDropdownActive(['/user/workflows', '/admin/workflows']) 
+                  ? 'active bg-info text-white' 
+                  : 'text-light hover-highlight'
+              }`}
+              onClick={() => setWorkflowsOpen(!workflowsOpen)}
+              aria-expanded={workflowsOpen}
+            >
+              <i className="bi bi-diagram-3 me-3 fs-5"></i>
+              {!collapsed && (
+                <>
+                  <span className="flex-grow-1 text-start">Workflows</span>
+                  <i className={`bi bi-chevron-${workflowsOpen ? 'down' : 'right'} ms-2`}></i>
+                </>
+              )}
+            </button>
+            
+            {/* Dropdown content - always visible if sidebar is collapsed */}
+            <div className={`ms-4 mt-2 ${(workflowsOpen || collapsed) ? 'd-block' : 'd-none'}`}>
+              <ul className="nav flex-column">
+                <li className="nav-item">
+                  <Link 
+                    to="/user/workflows" 
+                    className={`nav-link px-3 py-2 d-flex align-items-center rounded mb-1 ${
+                      isActive('/user/workflows') ? 'active bg-info text-white' : 'text-light hover-highlight'
+                    }`}
+                    title={collapsed ? "User Workflow Dashboard" : ""}
+                  >
+                    <i className="bi bi-person-lines-fill me-3 fs-5"></i>
+                    {!collapsed && <span>User Workflow Dashboard</span>}
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link 
+                    to="/admin/workflows" 
+                    className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+                      isActive('/admin/workflows') ? 'active bg-info text-white' : 'text-light hover-highlight'
+                    }`}
+                    title={collapsed ? "Admin Workflow Dashboard" : ""}
+                  >
+                    <i className="bi bi-gear-wide-connected me-3 fs-5"></i>
+                    {!collapsed && <span>Admin Workflow Dashboard</span>}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </li>
+
+          {/* FILES DROPDOWN */}
+          <li className="nav-item mb-2">
+            <button
+              className={`nav-link px-3 py-2 d-flex align-items-center rounded w-100 border-0 ${
+                isDropdownActive(['/user/files', '/admin/files']) 
+                  ? 'active bg-info text-white' 
+                  : 'text-light hover-highlight'
+              }`}
+              onClick={() => setFilesOpen(!filesOpen)}
+              aria-expanded={filesOpen}
+            >
+              <i className="bi bi-folder me-3 fs-5"></i>
+              {!collapsed && (
+                <>
+                  <span className="flex-grow-1 text-start">Files</span>
+                  <i className={`bi bi-chevron-${filesOpen ? 'down' : 'right'} ms-2`}></i>
+                </>
+              )}
+            </button>
+            
+            {/* Dropdown content */}
+            <div className={`ms-4 mt-2 ${(filesOpen || collapsed) ? 'd-block' : 'd-none'}`}>
+              <ul className="nav flex-column">
+                <li className="nav-item">
+                  <Link 
+                    to="/user/files" 
+                    className={`nav-link px-3 py-2 d-flex align-items-center rounded mb-1 ${
+                      isActive('/user/files') ? 'active bg-info text-white' : 'text-light hover-highlight'
+                    }`}
+                    title={collapsed ? "User Files Dashboard" : ""}
+                  >
+                    <i className="bi bi-file-earmark-person me-3 fs-5"></i>
+                    {!collapsed && <span>User Files Dashboard</span>}
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link 
+                    to="/admin/files" 
+                    className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+                      isActive('/admin/files') ? 'active bg-info text-white' : 'text-light hover-highlight'
+                    }`}
+                    title={collapsed ? "Admin Files Dashboard" : ""}
+                  >
+                    <i className="bi bi-file-earmark-lock me-3 fs-5"></i>
+                    {!collapsed && <span>Admin Files Dashboard</span>}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </li>
+          
+          {/* CLIENTS DROPDOWN */}
+          <li className="nav-item mb-2">
+            <button
+              className={`nav-link px-3 py-2 d-flex align-items-center rounded w-100 border-0 ${
+                isDropdownActive(['/admin/clients']) 
+                  ? 'active bg-info text-white' 
+                  : 'text-light hover-highlight'
+              }`}
+              onClick={() => setClientsOpen(!clientsOpen)}
+              aria-expanded={clientsOpen}
+            >
+              <i className="bi bi-people me-3 fs-5"></i>
+              {!collapsed && (
+                <>
+                  <span className="flex-grow-1 text-start">Clients</span>
+                  <i className={`bi bi-chevron-${clientsOpen ? 'down' : 'right'} ms-2`}></i>
+                </>
+              )}
+            </button>
+            
+            {/* Dropdown content */}
+            <div className={`ms-4 mt-2 ${(clientsOpen || collapsed) ? 'd-block' : 'd-none'}`}>
+              <ul className="nav flex-column">
+                <li className="nav-item">
+                  <Link 
+                    to="/admin/clients" 
+                    className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+                      isActive('/admin/clients') ? 'active bg-info text-white' : 'text-light hover-highlight'
+                    }`}
+                    title={collapsed ? "Admin Clients Dashboard" : ""}
+                  >
+                    <i className="bi bi-people-fill me-3 fs-5"></i>
+                    {!collapsed && <span>Admin Clients Dashboard</span>}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </li>
+          
           {/* User Dashboard */}
           <li className="nav-item mb-2">
             <Link 
@@ -61,6 +215,7 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
               {!collapsed && <span>User Dashboard</span>}
             </Link>
           </li>
+          
           {/* Admin Dashboard */}
           <li className="nav-item mb-2">
             <Link 
@@ -75,10 +230,9 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
               {!collapsed && <span>Admin Dashboard</span>}
             </Link>
           </li>
-          
 
-      {/* Divider */}
-      <div className="border-top border-secondary my-2"></div>
+          {/* Divider */}
+          <div className="border-top border-secondary my-2"></div>
 
           {/* Debug Tools */}
           <li className="nav-item mb-2">
@@ -94,11 +248,8 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
               {!collapsed && <span>Debug Tools</span>}
             </Link>
           </li>
-          
         </ul>
       </div>
-      
-      
       
       {/* Sidebar footer with sign out button */}
       <div className="sidebar-footer mt-auto p-3 border-top border-secondary">

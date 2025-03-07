@@ -1,14 +1,15 @@
-// src/components/admin/file/UserAllFilesComponent.tsx
+// src/features/files/components/UserAllFiles.tsx
 import React, { useState, useEffect } from 'react';
-import { S3Item } from '../../../types';
-import { listUserFiles, getFileUrl } from '../../../features/files/services/S3Service';
-import Card from '../../../components/common/Card';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import EmptyState from '../../../components/common/EmptyState';
-import AlertMessage from '../../../components/common/AlertMessage';
-import SearchInput from '../../../components/common/SearchInput';
-import Table from '../../../components/common/Table';
-import Pagination from '../../../components/common/Pagination';
+import { S3Item } from '@/types';
+import { listUserFiles, getFileUrl } from '@/features/files/services/S3Service';
+import Card from '@/components/common/Card';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import EmptyState from '@/components/common/EmptyState';
+import AlertMessage from '@/components/common/AlertMessage';
+import SearchInput from '@/components/common/SearchInput';
+import Table from '@/components/common/Table';
+import Pagination from '@/components/common/Pagination';
+import '@/features/files/styles/filebrowser.css'; // Import the shared CSS
 
 interface UserAllFilesProps {
   userId: string;
@@ -18,7 +19,6 @@ interface UserAllFilesProps {
 
 const UserAllFiles: React.FC<UserAllFilesProps> = ({ 
   userId, 
-  userName,
   onRefreshRequest 
 }) => {
   const [loading, setLoading] = useState(true);
@@ -28,8 +28,9 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<'name' | 'lastModified' | 'size'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
-  const itemsPerPage = 10;
+  const itemsPerPage = viewMode === 'list' ? 10 : 12;
 
   useEffect(() => {
     if (userId) {
@@ -37,7 +38,13 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     }
   }, [userId]);
 
+  // Reset to page 1 when changing view mode
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [viewMode]);
+
   const fetchAllUserFiles = async () => {
+    // Existing code remains the same
     setLoading(true);
     setError(null);
     
@@ -69,8 +76,9 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     }
   };
 
-  // Recursively fetch folder contents
+  // Existing helper functions remain the same
   const fetchFolderContentsRecursively = async (folderPath: string): Promise<S3Item[]> => {
+    // Keeping existing implementation
     try {
       const items = await listUserFiles(userId, folderPath);
       
@@ -96,7 +104,6 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     }
   };
 
-  // Download a file
   const handleDownload = async (file: S3Item) => {
     try {
       const url = await getFileUrl(file.key);
@@ -107,7 +114,6 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     }
   };
 
-  // Format file size
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'Unknown size';
     
@@ -121,6 +127,25 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     }
     
     return `${size.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  // Format date with better readability
+  const formatDate = (date?: Date) => {
+    if (!date) return 'Unknown';
+    
+    // If today, show time only
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    
+    // If this year, show month and day
+    if (date.getFullYear() === today.getFullYear()) {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+    
+    // Otherwise show full date
+    return date.toLocaleDateString();
   };
 
   // Get file extension
@@ -164,6 +189,41 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     }
   };
 
+  // Get color based on file type for the document card
+  const getFileColor = (filename: string) => {
+    const extension = getFileExtension(filename);
+    
+    switch (extension) {
+      case 'pdf':
+        return 'danger';
+      case 'doc':
+      case 'docx':
+        return 'primary';
+      case 'xls':
+      case 'xlsx':
+        return 'success';
+      case 'ppt':
+      case 'pptx':
+        return 'warning';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'svg':
+        return 'info';
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return 'secondary';
+      case 'txt':
+        return 'dark';
+      case 'csv':
+        return 'success';
+      default:
+        return 'secondary';
+    }
+  };
+
   // Extract folder path from file key
   const getFolderPathFromKey = (key: string): string => {
     // Remove user ID prefix first
@@ -196,6 +256,26 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     
     return folderDisplayNames[folderName] || 
       (folderName === 'Root' ? 'Root' : folderName.charAt(0).toUpperCase() + folderName.slice(1).replace(/-/g, ' '));
+  };
+
+  // Get folder color based on folder name
+  const getFolderColor = (path: string): string => {
+    const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
+    const parts = cleanPath.split('/').filter(Boolean);
+    const folderName = parts.length > 0 ? parts[parts.length - 1] : 'root';
+    
+    switch (folderName) {
+      case 'certificate':
+        return 'primary';
+      case 'audit-report':
+        return 'success';
+      case 'auditor-resume':
+        return 'info';
+      case 'statistics':
+        return 'warning';
+      default:
+        return 'secondary';
+    }
   };
 
   // Handle sort toggle
@@ -239,14 +319,14 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
     currentPage * itemsPerPage
   );
 
-  // Table columns
+  // Table columns for list view
   const columns = [
     {
       key: 'icon',
       header: '',
       width: '50px',
       render: (file: S3Item) => (
-        <i className={`bi bi-${getFileIcon(file.name)} text-primary fs-5`}></i>
+        <i className={`bi bi-${getFileIcon(file.name)} text-${getFileColor(file.name)} fs-5`}></i>
       )
     },
     {
@@ -264,9 +344,10 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
       ),
       render: (file: S3Item) => (
         <div>
-          <div>{file.name}</div>
-          <small className="text-muted">
-            Folder: {getFolderDisplayName(getFolderPathFromKey(file.key))}
+          <div className="fw-medium">{file.name}</div>
+          <small className="text-muted d-flex align-items-center">
+            <i className="bi bi-folder me-1"></i>
+            {getFolderDisplayName(getFolderPathFromKey(file.key))}
           </small>
         </div>
       )
@@ -302,7 +383,7 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
       ),
       width: '170px',
       render: (file: S3Item) => 
-        file.lastModified ? file.lastModified.toLocaleString() : 'Unknown'
+        file.lastModified ? formatDate(file.lastModified) : 'Unknown'
     },
     {
       key: 'actions',
@@ -321,7 +402,7 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
   ];
 
   return (
-    <Card title={`All Files for ${userName}`}>
+    <Card title={`Your Files`}>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="d-flex gap-2 align-items-center">
           <SearchInput
@@ -331,10 +412,30 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
             className="w-auto"
           />
           <div className="badge bg-primary">
-            {files.length} {files.length === 1 ? 'file' : 'files'}
+            {filteredFiles.length} {filteredFiles.length === 1 ? 'file' : 'files'}
           </div>
         </div>
-        <div>
+
+        <div className="d-flex gap-2">
+          {/* View toggle buttons */}
+          <div className="btn-group btn-group-sm">
+            <button
+              className={`btn btn-${viewMode === 'list' ? 'primary' : 'outline-primary'}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <i className="bi bi-list"></i>
+            </button>
+            <button
+              className={`btn btn-${viewMode === 'grid' ? 'primary' : 'outline-primary'}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+            >
+              <i className="bi bi-grid"></i>
+            </button>
+          </div>
+          
+          {/* Refresh button */}
           <button 
             className="btn btn-outline-primary"
             onClick={() => {
@@ -363,48 +464,102 @@ const UserAllFiles: React.FC<UserAllFilesProps> = ({
           title="No Files Found"
           message="This user doesn't have any files uploaded yet."
         />
-      ) : (
+      ) : filteredFiles.length === 0 ? (
+        <EmptyState
+          icon="search"
+          title="No matches found"
+          message={`No files match the search term "${searchTerm}".`}
+          action={
+            <button 
+              className="btn btn-outline-primary"
+              onClick={() => setSearchTerm('')}
+            >
+              Clear Search
+            </button>
+          }
+        />
+      ) : viewMode === 'list' ? (
+        // List view (table)
         <>
           <Table
             columns={columns}
             data={paginatedFiles}
             keyExtractor={(file) => file.key}
             emptyState={
-              searchTerm ? (
-                <EmptyState
-                  icon="search"
-                  title="No matches found"
-                  message={`No files match the search term "${searchTerm}".`}
-                  action={
-                    <button 
-                      className="btn btn-outline-primary"
-                      onClick={() => setSearchTerm('')}
-                    >
-                      Clear Search
-                    </button>
-                  }
-                />
-              ) : (
-                <EmptyState
-                  icon="folder"
-                  title="No Files Found"
-                  message="This user doesn't have any files uploaded yet."
-                />
-              )
+              <EmptyState
+                icon="folder"
+                title="No Files Found"
+                message="This user doesn't have any files uploaded yet."
+              />
             }
           />
-
-          {totalPages > 1 && (
-            <div className="mt-3">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                maxVisiblePages={5}
-              />
-            </div>
-          )}
         </>
+      ) : (
+        // Grid view with document cards
+        <div className="row g-3">
+          {paginatedFiles.map((file) => (
+            <div key={file.key} className="col-sm-6 col-md-4 col-lg-3">
+              <div className="file-document-card">
+                <div className="file-document-card-icon">
+                  <div className={`file-icon-wrapper bg-${getFileColor(file.name)}-subtle text-${getFileColor(file.name)}`}>
+                    <i className={`bi bi-${getFileIcon(file.name)} fs-2`}></i>
+                  </div>
+                </div>
+                
+                <div className="file-document-card-content">
+                  <h6 className="file-document-card-title text-truncate" title={file.name}>
+                    {file.name}
+                  </h6>
+                  
+                  <div className="file-document-card-folder mb-2">
+                    <span className={`badge bg-${getFolderColor(getFolderPathFromKey(file.key))}-subtle text-${getFolderColor(getFolderPathFromKey(file.key))}`}>
+                      <i className="bi bi-folder me-1"></i>
+                      {getFolderDisplayName(getFolderPathFromKey(file.key))}
+                    </span>
+                  </div>
+                  
+                  <div className="file-document-card-details">
+                    {file.size !== undefined && (
+                      <span className="file-document-card-size">
+                        <i className="bi bi-hdd me-1 opacity-75 small"></i>
+                        {formatFileSize(file.size)}
+                      </span>
+                    )}
+                    
+                    {file.lastModified && (
+                      <span className="file-document-card-date">
+                        <i className="bi bi-clock me-1 opacity-75 small"></i>
+                        {formatDate(file.lastModified)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="file-document-card-floating-actions">
+                  <button
+                    className="btn btn-sm btn-light shadow-sm"
+                    onClick={() => handleDownload(file)}
+                    title="Download file"
+                  >
+                    <i className="bi bi-download"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-3">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            maxVisiblePages={5}
+          />
+        </div>
       )}
     </Card>
   );

@@ -1,9 +1,9 @@
 // src/features/clients/components/ClientFolderAccess.tsx
 
 import React from 'react';
-import Card from '../../../components/common/Card';
-import RootFolderList from '../../../features/files/components/RootFolderList';
-import { UserProfile } from '../../../types';
+import Card from '@/components/common/Card';
+import RootFolderList from '@/features/files/components/RootFolderList';
+import { UserProfile } from '@/types';
 
 interface ClientFolderAccessProps {
   client: UserProfile;

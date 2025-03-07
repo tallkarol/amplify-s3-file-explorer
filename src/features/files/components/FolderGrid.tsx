@@ -1,9 +1,9 @@
-// src/components/files/FolderGrid.tsx
+// src/features/files/components/FolderGrid.tsx
 import React, { useState, useEffect } from 'react';
 import { listUserFiles } from '../services/S3Service';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import AlertMessage from '../../../components/common/AlertMessage';
-import '../../../styles/foldergrid.css'
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import AlertMessage from '@/components/common/AlertMessage';
+import '../styles/filebrowser.css';
 
 interface FolderInfo {
   id: string;       // Folder path
@@ -138,60 +138,69 @@ const FolderGrid: React.FC<FolderGridProps> = ({
     return <p className="text-muted">No folders found</p>;
   }
   
-  // Compact view for navigation bar
+  // Compact view for navigation bar - using Bootstrap nav classes
   if (compact) {
     return (
-      <div className={`folder-nav ${className}`}>
+      <div className={`nav nav-pills flex-row mb-3 ${className}`}>
         {/* Root button */}
-        <button
-          className="navigation-button root-button"
-          onClick={handleRootClick}
-          title="Back to Root"
-        >
-          <i className="bi bi-house-door-fill"></i>
-        </button>
+        <div className="nav-item">
+          <button
+            className={`nav-link ${currentPath === '/' ? 'active' : ''}`}
+            onClick={handleRootClick}
+            title="Back to Root"
+          >
+            <i className="bi bi-house-door me-1"></i>
+            Home
+          </button>
+        </div>
         
         {/* Folder buttons */}
         {folders.map(folder => (
-          <button
-            key={folder.id}
-            className={`navigation-button ${isFolderActive(folder.id) ? `active-button bg-${folder.color}` : ''}`}
-            onClick={() => handleFolderClick(folder.id)}
-            title={folder.name}
-          >
-            <i className={`bi bi-${folder.icon} me-2`}></i>
-            {folder.name}
-          </button>
+          <div className="nav-item" key={folder.id}>
+            <button
+              className={`nav-link ${isFolderActive(folder.id) ? 'active' : ''}`}
+              onClick={() => handleFolderClick(folder.id)}
+            >
+              <i className={`bi bi-${folder.icon} me-2`}></i>
+              {folder.name}
+            </button>
+          </div>
         ))}
       </div>
     );
   }
   
-  // Grid view for root folder
+  // Grid view using document card styling
   return (
     <div className={`row g-4 ${className}`}>
       {folders.map(folder => (
         <div key={folder.id} className="col-sm-6 col-lg-3">
           <div 
-            className={`card h-100 folder-card ${folder.color}-card`}
+            className="file-document-card folder"
             onClick={() => handleFolderClick(folder.id)}
-            style={{ cursor: 'pointer' }}
           >
-            {folder.isProtected && (
-              <span className="protection-badge badge bg-danger">Protected</span>
-            )}
-            
-            <div className="card-body d-flex flex-column justify-content-center align-items-center">
-              <div className={`folder-icon-container bg-${folder.color} bg-opacity-15`}>
-                <i className={`bi bi-${folder.icon} fs-1 text-${folder.color}`}></i>
+            <div className="file-document-card-icon">
+              <div className={`file-icon-wrapper bg-${folder.color}-subtle text-${folder.color}`}>
+                <i className={`bi bi-${folder.icon} fs-1`}></i>
+                {folder.isProtected && (
+                  <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-danger">
+                    <i className="bi bi-shield-lock"></i>
+                  </span>
+                )}
               </div>
-              <h4 className="card-title text-center mb-1">{folder.name}</h4>
             </div>
-            <div className="card-footer text-center">
-              <span className="text-muted d-flex align-items-center justify-content-center">
-                <i className="bi bi-arrow-right-circle me-2"></i> 
-                Browse Files
-              </span>
+            
+            <div className="file-document-card-content">
+              <h5 className="file-document-card-title text-center mb-2">
+                {folder.name}
+              </h5>
+              
+              <div className="mt-auto text-center">
+                <span className="d-flex align-items-center justify-content-center text-muted">
+                  <i className="bi bi-folder-symlink me-2"></i>
+                  Browse Files
+                </span>
+              </div>
             </div>
           </div>
         </div>

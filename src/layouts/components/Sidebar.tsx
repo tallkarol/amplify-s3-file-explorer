@@ -22,7 +22,6 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   const [companyName, setCompanyName] = useState('');
   const [userInitials, setUserInitials] = useState('');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [foldersExpanded, setFoldersExpanded] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
   const isActiveFolder = (folder: string) => location.pathname.includes(`/folder/${folder}`);
@@ -54,90 +53,85 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
     }
   }, [user, fullName]);
   
- // Fix the fetchUserProfile function to match UserProfileModal's approach
-useEffect(() => {
-  const fetchUserProfile = async () => {
-    if (!user) return;
-    
-    try {
-      console.log("Fetching profile data for user:", user);
+  // Fix the fetchUserProfile function to match UserProfileModal's approach
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
       
-      // Use userId directly like in UserProfileModal
-      const userId = user.userId;
-      
-      // Query by UUID instead of profileOwner - this is how UserProfileModal works successfully
-      const queryByUuid = /* GraphQL */ `
-        query GetUserProfileByUuid($uuid: String!) {
-          listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
-            items {
-              id
-              email
-              uuid
-              profileOwner
-              firstName
-              lastName
-              companyName
-              phoneNumber
-              preferredContactMethod
+      try {
+        console.log("Fetching profile data for user:", user);
+        
+        // Use userId directly like in UserProfileModal
+        const userId = user.userId;
+        
+        // Query by UUID instead of profileOwner - this is how UserProfileModal works successfully
+        const queryByUuid = /* GraphQL */ `
+          query GetUserProfileByUuid($uuid: String!) {
+            listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
+              items {
+                id
+                email
+                uuid
+                profileOwner
+                firstName
+                lastName
+                companyName
+                phoneNumber
+                preferredContactMethod
+              }
             }
           }
+        `;
+        
+        const response = await client.graphql<GraphQLQuery<any>>({
+          query: queryByUuid,
+          variables: { uuid: userId },
+          authMode: 'userPool'
+        });
+        
+        console.log('Sidebar - Profile query response:', response);
+        
+        const items = response?.data?.listUserProfiles?.items;
+        if (items && items.length > 0) {
+          const userProfile = items[0];
+          console.log("Profile data found:", userProfile);
+          
+          // Set email
+          setUserEmail(userProfile.email || user.username);
+          
+          // Set full name if available
+          const firstName = userProfile.firstName || '';
+          const lastName = userProfile.lastName || '';
+          
+          if (firstName || lastName) {
+            const name = `${firstName} ${lastName}`.trim();
+            console.log("Setting full name:", name);
+            setFullName(name);
+          }
+          
+          // Set company name if available
+          if (userProfile.companyName) {
+            console.log("Setting company name:", userProfile.companyName);
+            setCompanyName(userProfile.companyName);
+          }
+        } else {
+          console.log("No profile data found, using username");
+          setUserEmail(user.username);
         }
-      `;
-      
-      const response = await client.graphql<GraphQLQuery<any>>({
-        query: queryByUuid,
-        variables: { uuid: userId },
-        authMode: 'userPool'
-      });
-      
-      console.log('Sidebar - Profile query response:', response);
-      
-      const items = response?.data?.listUserProfiles?.items;
-      if (items && items.length > 0) {
-        const userProfile = items[0];
-        console.log("Profile data found:", userProfile);
-        
-        // Set email
-        setUserEmail(userProfile.email || user.username);
-        
-        // Set full name if available
-        const firstName = userProfile.firstName || '';
-        const lastName = userProfile.lastName || '';
-        
-        if (firstName || lastName) {
-          const name = `${firstName} ${lastName}`.trim();
-          console.log("Setting full name:", name);
-          setFullName(name);
-        }
-        
-        // Set company name if available
-        if (userProfile.companyName) {
-          console.log("Setting company name:", userProfile.companyName);
-          setCompanyName(userProfile.companyName);
-        }
-      } else {
-        console.log("No profile data found, using username");
-        setUserEmail(user.username);
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+        setUserEmail(user.username || '');
       }
-    } catch (err) {
-      console.error('Error fetching user profile:', err);
-      setUserEmail(user.username || '');
-    }
-  };
+    };
 
-  if (user) {
-    fetchUserProfile();
-  }
-}, [user, client, isProfileModalOpen]);
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user, client, isProfileModalOpen]);
   
   // Toggle profile modal
   const toggleProfileModal = () => {
     setIsProfileModalOpen(!isProfileModalOpen);
-  };
-
-  // Toggle folders dropdown
-  const toggleFolders = () => {
-    setFoldersExpanded(!foldersExpanded);
   };
 
   // Folder shortcuts data
@@ -166,35 +160,35 @@ useEffect(() => {
           </button>
         </div>
         
-{/* User info section - using the admin sidebar styling */}
-<div 
-  className="user-info-section p-3 clickable" 
-  onClick={toggleProfileModal}
-  title="Edit profile"
->
-  <div className="d-flex align-items-center">
-    <div className="user-avatar">
-      {userInitials}
-    </div>
-    
-    {!collapsed && (
-      <div className="user-details ms-3 fade-in">
-        <div className="d-flex align-items-center justify-content-between">
-          <h6 className="user-name mb-0 text-truncate" style={{ maxWidth: '160px' }}>
-            {companyName || fullName || userEmail || (user?.username || '')}
-          </h6>
-          <i className="bi bi-pencil-square ms-2 edit-icon"></i>
+        {/* User info section - using the admin sidebar styling */}
+        <div 
+          className="user-info-section p-3 clickable" 
+          onClick={toggleProfileModal}
+          title="Edit profile"
+        >
+          <div className="d-flex align-items-center">
+            <div className="user-avatar">
+              {userInitials}
+            </div>
+            
+            {!collapsed && (
+              <div className="user-details ms-3 fade-in">
+                <div className="d-flex align-items-center justify-content-between">
+                  <h6 className="user-name mb-0 text-truncate" style={{ maxWidth: '160px' }}>
+                    {companyName || fullName || userEmail || (user?.username || '')}
+                  </h6>
+                  <i className="bi bi-pencil-square ms-2 edit-icon"></i>
+                </div>
+                
+                <div className="d-flex align-items-center mt-1">
+                  <span className={`badge ${isAdmin ? 'bg-danger' : 'bg-info'} me-2`} style={{ fontSize: '0.65rem' }}>
+                    {isAdmin ? 'Administrator' : 'User'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        
-        <div className="d-flex align-items-center mt-1">
-          <span className={`badge ${isAdmin ? 'bg-danger' : 'bg-info'} me-2`} style={{ fontSize: '0.65rem' }}>
-            {isAdmin ? 'Administrator' : 'User'}
-          </span>
-        </div>
-      </div>
-    )}
-  </div>
-</div>
         
         {/* Navigation links */}
         <div className="sidebar-nav p-2">
@@ -213,73 +207,37 @@ useEffect(() => {
               </Link>
             </li>
             
-            {/* Folders dropdown */}
-            <li className="nav-item mb-2">
-              {collapsed ? (
-                <Link
-                  to="/user"
+            {/* Folders directly in the sidebar instead of dropdown */}
+            {folderShortcuts.map(folder => (
+              <li className="nav-item mb-2" key={folder.id}>
+                <Link 
+                  to={`/user/folder/${folder.id}`} 
                   className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                    location.pathname.includes('/folder/') 
-                      ? 'active bg-primary text-white' 
+                    isActiveFolder(folder.id) 
+                      ? `active bg-${folder.color} text-white` 
                       : 'text-light hover-highlight'
                   }`}
+                  title={collapsed ? folder.name : ''}
                 >
-                  <i className="bi bi-folder me-3 fs-5"></i>
+                  <i className={`bi bi-${folder.icon} me-3 fs-5`}></i>
+                  {!collapsed && <span>{folder.name}</span>}
                 </Link>
-              ) : (
-                <a
-                  href="#"
-                  className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
-                    location.pathname.includes('/folder/') 
-                      ? 'active bg-primary text-white' 
-                      : 'text-light hover-highlight'
-                  }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    toggleFolders();
-                  }}
-                >
-                  <i className="bi bi-folder me-3 fs-5"></i>
-                  <div className="d-flex justify-content-between align-items-center w-100">
-                    <span>My Folders</span>
-                    <i className={`bi bi-chevron-${foldersExpanded ? 'up' : 'down'}`}></i>
-                  </div>
-                </a>
-              )}
-              
-              {/* Folder dropdown items - only show when sidebar expanded and dropdown toggled */}
-              {!collapsed && foldersExpanded && (
-                <div className="ms-4 mt-2">
-                  <ul className="nav flex-column">
-                    {folderShortcuts.map(folder => (
-                      <li className="nav-item mb-1" key={folder.id}>
-                        <Link 
-                          to={`/user/folder/${folder.id}`} 
-                          className={`nav-link py-1 ${isActiveFolder(folder.id) ? `text-${folder.color} fw-bold` : 'text-light opacity-75'} hover-highlight`}
-                        >
-                          <i className={`bi bi-${folder.icon} me-2 text-${folder.color}`}></i> 
-                          {folder.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </li>
+              </li>
+            ))}
           </ul>
         </div>
         
         {/* Sidebar footer with sign out */}
         <div className="sidebar-footer mt-auto p-3 border-top border-secondary">
-        
-        {isAdmin && (<Link 
-          to="/admin" 
-          className="btn btn-outline-light mb-1 btn-sm w-100 d-flex align-items-center justify-content-center"
-        >
-          <i className="bi bi-speedometer2 me-2"></i>
-          {!collapsed && <span>Admin Dashboard</span>}
-        </Link>)}
-        
+          {isAdmin && (
+            <Link 
+              to="/admin" 
+              className="btn btn-outline-light mb-3 btn-sm w-100 d-flex align-items-center justify-content-center"
+            >
+              <i className="bi bi-speedometer2 me-2"></i>
+              {!collapsed && <span>Admin Dashboard</span>}
+            </Link>
+          )}
 
           <button 
             onClick={signOut}

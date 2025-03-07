@@ -1,16 +1,16 @@
-// src/pages/admin/AdminFileBrowser.tsx
+// src/features/files/components/AdminFileBrowser.tsx
 import { useState, useEffect } from 'react';
 import Card from '@/components/common/Card';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import AlertMessage from '@/components/common/AlertMessage';
-import FileItem from '@/features/files/components/FileItem';
 import FileUpload from '@/features/files/components/FileUpload';
 import DragDropUpload from '@/components/common/DragDropUpload';
 import DragDropInfo from '@/components/common/DragDropInfo';
 import { UserProfile, S3Item, BreadcrumbItem } from '@/types';
 import { listUserFiles, getFileUrl } from '@/features/files/services/S3Service';
 import '@/styles/dragdrop.css';
+import '@/features/files/styles/filebrowser.css'; // Reuse the same CSS
 
 interface AdminFileBrowserProps {
   selectedUser: UserProfile | null;
@@ -84,10 +84,7 @@ const AdminFileBrowser = ({
 
   // Function to update breadcrumbs based on current path
   const updateBreadcrumbs = (path: string) => {
-    // Skip the first slash to avoid an empty first element
     const parts = path.split('/').filter(Boolean);
-    
-    // Build up the breadcrumb items
     const items: BreadcrumbItem[] = [];
     let currentPath = '';
     
@@ -113,7 +110,6 @@ const AdminFileBrowser = ({
     // Check if this is a parent folder navigation (..)
     if (folderKey.endsWith('/..')) {
       const parts = currentPath.split('/').filter(Boolean);
-      // Remove the last part and join back
       parts.pop();
       const parentPath = parts.length > 0 ? '/' + parts.join('/') + '/' : '/';
       console.log('Navigating to parent folder:', parentPath);
@@ -121,21 +117,17 @@ const AdminFileBrowser = ({
       return;
     }
     
-    // For regular folder navigation:
-    // First, strip the "users/{userId}/" prefix if present
+    // For regular folder navigation
     const userPrefix = selectedUser ? `users/${selectedUser.uuid}/` : '';
     let cleanPath = folderKey;
     
     if (folderKey.startsWith(userPrefix)) {
       cleanPath = '/' + folderKey.substring(userPrefix.length);
-      // Ensure path ends with a slash
       if (!cleanPath.endsWith('/')) {
         cleanPath += '/';
       }
     } else if (!folderKey.startsWith('/')) {
-      // If it doesn't have a leading slash, add one
       cleanPath = '/' + folderKey;
-      // Ensure path ends with a slash
       if (!cleanPath.endsWith('/')) {
         cleanPath += '/';
       }
@@ -153,6 +145,7 @@ const AdminFileBrowser = ({
     }
   };
 
+  // Handle file actions (download or navigate)
   const handleFileAction = (file: S3Item) => {
     if (file.isFolder) {
       navigateToFolder(file.key);
@@ -161,6 +154,7 @@ const AdminFileBrowser = ({
     }
   };
 
+  // Download a file
   const downloadFile = async (file: S3Item) => {
     try {
       const url = await getFileUrl(file.key);
@@ -176,8 +170,51 @@ const AdminFileBrowser = ({
     fetchFiles();
   };
 
+  // Delete a file
+  const deleteFile = (file: S3Item) => {
+    // Implementation would be hooked up to your delete service
+    console.log(`Delete file: ${file.key}`);
+    // After deletion is successful:
+    handleActionComplete();
+  };
+
   // Determine if drag and drop should be disabled
   const isDragDropDisabled = currentPath === '/' || !selectedUser;
+
+  // Format file size
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return 'Unknown size';
+    
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let size = bytes;
+    let unitIndex = 0;
+    
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  // Format date
+  const formatDate = (date?: Date) => {
+    if (!date) return '';
+    
+    // If today, show time only
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    
+    // If this year, show month and day
+    if (date.getFullYear() === today.getFullYear()) {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+    
+    // Otherwise show full date
+    return date.toLocaleDateString();
+  };
 
   // Function to get the title based on the path
   const getTitleFromPath = () => {
@@ -202,6 +239,50 @@ const AdminFileBrowser = ({
       case 'audit-report': return 'success';
       case 'auditor-resume': return 'info';
       case 'statistics': return 'warning';
+      default: return 'secondary';
+    }
+  };
+
+  // Get file icon based on file type
+  const getFileIcon = (file: S3Item) => {
+    if (file.name === '..') return 'arrow-up';
+    if (file.isFolder) return file.isProtected ? 'lock' : 'folder';
+    
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'file-earmark-pdf';
+      case 'doc':
+      case 'docx': return 'file-earmark-word';
+      case 'xls':
+      case 'xlsx': return 'file-earmark-excel';
+      case 'ppt':
+      case 'pptx': return 'file-earmark-slides';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'file-earmark-image';
+      default: return 'file-earmark';
+    }
+  };
+
+  // Get file color based on type
+  const getFileColor = (file: S3Item) => {
+    if (file.name === '..') return 'secondary';
+    if (file.isFolder) return file.isProtected ? 'danger' : 'primary';
+    
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'danger';
+      case 'doc':
+      case 'docx': return 'primary';
+      case 'xls':
+      case 'xlsx': return 'success';
+      case 'ppt':
+      case 'pptx': return 'warning';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'info';
       default: return 'secondary';
     }
   };
@@ -238,33 +319,46 @@ const AdminFileBrowser = ({
           disabled={isDragDropDisabled}
         >
           {/* Enhanced header */}
-          <div className="p-3 mb-4 bg-light rounded shadow-sm">
+          <div className="mb-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5 className="mb-0">
-                <span className={`badge bg-${getFolderColor(currentPath)} me-2`} style={{ fontSize: '0.7em' }}>
-                  <i className={`bi bi-folder me-1`}></i>
-                  {getTitleFromPath()}
-                </span>
-                <span className="text-muted" style={{ fontSize: '0.9em' }}>
-                  {currentPath === '/' ? ' (Root)' : ` / ${selectedUser.email}`}
-                </span>
-              </h5>
+              <div>
+                <h5 className="mb-0">
+                  <span className={`badge bg-${getFolderColor(currentPath)} me-2`}>
+                    <i className={`bi bi-folder me-1`}></i>
+                    {getTitleFromPath()}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '0.9em' }}>
+                    {currentPath === '/' ? ' (Root)' : ` / ${selectedUser.email}`}
+                  </span>
+                </h5>
+                
+                {files.length > 0 && (
+                  <div className="mt-1 small text-muted">
+                    <span>
+                      {files.length - (files.some(f => f.name === '..') ? 1 : 0)} 
+                      {' '}item{files.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
               
-              <div className="btn-group btn-group-sm">
-                <button
-                  className={`btn btn-${viewMode === 'list' ? 'primary' : 'outline-primary'}`}
-                  onClick={() => setViewMode('list')}
-                  title="List view"
-                >
-                  <i className="bi bi-list"></i>
-                </button>
-                <button
-                  className={`btn btn-${viewMode === 'grid' ? 'primary' : 'outline-primary'}`}
-                  onClick={() => setViewMode('grid')}
-                  title="Grid view"
-                >
-                  <i className="bi bi-grid"></i>
-                </button>
+              <div className="d-flex gap-2">
+                <div className="btn-group btn-group-sm">
+                  <button
+                    className={`btn btn-${viewMode === 'list' ? 'primary' : 'outline-primary'}`}
+                    onClick={() => setViewMode('list')}
+                    title="List view"
+                  >
+                    <i className="bi bi-list"></i>
+                  </button>
+                  <button
+                    className={`btn btn-${viewMode === 'grid' ? 'primary' : 'outline-primary'}`}
+                    onClick={() => setViewMode('grid')}
+                    title="Grid view"
+                  >
+                    <i className="bi bi-grid"></i>
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -351,16 +445,6 @@ const AdminFileBrowser = ({
             <DragDropInfo isDisabled={isDragDropDisabled} />
           )}
           
-          {/* File count information */}
-          {files.length > 0 && (
-            <div className="mb-3 small text-muted">
-              <span>
-                {files.length - (files.some(f => f.name === '..') ? 1 : 0)} 
-                {' '}item{files.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-          )}
-          
           {files.length === 0 ? (
             /* Empty state when no files are present */
             <EmptyState
@@ -378,146 +462,162 @@ const AdminFileBrowser = ({
                 />
               )}
             />
-          ) : (
-            /* Display files when available */
-            viewMode === 'list' ? (
-              <div className="list-group shadow-sm rounded">
-                {files.map((file, index) => (
-                  <FileItem 
-                    key={index}
-                    file={file}
-                    isAdmin={true} // Admin has delete privileges
-                    onNavigate={handleFileAction}
-                    onActionComplete={handleActionComplete}
-                  />
-                ))}
-              </div>
-            ) : (
-              /* Grid view layout */
-              <div className="row g-3">
-                {files.map((file, index) => {
-                  // Get file extension for icon determination
-                  const extension = file.isFolder ? 'folder' : 
-                    file.name.split('.').pop()?.toLowerCase() || 'unknown';
+          ) : viewMode === 'list' ? (
+            /* NEW LIST VIEW WITH DOCUMENT CARDS */
+            <div className="file-document-list">
+              {files.map((file, index) => (
+                <div 
+                  key={index}
+                  className={`file-document-item ${file.isFolder ? 'folder' : ''}`}
+                  onClick={() => handleFileAction(file)}
+                >
+                  <div className={`file-document-icon bg-${getFileColor(file)}-subtle text-${getFileColor(file)}`}>
+                    <i className={`bi bi-${getFileIcon(file)}`}></i>
+                  </div>
                   
-                  // Determine icon based on file type
-                  let icon = 'file-earmark';
-                  let iconColor = 'secondary';
-                  
-                  if (file.isFolder) {
-                    icon = file.name === '..' ? 'arrow-up' : 'folder';
-                    iconColor = file.isProtected ? 'danger' : 'primary';
-                  } else {
-                    switch (extension) {
-                      case 'pdf': 
-                        icon = 'file-earmark-pdf'; 
-                        iconColor = 'danger';
-                        break;
-                      case 'doc':
-                      case 'docx': 
-                        icon = 'file-earmark-word'; 
-                        iconColor = 'primary';
-                        break;
-                      case 'xls':
-                      case 'xlsx': 
-                        icon = 'file-earmark-excel'; 
-                        iconColor = 'success';
-                        break;
-                      case 'ppt':
-                      case 'pptx': 
-                        icon = 'file-earmark-slides';
-                        iconColor = 'warning';
-                        break;
-                      case 'jpg':
-                      case 'jpeg':
-                      case 'png':
-                      case 'gif': 
-                        icon = 'file-earmark-image';
-                        iconColor = 'info';
-                        break;
-                    }
-                  }
-                  
-                  // Format file size
-                  const formatFileSize = (bytes?: number) => {
-                    if (!bytes) return '';
-                    
-                    const units = ['B', 'KB', 'MB', 'GB'];
-                    let size = bytes;
-                    let unitIndex = 0;
-                    
-                    while (size >= 1024 && unitIndex < units.length - 1) {
-                      size /= 1024;
-                      unitIndex++;
-                    }
-                    
-                    return `${size.toFixed(1)} ${units[unitIndex]}`;
-                  };
-                  
-                  return (
-                    <div key={index} className="col-sm-6 col-md-4 col-lg-3">
-                      <div 
-                        className="card h-100 shadow-sm"
-                        onClick={() => handleFileAction(file)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div className="card-body text-center p-3">
-                          <div className="mb-3">
-                            <i className={`bi bi-${icon} text-${iconColor}`} style={{ fontSize: '2.5rem' }}></i>
-                            {file.isProtected && (
-                              <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-danger">
-                                <i className="bi bi-shield-lock"></i>
-                              </span>
-                            )}
-                          </div>
-                          <h6 className="card-title mb-1 text-truncate" title={file.name}>
-                            {file.name}
-                          </h6>
-                          {!file.isFolder && file.size && (
-                            <p className="card-text small text-muted mb-0">
-                              {formatFileSize(file.size)}
-                            </p>
-                          )}
-                          {file.lastModified && (
-                            <p className="card-text small text-muted mb-0">
-                              {file.lastModified.toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                        {!file.isFolder && (
-                          <div className="card-footer p-2 d-flex justify-content-between bg-light">
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                downloadFile(file);
-                              }}
-                              title="Download file"
-                            >
-                              <i className="bi bi-download"></i>
-                            </button>
-                            
-                            {!file.isProtected && (
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // This would be connected to your delete function
-                                  // Your FileItem component already handles this functionality
-                                }}
-                                title="Delete file"
-                              >
-                                <i className="bi bi-trash"></i>
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                  <div className="file-document-content">
+                    <div className="file-document-title">
+                      {file.name}
+                      {file.isProtected && (
+                        <span className="file-document-protected-badge ms-2">Protected</span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )
+                    
+                    <div className="file-document-description d-flex align-items-center">
+                      {!file.isFolder && file.size !== undefined && (
+                        <span className="me-3">
+                          <i className="bi bi-hdd me-1 opacity-50"></i>
+                          {formatFileSize(file.size)}
+                        </span>
+                      )}
+                      
+                      {file.lastModified && (
+                        <span className="text-muted">
+                          <i className="bi bi-clock me-1 opacity-50"></i>
+                          {formatDate(file.lastModified)}
+                        </span>
+                      )}
+                      
+                      {/* User ownership label for admin context */}
+                      <span className="ms-auto badge bg-light text-dark">
+                        <i className="bi bi-person me-1"></i>
+                        {selectedUser.email.split('@')[0]}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="file-document-actions">
+                    {!file.isFolder && (
+                      <button 
+                        className="btn btn-sm btn-outline-primary file-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadFile(file);
+                        }}
+                        title="Download file"
+                      >
+                        <i className="bi bi-download"></i>
+                      </button>
+                    )}
+                    
+                    {!file.name.startsWith('..') && (
+                      <button 
+                        className="btn btn-sm btn-outline-danger file-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteFile(file);
+                        }}
+                        title={`Delete ${file.isFolder ? 'folder' : 'file'}`}
+                        disabled={file.isProtected}
+                      >
+                        <i className="bi bi-trash"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* ENHANCED GRID VIEW LAYOUT */
+<div className="row g-3">
+  {files.map((file, index) => (
+    <div key={index} className="col-sm-6 col-md-4 col-lg-3">
+      <div 
+        className={`file-document-card ${file.isFolder ? 'folder' : ''}`}
+        onClick={() => handleFileAction(file)}
+      >
+        <div className="file-document-card-icon">
+          <div className={`file-icon-wrapper bg-${getFileColor(file)}-subtle text-${getFileColor(file)}`}>
+            <i className={`bi bi-${getFileIcon(file)} ${file.isFolder ? 'fs-2' : ''}`}></i>
+            {file.isProtected && (
+              <span className="position-absolute top-0 end-0 translate-middle-x badge-protected">
+                <i className="bi bi-shield-lock"></i>
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <div className="file-document-card-content">
+          <h6 className="file-document-card-title text-truncate" title={file.name}>
+            {file.name}
+          </h6>
+          
+          <div className="file-document-card-details">
+            {!file.isFolder && file.size !== undefined && (
+              <span className="file-document-card-size">
+                <i className="bi bi-hdd me-1 opacity-75 small"></i>
+                {formatFileSize(file.size)}
+              </span>
+            )}
+            
+            {file.lastModified && (
+              <span className="file-document-card-date">
+                <i className="bi bi-clock me-1 opacity-75 small"></i>
+                {formatDate(file.lastModified)}
+              </span>
+            )}
+            
+            {/* User ownership label */}
+            <span className="file-document-card-user mt-1">
+              <i className="bi bi-person me-1 opacity-75 small"></i>
+              {selectedUser.email.split('@')[0]}
+            </span>
+          </div>
+        </div>
+        
+        {/* Floating action buttons that appear on hover */}
+        <div className="file-document-card-floating-actions">
+          {!file.isFolder && (
+            <button
+              className="btn btn-sm btn-light shadow-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadFile(file);
+              }}
+              title="Download file"
+            >
+              <i className="bi bi-download"></i>
+            </button>
+          )}
+          
+          {!file.name.startsWith('..') && (
+            <button
+              className="btn btn-sm btn-light shadow-sm ms-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteFile(file);
+              }}
+              title={`Delete ${file.isFolder ? 'folder' : 'file'}`}
+              disabled={file.isProtected}
+            >
+              <i className="bi bi-trash"></i>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
           )}
         </DragDropUpload>
       )}

@@ -1,16 +1,16 @@
-// src/components/files/FileBrowser.tsx
+// src/features/files/components/FileBrowser.tsx
 import React, { useState, useEffect } from 'react';
-import { S3Item, BreadcrumbItem } from '../../../types';
+import { S3Item, BreadcrumbItem } from '@/types';
 import { listUserFiles, getFileUrl } from '../services/S3Service';
-import Card from '../../../components/common/Card';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import EmptyState from '../../../components/common/EmptyState';
-import Breadcrumb from '../../../components/common/Breadcrumb';
-import Table from '../../../components/common/Table';
+import Card from '@/components/common/Card';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import EmptyState from '@/components/common/EmptyState';
+import Breadcrumb from '@/components/common/Breadcrumb';
 import FileUpload from './FileUpload';
-import DragDropUpload from '../../../components/common/DragDropUpload';
-import DragDropInfo from '../../../components/common/DragDropInfo';
-import '../../../styles/dragdrop.css';
+import DragDropUpload from '@/components/common/DragDropUpload';
+import DragDropInfo from '@/components/common/DragDropInfo';
+import '@/styles/dragdrop.css';
+import '../styles/filebrowser.css'; // We'll create this file for the document styling
 
 interface FileBrowserProps {
   userId: string;
@@ -188,113 +188,68 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
   // Determine if drag and drop should be disabled
   const isDragDropDisabled = currentPath === '/';
 
-  // Table columns 
-  const columns = [
-    {
-      key: 'icon',
-      header: '',
-      width: '40px',
-      render: (file: S3Item) => {
-        const getFileIcon = () => {
-          if (file.name === '..') return 'arrow-up';
-          if (file.isFolder) return file.isProtected ? 'lock' : 'folder';
-          
-          const extension = file.name.split('.').pop()?.toLowerCase();
-          switch (extension) {
-            case 'pdf': return 'file-earmark-pdf';
-            case 'doc':
-            case 'docx': return 'file-earmark-word';
-            case 'xls':
-            case 'xlsx': return 'file-earmark-excel';
-            case 'ppt':
-            case 'pptx': return 'file-earmark-slides';
-            case 'jpg':
-            case 'jpeg':
-            case 'png':
-            case 'gif': return 'file-earmark-image';
-            default: return 'file-earmark';
-          }
-        };
-        
-        const iconColor = file.isProtected ? 'text-danger' : 
-                         file.isFolder ? 'text-primary' : '';
-        
-        return (
-          <div className="position-relative">
-            <i className={`bi bi-${getFileIcon()} fs-4 ${iconColor}`}></i>
-            {file.isProtected && (
-              <i className="bi bi-shield-lock text-danger position-absolute" style={{ 
-                fontSize: '0.7rem', 
-                marginLeft: '-0.7rem', 
-                marginTop: '0.7rem' 
-              }}></i>
-            )}
-          </div>
-        );
-      }
-    },
-    {
-      key: 'name',
-      header: 'Name',
-      render: (file: S3Item) => (
-        <div className="d-flex align-items-center">
-          <div className="ms-1">
-            <div>{file.name}</div>
-            {file.isProtected && (
-              <span className="badge bg-danger ms-2" style={{ fontSize: '0.6rem' }}>Protected</span>
-            )}
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'size',
-      header: 'Size',
-      width: '100px',
-      render: (file: S3Item) => !file.isFolder && file.size !== undefined ? formatFileSize(file.size) : ''
-    },
-    {
-      key: 'lastModified',
-      header: 'Modified',
-      width: '150px',
-      render: (file: S3Item) => file.lastModified ? file.lastModified.toLocaleDateString() : ''
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      width: '120px',
-      render: (file: S3Item) => (
-        <div className="d-flex">
-          {!file.isFolder && (
-            <button 
-              className="btn btn-sm btn-outline-primary me-2" 
-              onClick={(e) => {
-                e.stopPropagation();
-                downloadFile(file);
-              }}
-              title="Download file"
-            >
-              <i className="bi bi-download"></i>
-            </button>
-          )}
-          
-          {(isAdmin || !file.isProtected) && !file.name.startsWith('..') && (
-            <button 
-              className="btn btn-sm btn-outline-danger" 
-              onClick={(e) => {
-                e.stopPropagation();
-                // In a real implementation, this would call a delete function
-                console.log(`Delete ${file.name}`);
-              }}
-              title={`Delete ${file.isFolder ? 'folder' : 'file'}`}
-            >
-              <i className="bi bi-trash"></i>
-            </button>
-          )}
-        </div>
-      )
+  // Get file icon based on file type
+  const getFileIcon = (file: S3Item) => {
+    if (file.name === '..') return 'arrow-up';
+    if (file.isFolder) return file.isProtected ? 'lock' : 'folder';
+    
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'file-earmark-pdf';
+      case 'doc':
+      case 'docx': return 'file-earmark-word';
+      case 'xls':
+      case 'xlsx': return 'file-earmark-excel';
+      case 'ppt':
+      case 'pptx': return 'file-earmark-slides';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'file-earmark-image';
+      default: return 'file-earmark';
     }
-  ];
+  };
+
+  // Get file color based on type
+  const getFileColor = (file: S3Item) => {
+    if (file.name === '..') return 'secondary';
+    if (file.isFolder) return file.isProtected ? 'danger' : 'primary';
+    
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'danger';
+      case 'doc':
+      case 'docx': return 'primary';
+      case 'xls':
+      case 'xlsx': return 'success';
+      case 'ppt':
+      case 'pptx': return 'warning';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'info';
+      default: return 'secondary';
+    }
+  };
+
+  // Format date
+  const formatDate = (date?: Date) => {
+    if (!date) return '';
+    
+    // If today, show time only
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    
+    // If this year, show month and day
+    if (date.getFullYear() === today.getFullYear()) {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+    
+    // Otherwise show full date
+    return date.toLocaleDateString();
+  };
 
   return (
     <Card 
@@ -369,30 +324,92 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
           {/* Drag and drop info banner */}
           <DragDropInfo isDisabled={isDragDropDisabled} />
           
-          {/* File List Table */}
-          <Table
-            columns={columns}
-            data={files}
-            keyExtractor={(file) => file.key}
-            onRowClick={handleFileAction}
-            emptyState={
-              <EmptyState
-                icon="folder"
-                title="No files found"
-                message={currentPath === '/' 
-                  ? "This is the root folder. Please navigate to a specific folder to upload files." 
-                  : "This folder is empty. Upload files to get started or drag & drop files here."}
-                action={currentPath !== '/' && (
-                  <FileUpload
-                    currentPath={currentPath}
-                    userId={userId}
-                    onUploadComplete={handleActionComplete}
-                    isAdmin={isAdmin}
-                  />
-                )}
-              />
-            }
-          />
+          {/* File List in Card Style (new UI) */}
+          {files.length > 0 ? (
+            <div className="file-document-list">
+              {files.map(file => (
+                <div 
+                  key={file.key}
+                  className={`file-document-item ${file.isFolder ? 'folder' : ''}`}
+                  onClick={() => handleFileAction(file)}
+                >
+                  <div className={`file-document-icon bg-${getFileColor(file)}-subtle text-${getFileColor(file)}`}>
+                    <i className={`bi bi-${getFileIcon(file)}`}></i>
+                  </div>
+                  
+                  <div className="file-document-content">
+                    <div className="file-document-title">
+                      {file.name}
+                      {file.isProtected && (
+                        <span className="file-document-protected-badge ms-2">Protected</span>
+                      )}
+                    </div>
+                    
+                    <div className="file-document-description d-flex align-items-center">
+                      {!file.isFolder && file.size !== undefined && (
+                        <span className="me-3">
+                          <i className="bi bi-hdd me-1 opacity-50"></i>
+                          {formatFileSize(file.size)}
+                        </span>
+                      )}
+                      
+                      {file.lastModified && (
+                        <span className="text-muted">
+                          <i className="bi bi-clock me-1 opacity-50"></i>
+                          {formatDate(file.lastModified)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="file-document-actions">
+                    {!file.isFolder && (
+                      <button 
+                        className="btn btn-sm btn-outline-primary file-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadFile(file);
+                        }}
+                        title="Download file"
+                      >
+                        <i className="bi bi-download"></i>
+                      </button>
+                    )}
+                    
+                    {(isAdmin || !file.isProtected) && !file.name.startsWith('..') && (
+                      <button 
+                        className="btn btn-sm btn-outline-danger file-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // In a real implementation, this would call a delete function
+                          console.log(`Delete ${file.name}`);
+                        }}
+                        title={`Delete ${file.isFolder ? 'folder' : 'file'}`}
+                      >
+                        <i className="bi bi-trash"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon="folder"
+              title="No files found"
+              message={currentPath === '/' 
+                ? "This is the root folder. Please navigate to a specific folder to upload files." 
+                : "This folder is empty. Upload files to get started or drag & drop files here."}
+              action={currentPath !== '/' && (
+                <FileUpload
+                  currentPath={currentPath}
+                  userId={userId}
+                  onUploadComplete={handleActionComplete}
+                  isAdmin={isAdmin}
+                />
+              )}
+            />
+          )}
         </DragDropUpload>
       )}
     </Card>

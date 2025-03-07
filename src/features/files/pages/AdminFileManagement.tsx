@@ -3,16 +3,16 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import Card from '../../../components/common/Card';
-import AlertMessage from '../../../components/common/AlertMessage';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import Card from '@/components/common/Card';
+import AlertMessage from '@/components/common/AlertMessage';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 import FolderGrid from '../components/FolderGrid';
-import { UserProfile } from '../../../types';
+import { UserProfile } from '@/types';
 
 // Import the updated components
-import AdminFileBrowser from './AdminFileBrowser';
+import AdminFileBrowser from '../components/AdminFileBrowser';
 import UserSelector from '@/components/common/UserSelector';
-import UserAllFiles from '../../files/components/UserAllFiles';
+import UserAllFiles from '../components/UserAllFiles';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {

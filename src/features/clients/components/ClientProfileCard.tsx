@@ -1,8 +1,7 @@
 // src/features/clients/components/ClientProfileCard.tsx
-
 import React from 'react';
-import Card from '../../../components/common/Card';
-import { UserProfile } from '../../../types';
+import Card from '@/components/common/Card';
+import { UserProfile } from '@/types';
 
 interface ClientProfileCardProps {
   client: UserProfile;
@@ -12,15 +11,11 @@ interface ClientProfileCardProps {
 
 const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
   client,
-  onManageFiles,
   onContactClient
 }) => {
   return (
     <Card className="mb-4">
-      <div className="text-center mb-4">
-        <div className="bg-primary bg-opacity-10 d-inline-flex p-3 rounded-circle mb-3">
-          <i className="bi bi-person-circle fs-1 text-primary"></i>
-        </div>
+      <div className="mb-4">
         <h4 className="mb-1">
           {client.firstName && client.lastName 
             ? `${client.firstName} ${client.lastName}` 
@@ -67,13 +62,6 @@ const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
       
       <div className="mt-4">
         <div className="d-grid gap-2">
-          <button 
-            className="btn btn-primary"
-            onClick={onManageFiles}
-          >
-            <i className="bi bi-folder me-1"></i>
-            Manage Client Files
-          </button>
           <button 
             className="btn btn-outline-secondary"
             onClick={onContactClient}
