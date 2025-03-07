@@ -1,16 +1,37 @@
 // src/pages/developer/DebugTools.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import Card from '../../components/common/Card';
 import AlertMessage from '../../components/common/AlertMessage';
 import { useUserRole } from '../../hooks/useUserRole';
 import ServiceHealth from '../../components/developer/ServiceHealth';
 import UserValidator from '../../components/developer/UserValidator';
+import ErrorGenerator from '../../components/developer/ErrorGenerator';
+import ErrorLog from '../../components/developer/ErrorLog';
 
 const DebugTools = () => {
   const { isDeveloper } = useUserRole();
   const { user } = useAuthenticator();
   const [activeTab, setActiveTab] = useState('health');
+  const [errorStats, setErrorStats] = useState<{ count: number; lastTimestamp: Date | null }>({ count: 0, lastTimestamp: null });
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Update error stats when an error is generated
+  const handleErrorGenerated = () => {
+    setErrorStats(prev => ({
+      count: prev.count + 1,
+      lastTimestamp: new Date()
+    }));
+    
+    // Force a refresh of the error log component
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Reset error stats when switching to error log tab
+  useEffect(() => {
+    if (activeTab === 'errorlog') {
+      setErrorStats({ count: 0, lastTimestamp: null });
+    }
+  }, [activeTab]);
 
   // If not a developer, show access denied
   if (!isDeveloper) {
@@ -68,6 +89,21 @@ const DebugTools = () => {
                   >
                     <i className="bi bi-bug me-2"></i>
                     Error Generator
+                    {errorStats.count > 0 && (
+                      <span className="badge bg-danger ms-2">{errorStats.count}</span>
+                    )}
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    className={`nav-link ${activeTab === 'errorlog' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('errorlog')}
+                  >
+                    <i className="bi bi-journal-code me-2"></i>
+                    Error Logs
+                    {errorStats.count > 0 && (
+                      <span className="badge bg-danger ms-2">New</span>
+                    )}
                   </button>
                 </li>
               </ul>
@@ -79,110 +115,11 @@ const DebugTools = () => {
               {activeTab === 'user' && <UserValidator />}
               
               {activeTab === 'error' && (
-                <Card title="Error Generator">
-                  <div className="alert alert-warning mb-4">
-                    <div className="d-flex">
-                      <div className="me-3">
-                        <i className="bi bi-exclamation-triangle-fill fs-3"></i>
-                      </div>
-                      <div>
-                        <h5 className="alert-heading">Test Error Generation</h5>
-                        <p className="mb-0">
-                          Use these buttons to generate different types of errors. This helps test your error 
-                          handling and logging system.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                <ErrorGenerator onErrorGenerated={handleErrorGenerated} />
+              )}
 
-                  <div className="row g-4">
-                    <div className="col-md-4">
-                      <div className="card h-100 border-danger">
-                        <div className="card-body">
-                          <h5 className="card-title">
-                            <i className="bi bi-exclamation-octagon-fill text-danger me-2"></i>
-                            Runtime Error
-                          </h5>
-                          <p className="card-text">
-                            Triggers a JavaScript runtime error with a stack trace.
-                          </p>
-                          <button 
-                            className="btn btn-outline-danger"
-                            onClick={() => {
-                              try {
-                                // Deliberately cause an error
-                                const obj = null;
-                                // @ts-ignore - This will throw an error
-                                obj.nonExistentMethod();
-                              } catch (error) {
-                                console.error("Runtime error:", error);
-                                alert("Runtime error generated. Check console.");
-                              }
-                            }}
-                          >
-                            Generate Runtime Error
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="card h-100 border-warning">
-                        <div className="card-body">
-                          <h5 className="card-title">
-                            <i className="bi bi-hdd-network-fill text-warning me-2"></i>
-                            API Error
-                          </h5>
-                          <p className="card-text">
-                            Simulates a failed API call with error response.
-                          </p>
-                          <button 
-                            className="btn btn-outline-warning"
-                            onClick={() => {
-                              try {
-                                // Deliberately cause an error
-                                throw new Error("API request failed: 404 Not Found");
-                              } catch (error) {
-                                console.error("API error:", error);
-                                alert("API error generated. Check console.");
-                              }
-                            }}
-                          >
-                            Generate API Error
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-md-4">
-                      <div className="card h-100 border-primary">
-                        <div className="card-body">
-                          <h5 className="card-title">
-                            <i className="bi bi-browser-chrome text-primary me-2"></i>
-                            UI Error
-                          </h5>
-                          <p className="card-text">
-                            Simulates a UI rendering error in a component.
-                          </p>
-                          <button 
-                            className="btn btn-outline-primary"
-                            onClick={() => {
-                              try {
-                                // Deliberately cause an error
-                                throw new Error("UI Rendering Error: Failed to render component");
-                              } catch (error) {
-                                console.error("UI error:", error);
-                                alert("UI error generated. Check console.");
-                              }
-                            }}
-                          >
-                            Generate UI Error
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+              {activeTab === 'errorlog' && (
+                <ErrorLog key={refreshKey} />
               )}
             </div>
           </div>
@@ -213,6 +150,12 @@ const DebugTools = () => {
                   <th scope="row">Current Time</th>
                   <td>{new Date().toLocaleString()}</td>
                 </tr>
+                {errorStats.lastTimestamp && (
+                  <tr>
+                    <th scope="row">Last Error Generated</th>
+                    <td>{errorStats.lastTimestamp.toLocaleString()}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

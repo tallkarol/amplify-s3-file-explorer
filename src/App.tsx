@@ -2,21 +2,28 @@ import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import UserDashboard from '@/pages/user/UserDashboard';
-import Layout from '@/layouts/UserLayout';
-import AdminLayout from '@/layouts/AdminLayout';
-import DeveloperLayout from '@/layouts/DeveloperLayout';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 
+// Import Error Boundary
+import ErrorBoundary from "@/components/error/ErrorBoundary";
+
+// Import User Pages
+import Layout from '@/layouts/UserLayout';
+import UserDashboard from '@/pages/user/UserDashboard';
+
 // Import Admin Pages
+import AdminLayout from '@/layouts/AdminLayout';
 import AdminHome from '@/pages/admin/AdminDashboard';
 import AdminClientManagement from '@/pages/admin/AdminClientManagement';
 import AdminFileManagement from '@/features/files/pages/AdminFileManagement';
 
 // Import Developer Pages
+import DeveloperLayout from '@/layouts/DeveloperLayout';
 import DeveloperDashboard from '@/pages/developer/DeveloperDashboard';
 import DebugTools from "@/pages/developer/DebugTools";
-import ErrorBoundary from "@/components/error/ErrorBoundary";
+
+// Import Workflow Pages
+import AdminWorkflowDashboard from "@/features/workflows/pages/AdminWorkflowDashboard";
 
 function App() {
   const { user } = useAuthenticator();
@@ -71,6 +78,7 @@ function App() {
                 <Route path="/" element={<AdminHome />} />
                 <Route path="/clients" element={<AdminClientManagement />} />
                 <Route path="/files" element={<AdminFileManagement />} />
+                <Route path="/workflows" element={<AdminWorkflowDashboard />} />
                 <Route path="*" element={<Navigate to="/admin" replace />} />
               </Routes>
             </AdminLayout>

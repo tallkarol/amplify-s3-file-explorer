@@ -133,15 +133,15 @@ const AdminHome = () => {
                     </div>
                     
                     <div className="col-md-4 p-3">
-                      {/* <Link to="/admin/workflows" className="d-block text-decoration-none"> */}
+                      <Link to="/admin/workflows" className="d-block text-decoration-none">
                         <div className="text-center py-4 px-2 rounded hover-transform">
                           <div className="overview-card-icon mx-auto bg-light">
                             <i className="bi bi-diagram-3 text-primary"></i>
                           </div>
-                          <h5 className="text-muted mt-3 mb-1">Workflow Management <span className='small'>(coming soon)</span></h5>
+                          <h5 className="text-muted mt-3 mb-1">Workflow Management <span className='small'>(preview)</span></h5>
                           <p className="text-muted small mb-0">Automate business processes</p>
                         </div>
-                      {/* </Link> */}
+                      </Link>
                     </div>
                   </div>
                 </div>
