@@ -11,8 +11,8 @@ import { UserProfile } from '../../../types';
 
 // Import the updated components
 import AdminFileBrowser from './AdminFileBrowser';
-import UserSelector from '../../clients/components/UserSelector';
-import UserAllFiles from '../../clients/components/UserAllFiles';
+import UserSelector from '@/components/common/UserSelector';
+import UserAllFiles from '../../files/components/UserAllFiles';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {

@@ -1,6 +1,8 @@
-// src/components/layout/AdminSidebar.tsx
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
+import { useState, useEffect } from 'react';
+import UserProfileModal from '@/features/clients/components/UserProfileModal';
+import '@/styles/adminsidebar.css'; // We'll create this file for custom styles
 
 interface AdminSidebarProps {
   collapsed: boolean;
@@ -9,27 +11,82 @@ interface AdminSidebarProps {
 
 const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
   const location = useLocation();
-  const {signOut} = useAuthenticator();
+  const { signOut, user } = useAuthenticator();
+  const [userInitials, setUserInitials] = useState('');
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  
+  // Generate user initials from user email or attributes
+  useEffect(() => {
+    if (user && user.username) {
+      // If using email, take first letter of parts before @
+      const emailParts = user.username.split('@')[0].split('.');
+      if (emailParts.length > 1) {
+        setUserInitials(`${emailParts[0][0]}${emailParts[1][0]}`.toUpperCase());
+      } else {
+        setUserInitials(emailParts[0].substring(0, 2).toUpperCase());
+      }
+    }
+  }, [user]);
+
+  
+  
+  // Handle opening and closing the profile modal
+  const openProfileModal = () => setProfileModalOpen(true);
+  const closeProfileModal = () => setProfileModalOpen(false);
   
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path);
 
+
+  
   return (
-    <div className={`sidebar bg-dark ${collapsed ? 'collapsed' : ''}`}>
-      {/* Sidebar header with logo and toggle */}
-      <div className="sidebar-header d-flex justify-content-between align-items-center p-3 border-bottom border-secondary">
-        <Link to="/admin" className="text-decoration-none text-white d-flex align-items-center">
-          <i className="bi bi-shield-lock fs-4 me-2 text-primary"></i>
-          {!collapsed && <span className="fs-5 fw-semibold">Admin Portal</span>}
-        </Link>
-        <button 
-          className="btn btn-sm text-light border-0" 
-          onClick={onToggle}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+    <>
+      <div className={`sidebar bg-dark ${collapsed ? 'collapsed' : ''}`}>
+        {/* Sidebar header with logo and toggle */}
+        <div className="sidebar-header d-flex justify-content-between align-items-center p-3 border-bottom border-dark">
+          <Link to="/admin" className="text-decoration-none text-white d-flex align-items-center">
+            <i className="bi bi-shield-lock fs-4 me-2 text-primary"></i>
+            {!collapsed && <span className="fs-5 fw-semibold">Admin Portal</span>}
+          </Link>
+          <button 
+            className="btn btn-sm text-light border-0" 
+            onClick={onToggle}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <i className={`bi bi-chevron-${collapsed ? 'right' : 'left'}`}></i>
+          </button>
+        </div>
+        
+        {/* User info section - NEW MODERN SECTION - Now clickable */}
+        <div 
+          className="user-info-section p-3 clickable" 
+          onClick={openProfileModal}
+          title="Edit profile"
         >
-          <i className={`bi bi-chevron-${collapsed ? 'right' : 'left'}`}></i>
-        </button>
-      </div>
-      
+          <div className="d-flex align-items-center">
+            <div className="user-avatar">
+              {userInitials}
+            </div>
+            
+            {!collapsed && (
+              <div className="user-details ms-3 fade-in">
+                <div className="d-flex align-items-center justify-content-between">
+                  <h6 className="user-name mb-0">
+                    {(user as any)?.attributes?.name || 'Admin User'}
+                  </h6>
+                  <i className="bi bi-pencil-square ms-2 edit-icon"></i>
+                </div>
+                <div className="user-email">
+                  {user?.username}
+                </div>
+                <span className="user-status">
+                  <span className="status-indicator"></span>
+                  Online
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        
       {/* Admin navigation links */}
       <div className="sidebar-nav p-2">
         <ul className="nav flex-column">
@@ -81,7 +138,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
       </div>
         
       {/* Sidebar footer with back to user dashboard link */}
-      <div className="sidebar-footer mt-auto p-3 border-top border-secondary d-flex flex-column gap-2">
+      <div className="sidebar-footer mt-auto p-3 border-top border-dark d-flex flex-column gap-2">
         <Link 
           to="/user" 
           className="btn btn-outline-light btn-sm w-100 d-flex align-items-center justify-content-center"
@@ -99,6 +156,12 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
         </button>
       </div>
     </div>
+    {/* Render the user profile modal when open */}
+    <UserProfileModal 
+        isOpen={profileModalOpen} 
+        onClose={closeProfileModal} 
+      />
+      </>
   );
 };
 

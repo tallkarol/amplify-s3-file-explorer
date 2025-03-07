@@ -1,15 +1,14 @@
-// src/features/clients/pages/AdminClientManagerPage.tsx
-
 import React, { useState, useEffect } from 'react';
 import Card from '@components/common/Card';
 import AlertMessage from '@components/common/AlertMessage';
 import LoadingSpinner from '@components/common/LoadingSpinner';
-import UserList from '../components/UserList'; // Using existing component
-import UserActionsCard from '../components/UserActionsCard'; // Using existing component
+import UserList from '../components/UserList';
+import UserActionsCard from '../components/UserActionsCard';
 import ClientProfileCard from '../components/ClientProfileCard';
 import ClientFolderAccess from '../components/ClientFolderAccess';
 import { fetchAllClients } from '../services/clientService';
-import { UserProfile } from '../../../types';
+import { UserProfile } from '@/types';
+import '../styles/adminclientmanagement.css';
 
 const AdminClientManagerPage: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
@@ -64,61 +63,69 @@ const AdminClientManagerPage: React.FC = () => {
   };
   
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">
+    <div className="client-management-container">
+      <div className="client-management-header">
+        <h2 className="client-management-title">
           {view === 'list' ? 'Client Management' : 'Client Details'}
         </h2>
         {view === 'detail' && (
           <button 
-            className="btn btn-outline-secondary"
+            className="client-back-button"
             onClick={backToList}
           >
-            <i className="bi bi-arrow-left me-1"></i>
+            <i className="bi bi-arrow-left"></i>
             Back to Client List
           </button>
         )}
       </div>
       
       {loading && clients.length === 0 ? (
-        <div className="text-center py-5">
+        <div className="client-management-loading">
           <LoadingSpinner text="Loading clients..." />
         </div>
       ) : error ? (
-        <AlertMessage 
-          type="danger" 
-          title="Error Loading Clients"
-          message={error}
-        />
+        <div className="client-management-error">
+          <AlertMessage 
+            type="danger" 
+            title="Error Loading Clients"
+            message={error}
+          />
+        </div>
       ) : (
         <>
           {view === 'list' ? (
             /* List View */
-            <Card>
-              <UserList 
-                users={clients}
-                loading={loading}
-                error={error}
-                onViewDetails={handleClientSelect}
-              />
-            </Card>
+            <div className="client-list-container">
+              <Card>
+                <UserList 
+                  users={clients}
+                  loading={loading}
+                  error={error}
+                  onViewDetails={handleClientSelect}
+                />
+              </Card>
+            </div>
           ) : (
             /* Detail View */
             selectedClient && (
-              <div className="row">
-                <div className="col-lg-4 mb-4">
+              <div className="client-detail-grid">
+                <div className="client-detail-sidebar">
                   {/* Client Profile Card */}
-                  <ClientProfileCard
-                    client={selectedClient}
-                    onManageFiles={navigateToClientFiles}
-                    onContactClient={handleContactClient}
-                  />
+                  <div className="client-detail-card">
+                    <ClientProfileCard
+                      client={selectedClient}
+                      onManageFiles={navigateToClientFiles}
+                      onContactClient={handleContactClient}
+                    />
+                  </div>
                   
                   {/* Client Actions Card */}
-                  <UserActionsCard user={selectedClient} />
+                  <div className="client-detail-card">
+                    <UserActionsCard user={selectedClient} />
+                  </div>
                 </div>
                 
-                <div className="col-lg-8">
+                <div className="client-detail-content">
                   {/* Client Folders Access */}
                   <ClientFolderAccess
                     client={selectedClient}

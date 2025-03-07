@@ -1,0 +1,186 @@
+/* Custom styles for AdminSidebar */
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    transition: all 0.3s ease;
+    width: 260px;
+    overflow-x: hidden;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  }
+  
+  .sidebar.collapsed {
+    width: 80px;
+  }
+  
+  .hover-highlight:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  /* User info section styling */
+  .user-info-section {
+    border-bottom: 1px solid #343a40;
+    background: linear-gradient(to right, #343a40, #212529);
+  }
+  
+  .user-avatar {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    background: linear-gradient(135deg, #4a6cf7, #3b50df);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease;
+  }
+  
+  .user-avatar:hover {
+    transform: scale(1.05);
+  }
+  
+  .user-details {
+    max-width: calc(100% - 60px);
+  }
+  
+  .user-name {
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .user-email {
+    color: #adb5bd;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 6px;
+  }
+  
+  .user-status {
+    display: flex;
+    align-items: center;
+    font-size: 0.7rem;
+    color: #A3E635;
+  }
+  
+  .status-indicator {
+    width: 8px;
+    height: 8px;
+    background-color: #A3E635;
+    border-radius: 50%;
+    margin-right: 6px;
+    position: relative;
+    display: inline-block;
+  }
+  
+  .status-indicator::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: #A3E635;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 0.8;
+    }
+    70% {
+      transform: scale(2);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(2.5);
+      opacity: 0;
+    }
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  /* Override some bootstrap styles for dark theme */
+  .sidebar .border-secondary {
+    border-color: #343a40 !important;
+  }
+  
+  .sidebar.collapsed .user-info-section {
+    display: flex;
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Add these styles to your existing CSS file */
+
+/* Make user info section look clickable */
+.user-info-section.clickable {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+  }
+  
+  .user-info-section.clickable:hover {
+    background: linear-gradient(to right, #3b4147, #2a2f34);
+  }
+  
+  /* Add subtle click effect */
+  .user-info-section.clickable:active {
+    background: linear-gradient(to right, #343a40, #212529);
+    transform: translateY(1px);
+  }
+  
+  /* Style the edit icon */
+  .edit-icon {
+    font-size: 0.8rem;
+    color: #adb5bd;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+  }
+  
+  .user-info-section:hover .edit-icon {
+    opacity: 1;
+    color: #ffffff;
+  }
+  
+  /* For collapsed state, add a visual indicator that it's clickable */
+  .sidebar.collapsed .user-info-section.clickable::after {
+    content: '\F4FF'; /* Bootstrap icons pencil */
+    font-family: 'bootstrap-icons';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 0.6rem;
+    color: white;
+    background-color: rgba(74, 108, 247, 0.9);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .sidebar.collapsed .user-info-section.clickable:hover::after {
+    opacity: 1;
+  }

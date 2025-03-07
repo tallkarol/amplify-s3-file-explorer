@@ -10,20 +10,20 @@ import ErrorBoundary from "@/components/error/ErrorBoundary";
 // Import User Pages
 import Layout from '@/layouts/UserLayout';
 import UserDashboard from '@/pages/user/UserDashboard';
+import UserWorkflowDashboard from "@/features/workflows/pages/UserWorkflowDashboard";
 
 // Import Admin Pages
 import AdminLayout from '@/layouts/AdminLayout';
 import AdminHome from '@/pages/admin/AdminDashboard';
-import AdminClientManagement from '@/pages/admin/AdminClientManagement';
+import AdminClientManagement from '@/features/clients/pages/AdminClientManagement';
 import AdminFileManagement from '@/features/files/pages/AdminFileManagement';
+import AdminWorkflowDashboard from "@/features/workflows/pages/AdminWorkflowDashboard";
 
 // Import Developer Pages
 import DeveloperLayout from '@/layouts/DeveloperLayout';
 import DeveloperDashboard from '@/pages/developer/DeveloperDashboard';
 import DebugTools from "@/pages/developer/DebugTools";
 
-// Import Workflow Pages
-import AdminWorkflowDashboard from "@/features/workflows/pages/AdminWorkflowDashboard";
 
 function App() {
   const { user } = useAuthenticator();
@@ -109,6 +109,7 @@ function App() {
           <Layout isAdmin={userRole === 'admin'}>
             <Routes>
               <Route path="/" element={<UserDashboard />} />
+              <Route path="/workflows" element={<UserWorkflowDashboard />} />
               <Route path="/folder/:folderId" element={<UserDashboard />} />
               <Route path="*" element={<Navigate to="/user" replace />} />
             </Routes>

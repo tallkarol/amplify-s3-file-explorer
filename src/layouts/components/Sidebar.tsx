@@ -5,23 +5,13 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import UserProfileModal from '../../features/clients/components/UserProfileModal';
+import '@/styles/sidebar.css';
+import '@/styles/adminsidebar.css'; // Import admin sidebar CSS for user info section
 
 interface SidebarProps {
   isAdmin: boolean;
   collapsed: boolean;
   onToggle: () => void;
-}
-
-// Response type for getUserProfile query
-interface GetUserProfileResponse {
-  listUserProfiles: {
-    items: Array<{
-      email: string;
-      firstName?: string;
-      lastName?: string;
-      companyName?: string;
-    }>;
-  };
 }
 
 const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
@@ -30,8 +20,8 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   const [userEmail, setUserEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [userInitials, setUserInitials] = useState('');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  // const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [foldersExpanded, setFoldersExpanded] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
@@ -40,70 +30,110 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   // Create a client for making GraphQL requests
   const client = generateClient();
   
-  // Define query to get user profile
-  const getUserProfileQuery = /* GraphQL */ `
-    query GetUserProfile($profileOwner: String!) {
-      listUserProfiles(filter: { profileOwner: { eq: $profileOwner } }, limit: 1) {
-        items {
-          email
-          firstName
-          lastName
-          companyName
+  // Generate user initials from user email or name
+  useEffect(() => {
+    if (user && user.username) {
+      // If we have a full name, use that for initials
+      console.log('User:', user);
+      if (fullName) {
+        const nameParts = fullName.split(' ');
+        if (nameParts.length > 1) {
+          setUserInitials(`${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase());
+        } else {
+          setUserInitials(nameParts[0].substring(0, 2).toUpperCase());
+        }
+      } else {
+        // Otherwise use email parts
+        const emailParts = user.username.split('@')[0].split('.');
+        if (emailParts.length > 1) {
+          setUserInitials(`${emailParts[0][0]}${emailParts[1][0]}`.toUpperCase());
+        } else {
+          setUserInitials(emailParts[0].substring(0, 2).toUpperCase());
         }
       }
     }
-  `;
+  }, [user, fullName]);
   
-  // Fetch user profile
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const profileOwner = `${user.userId}::${user.username}`;
-        
-        const response = await client.graphql<GraphQLQuery<GetUserProfileResponse>>({
-          query: getUserProfileQuery,
-          variables: {
-            profileOwner
-          },
-          authMode: 'userPool'
-        });
-        
-        const items = response?.data?.listUserProfiles?.items || [];
-        
-        if (items.length > 0) {
-          setUserEmail(items[0].email || user.username);
-          
-          // Set full name if available
-          const firstName = items[0].firstName || '';
-          const lastName = items[0].lastName || '';
-          
-          if (firstName || lastName) {
-            setFullName(`${firstName} ${lastName}`.trim());
+ // Fix the fetchUserProfile function to match UserProfileModal's approach
+useEffect(() => {
+  const fetchUserProfile = async () => {
+    if (!user) return;
+    
+    try {
+      console.log("Fetching profile data for user:", user);
+      
+      // Use userId directly like in UserProfileModal
+      const userId = user.userId;
+      
+      // Query by UUID instead of profileOwner - this is how UserProfileModal works successfully
+      const queryByUuid = /* GraphQL */ `
+        query GetUserProfileByUuid($uuid: String!) {
+          listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
+            items {
+              id
+              email
+              uuid
+              profileOwner
+              firstName
+              lastName
+              companyName
+              phoneNumber
+              preferredContactMethod
+            }
           }
-          
-          // Set company name if available
-          setCompanyName(items[0].companyName || '');
-        } else {
-          setUserEmail(user.username);
         }
-      } catch (err) {
-        console.error('Error fetching user email:', err);
+      `;
+      
+      const response = await client.graphql<GraphQLQuery<any>>({
+        query: queryByUuid,
+        variables: { uuid: userId },
+        authMode: 'userPool'
+      });
+      
+      console.log('Sidebar - Profile query response:', response);
+      
+      const items = response?.data?.listUserProfiles?.items;
+      if (items && items.length > 0) {
+        const userProfile = items[0];
+        console.log("Profile data found:", userProfile);
+        
+        // Set email
+        setUserEmail(userProfile.email || user.username);
+        
+        // Set full name if available
+        const firstName = userProfile.firstName || '';
+        const lastName = userProfile.lastName || '';
+        
+        if (firstName || lastName) {
+          const name = `${firstName} ${lastName}`.trim();
+          console.log("Setting full name:", name);
+          setFullName(name);
+        }
+        
+        // Set company name if available
+        if (userProfile.companyName) {
+          console.log("Setting company name:", userProfile.companyName);
+          setCompanyName(userProfile.companyName);
+        }
+      } else {
+        console.log("No profile data found, using username");
         setUserEmail(user.username);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      setUserEmail(user.username || '');
+    }
+  };
 
+  if (user) {
     fetchUserProfile();
-  }, [user, isProfileModalOpen]); // Re-fetch when modal closes to update name
+  }
+}, [user, client, isProfileModalOpen]);
   
   // Toggle profile modal
   const toggleProfileModal = () => {
     setIsProfileModalOpen(!isProfileModalOpen);
   };
-  
-  // Toggle support ticket modal
-  // const toggleSupportModal = () => {
-  //   setIsSupportModalOpen(!isSupportModalOpen);
-  // };
 
   // Toggle folders dropdown
   const toggleFolders = () => {
@@ -136,39 +166,35 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
           </button>
         </div>
         
-        {/* User info section - now clickable */}
-        <div 
-          className="sidebar-user p-3 border-bottom border-secondary"
-          onClick={toggleProfileModal}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="d-flex align-items-center">
-            <div className="bg-primary bg-opacity-25 text-primary rounded-circle p-2">
-              <i className="bi bi-person-circle fs-4"></i>
-            </div>
-            {!collapsed && (
-              <div className="ms-3 text-truncate">
-                <div className="fw-semibold text-white">
-                  {fullName || userEmail}
-                </div>
-                <div className="text-light small d-flex flex-column">
-                  <span className={`badge ${isAdmin ? 'bg-danger' : 'bg-info'} me-2 mb-1 d-inline-block`} style={{ width: 'fit-content' }}>
-                    {isAdmin ? 'Administrator' : 'User'}
-                  </span>
-                  {fullName && (
-                    <span className="text-muted text-truncate">{userEmail}</span>
-                  )}
-                  {companyName && (
-                    <span className="text-muted text-truncate">
-                      <i className="bi bi-building me-1"></i>
-                      {companyName}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+{/* User info section - using the admin sidebar styling */}
+<div 
+  className="user-info-section p-3 clickable" 
+  onClick={toggleProfileModal}
+  title="Edit profile"
+>
+  <div className="d-flex align-items-center">
+    <div className="user-avatar">
+      {userInitials}
+    </div>
+    
+    {!collapsed && (
+      <div className="user-details ms-3 fade-in">
+        <div className="d-flex align-items-center justify-content-between">
+          <h6 className="user-name mb-0 text-truncate" style={{ maxWidth: '160px' }}>
+            {companyName || fullName || userEmail || (user?.username || '')}
+          </h6>
+          <i className="bi bi-pencil-square ms-2 edit-icon"></i>
         </div>
+        
+        <div className="d-flex align-items-center mt-1">
+          <span className={`badge ${isAdmin ? 'bg-danger' : 'bg-info'} me-2`} style={{ fontSize: '0.65rem' }}>
+            {isAdmin ? 'Administrator' : 'User'}
+          </span>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
         
         {/* Navigation links */}
         <div className="sidebar-nav p-2">
@@ -240,22 +266,6 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
                 </div>
               )}
             </li>
-            
-            {/* Notifications link
-            <li className="nav-item mb-2">
-              <NotificationIcon collapsed={collapsed} />
-            </li> */}
-            
-            {/* Support link */}
-            {/* <li className="nav-item mb-2">
-              <button
-                className="nav-link px-3 py-2 d-flex align-items-center rounded text-light hover-highlight w-100 border-0 bg-transparent"
-                onClick={toggleSupportModal}
-              >
-                <i className="bi bi-headset me-3 fs-5"></i>
-                {!collapsed && <span>Contact Support</span>}
-              </button>
-            </li> */}
           </ul>
         </div>
         
@@ -286,12 +296,6 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
       />
-      
-      {/* Support ticket modal */}
-      {/* <SupportTicketModal
-        isOpen={isSupportModalOpen}
-        onClose={() => setIsSupportModalOpen(false)}
-      /> */}
     </>
   );
 };

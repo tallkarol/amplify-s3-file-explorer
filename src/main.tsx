@@ -10,11 +10,12 @@ import '@aws-amplify/ui-react/styles.css';
 import { Authenticator } from "@aws-amplify/ui-react";
 
 // Import all global styles
-import './styles/sidebar.css';
-import './styles/dragdrop.css';
-import './styles/admin.css';
-import './styles/foldergrid.css';
-import './styles/profile.css';
+import '@/styles/sidebar.css';
+import '@/styles/dragdrop.css';
+import '@/styles/admin.css';
+import '@/styles/foldergrid.css';
+import '@/styles/profile.css';
+import '@/features/workflows/styles/workflow.css';
 
 Amplify.configure(outputs);
 

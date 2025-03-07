@@ -1,11 +1,11 @@
-// src/features/users/components/UserSelector.tsx
 import { useState, useEffect } from 'react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import { UserProfile, ListUserProfilesResponse } from '../../../types';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import AlertMessage from '../../../components/common/AlertMessage';
-import Card from '../../../components/common/Card';
+import { UserProfile, ListUserProfilesResponse } from '@/types';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import AlertMessage from '@/components/common/AlertMessage';
+import Card from '@/components/common/Card';
+import '@/styles/userselector.css';
 
 interface UserSelectorProps {
   onUserSelect: (user: UserProfile | null) => void;
@@ -141,36 +141,33 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
 
   return (
     <Card>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h5 className="mb-0">Client Selection</h5>
+      <div className="user-selector-header">
+        <h5 className="user-selector-title">Client Selection</h5>
         <button 
-          className="btn btn-sm btn-outline-primary"
+          className="user-selector-refresh-btn"
           onClick={fetchUsers}
           disabled={loading}
           title="Refresh client list"
         >
-          <i className="bi bi-arrow-clockwise me-1"></i>
-          Refresh
+          <i className="bi bi-arrow-clockwise"></i>
+          <span>Refresh</span>
         </button>
       </div>
       
-      {/* Search input with nicer styling */}
-      <div className="mb-4">
-        <div className="input-group input-group-lg shadow-sm">
-          <span className="input-group-text bg-white border-end-0">
-            <i className="bi bi-search text-primary"></i>
-          </span>
+      {/* Search input */}
+      <div className="user-selector-search">
+        <div className="user-selector-search-container">
+          <i className="bi bi-search user-selector-search-icon"></i>
           <input
             type="text"
-            className="form-control border-start-0"
+            className="user-selector-search-input"
             placeholder="Search clients..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ borderRadius: '0.375rem' }}
           />
           {searchTerm && (
             <button
-              className="btn btn-outline-secondary border-start-0"
+              className="user-selector-search-clear"
               onClick={() => setSearchTerm('')}
               title="Clear search"
             >
@@ -180,56 +177,43 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
         </div>
       </div>
       
-      {/* Selected user card with better styling */}
+      {/* Selected user card */}
       {selectedUser && (
-        <div className="mb-4">
-          <div className="card border-primary shadow-sm">
-            <div className="card-body p-3">
-              <div className="d-flex align-items-center">
-                <div 
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    backgroundColor: getAvatarColor(getUserDisplayName(selectedUser)),
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    marginRight: '12px'
-                  }}
-                >
-                  {getUserInitials(selectedUser)}
-                </div>
-                <div className="flex-grow-1">
-                  <h6 className="mb-0 fw-bold">{getUserDisplayName(selectedUser)}</h6>
-                  <p className="mb-0 text-muted small">{selectedUser.email}</p>
-                </div>
-                <button
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={() => onUserSelect(null)}
-                  title="Clear selection"
-                >
-                  <i className="bi bi-x-lg"></i>
-                </button>
+        <div className="user-selector-selected">
+          <div className="user-selector-selected-card">
+            <div className="user-selector-selected-content">
+              <div 
+                className="user-selector-avatar"
+                style={{ backgroundColor: getAvatarColor(getUserDisplayName(selectedUser)) }}
+              >
+                {getUserInitials(selectedUser)}
               </div>
+              <div className="user-selector-info">
+                <h6 className="user-selector-name">{getUserDisplayName(selectedUser)}</h6>
+                <p className="user-selector-email">{selectedUser.email}</p>
+              </div>
+              <button
+                className="user-selector-clear-btn"
+                onClick={() => onUserSelect(null)}
+                title="Clear selection"
+              >
+                <i className="bi bi-x-lg"></i>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* User list with improved styling */}
+      {/* User list */}
       {loading ? (
-        <div className="text-center p-4">
+        <div className="user-selector-loading">
           <LoadingSpinner text="Loading clients..." />
         </div>
       ) : error ? (
         <AlertMessage type="danger" message={error} />
       ) : filteredUsers.length > 0 ? (
-        <div className="user-list">
-          <div className="mb-2 d-flex justify-content-between align-items-center small text-muted px-2">
+        <div className="user-selector-list-container">
+          <div className="user-selector-list-header">
             <span>
               {filteredUsers.length} {filteredUsers.length === 1 ? 'client' : 'clients'} found
             </span>
@@ -238,69 +222,51 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
             </span>
           </div>
           
-          <div className="list-group shadow-sm rounded" style={{maxHeight: '400px', overflowY: 'auto'}}>
+          <ul className="user-selector-list">
             {filteredUsers.map(user => (
-              <button
+              <li
                 key={user.id}
-                className={`list-group-item list-group-item-action d-flex align-items-center p-3 position-relative ${selectedUser?.id === user.id ? 'active' : ''}`}
+                className={`user-selector-list-item ${selectedUser?.id === user.id ? 'selected' : ''}`}
                 onClick={() => handleSelectUser(user)}
               >
                 {/* User avatar */}
                 <div 
-                  style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '50%',
-                    backgroundColor: getAvatarColor(getUserDisplayName(user)),
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    marginRight: '12px'
-                  }}
+                  className="user-selector-list-avatar"
+                  style={{ backgroundColor: getAvatarColor(getUserDisplayName(user)) }}
                 >
                   {getUserInitials(user)}
                 </div>
                 
                 {/* User info */}
-                <div className="flex-grow-1 d-flex flex-column">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span className="fw-medium">{getUserDisplayName(user)}</span>
+                <div className="user-selector-list-info">
+                  <div className="user-selector-list-name-row">
+                    <span className="user-selector-list-name">{getUserDisplayName(user)}</span>
                     {user.createdAt && (
-                      <span className="badge bg-light text-dark small">
+                      <span className="user-selector-list-date">
                         Joined: {formatDate(user.createdAt)}
                       </span>
                     )}
                   </div>
-                  <span className="text-muted small">{user.email}</span>
+                  <span className="user-selector-list-email">{user.email}</span>
                 </div>
                 
                 {/* Selection indicator */}
                 {selectedUser?.id === user.id && (
-                  <div 
-                    className="position-absolute" 
-                    style={{
-                      top: '50%',
-                      right: '12px',
-                      transform: 'translateY(-50%)'
-                    }}
-                  >
-                    <i className="bi bi-check-circle-fill text-success fs-5"></i>
+                  <div className="user-selector-list-check">
+                    <i className="bi bi-check-circle-fill"></i>
                   </div>
                 )}
-              </button>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       ) : (
-        <div className="text-center p-4 bg-light rounded shadow-sm">
-          <i className="bi bi-people text-muted fs-1 mb-2"></i>
+        <div className="user-selector-empty">
+          <i className="bi bi-people"></i>
           <h6>{searchTerm ? `No users match "${searchTerm}"` : "No users available"}</h6>
-          <p className="text-muted mb-0">
+          <p>
             {searchTerm ? (
-              <button className="btn btn-link p-0" onClick={() => setSearchTerm('')}>
+              <button className="user-selector-link-btn" onClick={() => setSearchTerm('')}>
                 Clear search
               </button>
             ) : "Try refreshing the list"}
