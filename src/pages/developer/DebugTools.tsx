@@ -8,6 +8,7 @@ import UserValidator from '../../components/developer/UserValidator';
 import ErrorGenerator from '../../components/developer/ErrorGenerator';
 import ErrorLog from '../../components/developer/ErrorLog';
 import UserLookup from '../../components/developer/UserLookup';
+import ErrorLoggerDemo from '../../components/developer/ErrorLoggerDemo';
 
 const DebugTools = () => {
   const { isDeveloper } = useUserRole();
@@ -26,6 +27,12 @@ const DebugTools = () => {
     
     // Force a refresh of the error log component
     setRefreshKey(prev => prev + 1);
+  };
+
+  // Handle errors logged via ErrorLoggerDemo
+  const handleErrorLogged = (_errorType: string, _errorMessage: string) => {
+    // Update stats just like with the error generator
+    handleErrorGenerated();
   };
 
   // Handle user selection from UserLookup
@@ -117,6 +124,16 @@ const DebugTools = () => {
                     )}
                   </button>
                 </li>
+                {/* New tab for Error Logger Demo */}
+                <li className="nav-item">
+                  <button
+                    className={`nav-link ${activeTab === 'logger' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('logger')}
+                  >
+                    <i className="bi bi-journal-text me-2"></i>
+                    Logger Demo
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -139,6 +156,11 @@ const DebugTools = () => {
                     userIdFilter={selectedUserId}
                   />
                 </div>
+              )}
+              
+              {/* New condition to render ErrorLoggerDemo */}
+              {activeTab === 'logger' && (
+                <ErrorLoggerDemo onErrorLogged={handleErrorLogged} />
               )}
             </div>
           </div>
