@@ -1,7 +1,7 @@
 // src/features/clients/services/clientService.ts
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import { UserProfile } from '../../../types';
+import { UserProfile } from '@/types';
 import { CognitoIdentityProviderClient, AdminDisableUserCommand, AdminEnableUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 interface ListUserProfilesResponse {
@@ -108,7 +108,7 @@ export const resetUserPassword = async (userId: string): Promise<void> => {
 /**
  * Updates a user's status in the UserProfile table
  */
-export const updateUserStatus = async (userId: string, status: 'active' | 'disabled' | 'deleted'): Promise<void> => {
+export const updateUserStatus = async (userId: string, status: 'active' | 'inactive' | 'suspended'): Promise<void> => {
   try {
     // First get the profile ID
     const userProfileQuery = /* GraphQL */ `
@@ -232,7 +232,7 @@ export const suspendUserAccount = async (userId: string): Promise<void> => {
     await disableCognitoUser(username);
     
     // Step 3: Update the user's status in the database
-    await updateUserStatus(userId, 'disabled');
+    await updateUserStatus(userId, 'suspended');
     
     // Step 4: Log the action for audit purposes
     const logEntry = {

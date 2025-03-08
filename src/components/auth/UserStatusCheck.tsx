@@ -23,7 +23,7 @@ const UserStatusCheck: React.FC<UserStatusCheckProps> = ({ children }) => {
       try {
         const status = await getUserStatus(user.userId);
         
-        if (status === 'disabled' || status === 'deleted') {
+        if (status === 'inactive' || status === 'suspended') {
           setIsActive(false);
         } else {
           setIsActive(true);
