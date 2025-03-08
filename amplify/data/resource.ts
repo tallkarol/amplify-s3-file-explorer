@@ -48,6 +48,7 @@ const schema = a.schema({
       companyName: a.string(),
       phoneNumber: a.string(),
       preferredContactMethod: a.enum(['email', 'phone']),
+      status: a.enum(['active', 'disabled', 'deleted']),
     })
     .authorization((allow) => [
       allow.ownerDefinedIn('profileOwner'),

@@ -1,5 +1,4 @@
 // src/features/clients/services/clientService.ts
-
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import { UserProfile } from '../../../types';
