@@ -1,66 +1,23 @@
 // src/services/logService.ts
-import { generateClient } from 'aws-amplify/api';
-import { GraphQLQuery } from '@aws-amplify/api';
-import { v4 as uuidv4 } from 'uuid'; // You may need to install this package
-import { useAuthenticator } from '@aws-amplify/ui-react';
-
-// Define types
-export interface ErrorLogInput {
-  userId: string;
-  timestamp: number;
-  logId: string;
-  errorType: string;
-  errorMessage: string;
-  stackTrace?: string;
-  component?: string;
-  deviceInfo: Record<string, any>;
-  ttl: number;
-}
-
-// Create GraphQL mutations
-const createErrorLogMutation = /* GraphQL */ `
-  mutation CreateErrorLog($input: CreateErrorLogInput!) {
-    createErrorLog(input: $input) {
-      id
-      userId
-      timestamp
-      logId
-      errorType
-      errorMessage
-    }
-  }
-`;
-
-const listUserErrorLogQuery = /* GraphQL */ `
-  query ListUserErrorLogs($userId: String!, $limit: Int) {
-    listErrorLogs(filter: { userId: { eq: $userId } }, limit: $limit) {
-      items {
-        id
-        userId
-        timestamp
-        logId
-        errorType
-        errorMessage
-        stackTrace
-        component
-        deviceInfo
-        createdAt
-      }
-    }
-  }
-`;
+import { generateClient, GraphQLResult } from 'aws-amplify/api';
+// import { GraphQLQuery } from '@aws-amplify/api';
+// import { v4 as uuidv4 } from 'uuid';
 
 // Create client
 const client = generateClient();
 
-// TTL helper - set logs to expire after 30 days
-const calculateTTL = () => {
-  const NOW_IN_MS = Date.now();
-  const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
-  return Math.floor(NOW_IN_MS / 1000) + THIRTY_DAYS_IN_SECONDS;
-};
+// Define types
+export interface ErrorLogInput {
+  userId: string;
+  errorType: string;
+  errorMessage: string;
+  stackTrace?: string;
+  component?: string;
+}
 
-// Log an error to DynamoDB
+/**
+ * Log an error to DynamoDB - simplified version
+ */
 export const logError = async (
   error: Error,
   errorType: string = 'Uncaught',
@@ -68,76 +25,87 @@ export const logError = async (
   userId?: string
 ): Promise<void> => {
   try {
-    // Get current user if userId not provided
-    let effectiveUserId = userId;
-    if (!effectiveUserId) {
-      try {
-        // This should be called from a React component where the hook is valid
-        // or you should pass in the userId from the component
-        const { user } = useAuthenticator();
-        effectiveUserId = user?.userId || 'anonymous';
-      } catch (e) {
-        effectiveUserId = 'anonymous';
-      }
+    // If no userId is provided, we can't log the error
+    if (!userId) {
+      console.error('Cannot log error: No userId provided');
+      console.error('Original error:', error);
+      return;
     }
 
-    const timestamp = Date.now();
-    
-    // Collect device information
-    const deviceInfo = {
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      language: navigator.language,
-      screenSize: `${window.screen.width}x${window.screen.height}`,
-      viewportSize: `${window.innerWidth}x${window.innerHeight}`,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    };
+    // Log to console for immediate debug visibility
+    console.error('Attempting to log error to DynamoDB for user:', userId);
 
-    // Create log input
-    const logInput: ErrorLogInput = {
-      userId: effectiveUserId,
-      timestamp: timestamp,
-      logId: uuidv4(),
+    // Create minimalist log input with only essential fields
+    const logInput = {
+      userId,
       errorType: errorType,
       errorMessage: error.message || 'Unknown error',
       stackTrace: error.stack || '',
-      component: component || 'Unknown',
-      deviceInfo: deviceInfo,
-      ttl: calculateTTL()
+      component: component || 'Unknown'
     };
 
-    // Log to console for immediate debug visibility
-    console.error('Logging error to DynamoDB:', logInput);
+    // Send to DynamoDB using simplified GraphQL mutation
+    const createErrorLogMutation = /* GraphQL */ `
+      mutation CreateErrorLog($input: CreateErrorLogInput!) {
+        createErrorLog(input: $input) {
+          id
+        }
+      }
+    `;
 
-    // Send to DynamoDB
-    await client.graphql<GraphQLQuery<any>>({
+    const response = await client.graphql({
       query: createErrorLogMutation,
       variables: {
         input: logInput
       },
       authMode: 'userPool'
-    });
+    }) as GraphQLResult<any>;
 
-    console.log('Error successfully logged to DynamoDB');
-  } catch (e) {
-    // Fallback to console if DB logging fails
+    console.log('Error successfully logged to DynamoDB:', response);
+  } catch (e: any) {
+    // Log detailed error information
     console.error('Failed to log error to DynamoDB:', e);
+    
+    // Extract and log GraphQL errors if they exist
+    if (e.errors) {
+      console.error('GraphQL Errors:', JSON.stringify(e.errors, null, 2));
+    }
+    
+    // Log the original error that the user was reporting
     console.error('Original error:', error);
   }
 };
 
-// Fetch error logs for a specific user
+/**
+ * Get error logs for a specific user - simplified for testing
+ */
 export const getUserErrorLogs = async (userId: string, limit: number = 50): Promise<any[]> => {
   try {
-    const response = await client.graphql<GraphQLQuery<any>>({
-      query: listUserErrorLogQuery,
+    const query = /* GraphQL */ `
+      query ListErrorLogs($filter: ModelErrorLogFilterInput, $limit: Int) {
+        listErrorLogs(filter: $filter, limit: $limit) {
+          items {
+            id
+            userId
+            errorType
+            errorMessage
+            component
+            stackTrace
+            createdAt
+          }
+        }
+      }
+    `;
+
+    const response = await client.graphql({
+      query,
       variables: {
-        userId,
+        filter: { userId: { eq: userId } },
         limit
       },
       authMode: 'userPool'
-    });
-
+    }) as GraphQLResult<any>;
+    
     return response.data?.listErrorLogs?.items || [];
   } catch (e) {
     console.error('Failed to fetch error logs:', e);
@@ -145,34 +113,35 @@ export const getUserErrorLogs = async (userId: string, limit: number = 50): Prom
   }
 };
 
-// Fetch all error logs (admin/developer only)
+/**
+ * Get all error logs - simplified for testing
+ */
 export const getAllErrorLogs = async (limit: number = 100): Promise<any[]> => {
   try {
-    const response = await client.graphql<GraphQLQuery<any>>({
-      query: /* GraphQL */ `
-        query ListAllErrorLogs($limit: Int) {
-          listErrorLogs(limit: $limit) {
-            items {
-              id
-              userId
-              timestamp
-              logId
-              errorType
-              errorMessage
-              stackTrace
-              component
-              deviceInfo
-              createdAt
-            }
+    const query = /* GraphQL */ `
+      query ListErrorLogs($limit: Int) {
+        listErrorLogs(limit: $limit) {
+          items {
+            id
+            userId
+            errorType
+            errorMessage
+            component
+            stackTrace
+            createdAt
           }
         }
-      `,
+      }
+    `;
+
+    const response = await client.graphql({
+      query,
       variables: {
         limit
       },
       authMode: 'userPool'
-    });
-
+    }) as GraphQLResult<any>;
+    
     return response.data?.listErrorLogs?.items || [];
   } catch (e) {
     console.error('Failed to fetch all error logs:', e);

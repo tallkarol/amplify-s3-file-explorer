@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Card from '../common/Card';
 import { logError } from '../../services/logService';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 
 interface ErrorGeneratorProps {
   onErrorGenerated?: (errorType: string, errorMessage: string) => void;
@@ -20,6 +21,7 @@ interface ErrorDefinition {
 }
 
 const ErrorGenerator: React.FC<ErrorGeneratorProps> = ({ onErrorGenerated }) => {
+  const { user } = useAuthenticator();
   const [lastError, setLastError] = useState<{ type: string; message: string } | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [customErrorMessage, setCustomErrorMessage] = useState('');
@@ -82,6 +84,11 @@ const ErrorGenerator: React.FC<ErrorGeneratorProps> = ({ onErrorGenerated }) => 
 
   // Generate an error of the selected type
   const generateError = (errorType: ErrorType) => {
+    if (!user || !user.userId) {
+      console.error("Cannot generate error: User not authenticated");
+      return;
+    }
+    
     const errorDef = errorDefinitions[errorType];
     
     // Select a random error message from the available options
@@ -97,8 +104,8 @@ const ErrorGenerator: React.FC<ErrorGeneratorProps> = ({ onErrorGenerated }) => 
       const error = new Error(errorMessage);
       error.name = errorType.charAt(0).toUpperCase() + errorType.slice(1) + 'Error';
       
-      // Log the error to the service
-      logError(error, errorType, errorDef.component);
+      // Log the error to the service with user ID
+      logError(error, errorType, errorDef.component, user.userId);
       
       // Set the last error state for UI feedback
       setLastError({ type: errorType, message: errorMessage });

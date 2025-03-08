@@ -1,9 +1,10 @@
 // src/components/developer/UserValidator.tsx
-import React, { useState } from 'react'; // Add React import
+import React, { useState, useRef } from 'react';
 import Card from '../../components/common/Card';
 import AlertMessage from '../../components/common/AlertMessage';
 import { generateClient } from 'aws-amplify/api';
 import { list } from 'aws-amplify/storage';
+import UserDiagnosticTool from './UserDiagnosticTool';
 
 // Update the interface to use a string literal union type
 interface ValidationResult {
@@ -18,6 +19,17 @@ const UserValidator = () => {
   const [isValidating, setIsValidating] = useState(false);
   const [results, setResults] = useState<ValidationResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [hasIssues, setHasIssues] = useState(false);
+  
+  // Custom query overrides
+  const queryOverridesRef = useRef<{
+    userProfileQuery: string;
+    notificationPrefsQuery: string;
+  }>({
+    userProfileQuery: "uuid: { eq: userId }",
+    notificationPrefsQuery: "userId: { eq: userId }"
+  });
 
   // Generate a fresh results array
   const initializeResults = (): ValidationResult[] => {
@@ -30,6 +42,20 @@ const UserValidator = () => {
     ];
   };
 
+  // Handle query fix recommendations from diagnostic tool
+  const handleQueryFix = (fixedQuery: string, component: string) => {
+    if (component === "UserProfile") {
+      queryOverridesRef.current.userProfileQuery = fixedQuery;
+    } else if (component === "NotificationPreferences") {
+      queryOverridesRef.current.notificationPrefsQuery = fixedQuery;
+    }
+    
+    // Revalidate with the new queries
+    setTimeout(() => {
+      validateUser();
+    }, 500);
+  };
+
   // Validate a specific user ID
   const validateUser = async () => {
     if (!userId.trim()) {
@@ -39,6 +65,9 @@ const UserValidator = () => {
 
     setIsValidating(true);
     setError(null);
+    setShowDiagnostics(false);
+    setHasIssues(false);
+    
     const newResults = initializeResults();
     setResults(newResults);
 
@@ -56,6 +85,10 @@ const UserValidator = () => {
       
       // Step 4: Check S3 folders
       await validateS3Folders(newResults);
+      
+      // Check if any validation failed
+      const hasFailures = newResults.some(result => result.status === 'failure');
+      setHasIssues(hasFailures);
       
       setResults([...newResults]);
     } catch (err) {
@@ -79,6 +112,31 @@ const UserValidator = () => {
     setResults([...results]);
 
     try {
+      // Build the filter based on the current override
+      let filter: any = {};
+      
+      // Parse the query override
+      const queryOverride = queryOverridesRef.current.userProfileQuery;
+      
+      if (queryOverride.includes("uuid: { eq:")) {
+        filter = { uuid: { eq: userId } };
+      } else if (queryOverride.includes("uuid: { contains:")) {
+        filter = { uuid: { contains: userId } };
+      } else if (queryOverride.includes("profileOwner: { contains:")) {
+        filter = { profileOwner: { contains: userId } };
+      } else if (queryOverride.includes("userId: { eq:")) {
+        filter = { userId: { eq: userId } };
+      } else if (queryOverride.includes("uuid: { eq: userId.toLowerCase")) {
+        filter = { uuid: { eq: userId.toLowerCase() } };
+      } else if (queryOverride.includes("uuid: { eq: userId.toUpperCase")) {
+        filter = { uuid: { eq: userId.toUpperCase() } };
+      } else {
+        // Default to the standard query
+        filter = { uuid: { eq: userId } };
+      }
+
+      console.log("Using UserProfile filter:", filter);
+
       const userProfileQuery = /* GraphQL */ `
         query GetUserProfile($filter: ModelUserProfileFilterInput) {
           listUserProfiles(filter: $filter, limit: 1) {
@@ -99,9 +157,7 @@ const UserValidator = () => {
       const response = await client.graphql({
         query: userProfileQuery,
         variables: {
-          filter: {
-            uuid: { eq: userId }
-          }
+          filter
         }
       });
 
@@ -145,6 +201,46 @@ const UserValidator = () => {
     setResults([...results]);
 
     try {
+      // Build the filter based on the current override
+      let filter: any = {};
+      
+      // Parse the query override
+      const queryOverride = queryOverridesRef.current.notificationPrefsQuery;
+      
+      if (queryOverride.includes("userId: { eq:")) {
+        filter = { userId: { eq: userId } };
+      } else if (queryOverride.includes("userId: { contains:")) {
+        filter = { userId: { contains: userId } };
+      } else if (queryOverride.includes("id: { contains:")) {
+        filter = { id: { contains: userId } };
+      } else if (queryOverride.includes("OR combination")) {
+        // Use an OR combination for best chance of success
+        filter = { 
+          or: [
+            { userId: { eq: userId } },
+            { userId: { contains: userId } },
+            { id: { contains: userId } }
+          ] 
+        };
+      } else if (queryOverride.includes("userId: { beginsWith:")) {
+        // Try beginsWith for partial ID match
+        filter = { userId: { beginsWith: userId.substring(0, 10) } };
+      } else if (queryOverride.includes("userId: { eq: userId.toLowerCase")) {
+        filter = { userId: { eq: userId.toLowerCase() } };
+      } else if (queryOverride.includes("userId: { eq: userId.toUpperCase")) {
+        filter = { userId: { eq: userId.toUpperCase() } };
+      } else {
+        // Default to the OR pattern for best chance of success
+        filter = { 
+          or: [
+            { userId: { eq: userId } },
+            { userId: { contains: userId } }
+          ] 
+        };
+      }
+
+      console.log("Using NotificationPreference filter:", filter);
+
       const prefQuery = /* GraphQL */ `
         query GetNotificationPreferences($filter: ModelNotificationPreferenceFilterInput) {
           listNotificationPreferences(filter: $filter, limit: 1) {
@@ -167,9 +263,7 @@ const UserValidator = () => {
       const response = await client.graphql({
         query: prefQuery,
         variables: {
-          filter: {
-            userId: { eq: userId }
-          }
+          filter
         }
       });
 
@@ -405,6 +499,7 @@ const UserValidator = () => {
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             disabled={isValidating}
+            onKeyPress={(e) => e.key === 'Enter' && validateUser()}
           />
           <button
             className="btn btn-primary"
@@ -436,51 +531,113 @@ const UserValidator = () => {
       )}
 
       {results.length > 0 && (
-        <div className="table-responsive">
-          <table className="table table-hover">
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th>Status</th>
-                <th>Message</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((result, idx) => (
-                <React.Fragment key={idx}>
-                  <tr>
-                    <td>{result.name}</td>
-                    <td>{renderStatusBadge(result.status)}</td>
-                    <td>{result.message}</td>
-                    <td>
-                      {result.details && (
-                        <button
-                          className="btn btn-sm btn-outline-secondary"
-                          data-bs-toggle="collapse"
-                          data-bs-target={`#details-${idx}`}
-                          aria-expanded="false"
-                        >
-                          View
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                  {result.details && (
-                    <tr id={`details-${idx}`} className="collapse">
-                      <td colSpan={4}>
-                        <div className="bg-light p-2 rounded">
-                          <pre className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
-                            {result.details}
-                          </pre>
-                        </div>
+        <div className="mb-4">
+          <div className="alert alert-light border mb-4">
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <small className="text-muted d-block mb-1">Current Query Settings:</small>
+                <div className="d-flex gap-3">
+                  <div>
+                    <small><strong>User Profile:</strong> <code>{queryOverridesRef.current.userProfileQuery}</code></small>
+                  </div>
+                  <div>
+                    <small><strong>Notification Prefs:</strong> <code>{queryOverridesRef.current.notificationPrefsQuery}</code></small>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  queryOverridesRef.current = {
+                    userProfileQuery: "uuid: { eq: userId }",
+                    notificationPrefsQuery: "userId: { eq: userId }"
+                  };
+                  validateUser();
+                }}
+                className="btn btn-sm btn-outline-secondary"
+                disabled={
+                  queryOverridesRef.current.userProfileQuery === "uuid: { eq: userId }" &&
+                  queryOverridesRef.current.notificationPrefsQuery === "userId: { eq: userId }"
+                }
+              >
+                Reset Queries
+              </button>
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table table-hover">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Status</th>
+                  <th>Message</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((result, idx) => (
+                  <React.Fragment key={idx}>
+                    <tr>
+                      <td>{result.name}</td>
+                      <td>{renderStatusBadge(result.status)}</td>
+                      <td>{result.message}</td>
+                      <td>
+                        {result.details && (
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            data-bs-toggle="collapse"
+                            data-bs-target={`#details-${idx}`}
+                            aria-expanded="false"
+                          >
+                            View
+                          </button>
+                        )}
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                    {result.details && (
+                      <tr id={`details-${idx}`} className="collapse">
+                        <td colSpan={4}>
+                          <div className="bg-light p-2 rounded">
+                            <pre className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                              {result.details}
+                            </pre>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Show diagnostic option if issues found */}
+      {hasIssues && !showDiagnostics && (
+        <div className="alert alert-warning">
+          <div className="d-flex align-items-center justify-content-between">
+            <div>
+              <h5 className="alert-heading mb-1">Query Issues Detected</h5>
+              <p className="mb-0">
+                Data exists but can't be found with current queries. Would you like to run diagnostics to find the correct queries?
+              </p>
+            </div>
+            <button
+              className="btn btn-warning"
+              onClick={() => setShowDiagnostics(true)}
+            >
+              <i className="bi bi-search me-2"></i>
+              Run Diagnostics
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnostic tool */}
+      {showDiagnostics && (
+        <div className="mt-4">
+          <UserDiagnosticTool userId={userId} onQueryFix={handleQueryFix} />
         </div>
       )}
     </Card>

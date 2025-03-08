@@ -5,6 +5,7 @@ import AlertMessage from '../common/AlertMessage';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { getAllErrorLogs, getUserErrorLogs } from '../../services/logService';
 import { formatDistanceToNow } from '@/utils/dateUtils';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 
 interface ErrorLogProps {
   userIdFilter?: string;
@@ -31,12 +32,21 @@ const ErrorLog: React.FC<ErrorLogProps> = ({ userIdFilter, maxLogs = 100 }) => {
   const [filterType, setFilterType] = useState<string>('all');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const { user } = useAuthenticator();
 
   useEffect(() => {
-    fetchLogs();
-  }, [userIdFilter]);
+    if (user && user.userId) {
+      fetchLogs();
+    }
+  }, [userIdFilter, user]);
 
   const fetchLogs = async () => {
+    if (!user || !user.userId) {
+      setError("Cannot fetch logs: User not authenticated");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {

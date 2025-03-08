@@ -7,6 +7,7 @@ import ServiceHealth from '../../components/developer/ServiceHealth';
 import UserValidator from '../../components/developer/UserValidator';
 import ErrorGenerator from '../../components/developer/ErrorGenerator';
 import ErrorLog from '../../components/developer/ErrorLog';
+import UserLookup from '../../components/developer/UserLookup';
 
 const DebugTools = () => {
   const { isDeveloper } = useUserRole();
@@ -14,6 +15,7 @@ const DebugTools = () => {
   const [activeTab, setActiveTab] = useState('health');
   const [errorStats, setErrorStats] = useState<{ count: number; lastTimestamp: Date | null }>({ count: 0, lastTimestamp: null });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
 
   // Update error stats when an error is generated
   const handleErrorGenerated = () => {
@@ -24,6 +26,15 @@ const DebugTools = () => {
     
     // Force a refresh of the error log component
     setRefreshKey(prev => prev + 1);
+  };
+
+  // Handle user selection from UserLookup
+  const handleUserSelect = (userId: string) => {
+    setSelectedUserId(userId);
+    // If not already on error log tab, switch to it
+    if (activeTab !== 'errorlog') {
+      setActiveTab('errorlog');
+    }
   };
 
   // Reset error stats when switching to error log tab
@@ -119,7 +130,15 @@ const DebugTools = () => {
               )}
 
               {activeTab === 'errorlog' && (
-                <ErrorLog key={refreshKey} />
+                <div>
+                  <div className="mb-4">
+                    <UserLookup onSelectUser={handleUserSelect} />
+                  </div>
+                  <ErrorLog 
+                    key={refreshKey} 
+                    userIdFilter={selectedUserId}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -154,6 +173,21 @@ const DebugTools = () => {
                   <tr>
                     <th scope="row">Last Error Generated</th>
                     <td>{errorStats.lastTimestamp.toLocaleString()}</td>
+                  </tr>
+                )}
+                {selectedUserId && (
+                  <tr>
+                    <th scope="row">Selected User ID</th>
+                    <td>
+                      <code>{selectedUserId}</code>
+                      <button
+                        className="btn btn-sm btn-link text-primary ms-2"
+                        onClick={() => setSelectedUserId(undefined)}
+                        title="Clear selected user"
+                      >
+                        <i className="bi bi-x-circle"></i>
+                      </button>
+                    </td>
                   </tr>
                 )}
               </tbody>
