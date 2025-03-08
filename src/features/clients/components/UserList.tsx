@@ -1,9 +1,11 @@
 // src/components/admin/UserList.tsx
 import { useState } from 'react';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import EmptyState from '../../../components/common/EmptyState';
-import AlertMessage from '../../../components/common/AlertMessage';
-import { UserProfile } from '../../../types';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import EmptyState from '@/components/common/EmptyState';
+import AlertMessage from '@/components/common/AlertMessage';
+import { UserProfile } from '@/types';
+import UserStatusBadge from '@/components/common/UserStatusBadge';
+
 
 interface UserListProps {
   users: UserProfile[];
@@ -176,6 +178,7 @@ const UserList = ({ users, loading, error, onViewDetails }: UserListProps) => {
                       <i className={`bi bi-sort-${sortDirection === 'asc' ? 'down' : 'up'} ms-1`}></i>
                     )}
                   </th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -191,14 +194,17 @@ const UserList = ({ users, loading, error, onViewDetails }: UserListProps) => {
                     <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</td>
                     <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Never'}</td>
                     <td>
-                      <button 
-                        className="btn btn-md btn-primary"
-                        onClick={() => onViewDetails(user)}
-                      >
-                        Manage Client
-                      </button>
-                    </td>
-                  </tr>
+        <UserStatusBadge status={user.status} />
+      </td>
+      <td>
+        <button 
+          className="btn btn-md btn-primary"
+          onClick={() => onViewDetails(user)}
+        >
+          Manage Client
+        </button>
+      </td>
+    </tr>
                 ))}
               </tbody>
             </table>

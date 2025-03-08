@@ -6,7 +6,7 @@ import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import UserProfileModal from '../../features/clients/components/UserProfileModal';
 import '@/styles/sidebar.css';
-import '@/styles/adminsidebar.css'; // Import admin sidebar CSS for user info section
+import '@/styles/adminsidebar.css';
 
 interface SidebarProps {
   isAdmin: boolean;
@@ -174,7 +174,7 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
             {!collapsed && (
               <div className="user-details ms-3 fade-in">
                 <div className="d-flex align-items-center justify-content-between">
-                  <h6 className="user-name mb-0 text-truncate" style={{ maxWidth: '160px' }}>
+                  <h6 className="user-name mb-0 text-truncate text-white" style={{ maxWidth: '160px' }}>
                     {companyName || fullName || userEmail || (user?.username || '')}
                   </h6>
                   <i className="bi bi-pencil-square ms-2 edit-icon"></i>

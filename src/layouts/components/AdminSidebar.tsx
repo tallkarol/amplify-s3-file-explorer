@@ -70,7 +70,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
             {!collapsed && (
               <div className="user-details ms-3 fade-in">
                 <div className="d-flex align-items-center justify-content-between">
-                  <h6 className="user-name mb-0">
+                  <h6 className="user-name mb-0 text-white">
                     {(user as any)?.attributes?.name || 'Admin User'}
                   </h6>
                   <i className="bi bi-pencil-square ms-2 edit-icon"></i>
