@@ -1,12 +1,12 @@
 // src/components/developer/UserValidator.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Card from '../../components/common/Card';
 import AlertMessage from '../../components/common/AlertMessage';
 import { generateClient } from 'aws-amplify/api';
 import { list } from 'aws-amplify/storage';
 import UserDiagnosticTool from './UserDiagnosticTool';
+import UserLookup from './UserLookup';
 
-// Update the interface to use a string literal union type
 interface ValidationResult {
   name: string;
   status: 'pending' | 'success' | 'warning' | 'failure';
@@ -21,6 +21,8 @@ const UserValidator = () => {
   const [error, setError] = useState<string | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [hasIssues, setHasIssues] = useState(false);
+  const [showUserLookup, setShowUserLookup] = useState(false);
+  const [openDetailIndex, setOpenDetailIndex] = useState<number | null>(null);
   
   // Custom query overrides
   const queryOverridesRef = useRef<{
@@ -31,7 +33,17 @@ const UserValidator = () => {
     notificationPrefsQuery: "userId: { eq: userId }"
   });
 
-  // Generate a fresh results array
+  // Handler for user selection from UserLookup
+  const handleUserSelect = (selectedUserId: string) => {
+    if (selectedUserId) {
+      setUserId(selectedUserId);
+      setShowUserLookup(false);
+      // Optionally auto-validate after selection
+      setTimeout(() => validateUser(), 300);
+    }
+  };
+
+  // Initialize results array
   const initializeResults = (): ValidationResult[] => {
     return [
       { name: 'UserProfile', status: 'pending', message: 'Not checked yet' },
@@ -67,6 +79,7 @@ const UserValidator = () => {
     setError(null);
     setShowDiagnostics(false);
     setHasIssues(false);
+    setOpenDetailIndex(null);
     
     const newResults = initializeResults();
     setResults(newResults);
@@ -99,68 +112,43 @@ const UserValidator = () => {
     }
   };
 
- // Validation functions for each component
- const validateUserProfile = async (client: any, results: ValidationResult[]) => {
-  const userProfileIndex = results.findIndex(r => r.name === 'UserProfile');
-  if (userProfileIndex === -1) return;
+  // Validation functions for each component
+  const validateUserProfile = async (client: any, results: ValidationResult[]) => {
+    const userProfileIndex = results.findIndex(r => r.name === 'UserProfile');
+    if (userProfileIndex === -1) return;
 
-  results[userProfileIndex] = {
-    ...results[userProfileIndex],
-    status: 'pending',
-    message: 'Checking user profile...'
-  };
-  setResults([...results]);
+    results[userProfileIndex] = {
+      ...results[userProfileIndex],
+      status: 'pending',
+      message: 'Checking user profile...'
+    };
+    setResults([...results]);
 
-  try {
-    // Build the filter based on the current override
-    let filter: any = {};
-    
-    // Parse the query override
-    const queryOverride = queryOverridesRef.current.userProfileQuery;
-    
-    if (queryOverride.includes("uuid: { eq:")) {
-      filter = { uuid: { eq: userId } };
-    } else if (queryOverride.includes("uuid: { contains:")) {
-      filter = { uuid: { contains: userId } };
-    } else if (queryOverride.includes("profileOwner: { contains:")) {
-      filter = { profileOwner: { contains: userId } };
-    } else if (queryOverride.includes("userId: { eq:")) {
-      filter = { userId: { eq: userId } };
-    } else if (queryOverride.includes("uuid: { eq: userId.toLowerCase")) {
-      filter = { uuid: { eq: userId.toLowerCase() } };
-    } else if (queryOverride.includes("uuid: { eq: userId.toUpperCase")) {
-      filter = { uuid: { eq: userId.toUpperCase() } };
-    } else {
-      // Default to the standard query
-      filter = { uuid: { eq: userId } };
-    }
-
-    console.log("Using UserProfile filter:", filter);
-
-    // First try the direct query via UUID as done in UserProfileModal
-    const userProfileQuery = /* GraphQL */ `
-      query GetUserProfileByUuid($uuid: String!) {
-        listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
-          items {
-            id
-            email
-            uuid
-            profileOwner
-            firstName
-            lastName
-            preferredContactMethod
-            createdAt
+    try {
+      // First try the direct query via UUID as done in UserProfileModal
+      const userProfileQuery = /* GraphQL */ `
+        query GetUserProfileByUuid($uuid: String!) {
+          listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
+            items {
+              id
+              email
+              uuid
+              profileOwner
+              firstName
+              lastName
+              preferredContactMethod
+              createdAt
+            }
           }
         }
-      }
-    `;
+      `;
 
-    const response = await client.graphql({
-      query: userProfileQuery,
-      variables: {
-        uuid: userId
-      }
-    });
+      const response = await client.graphql({
+        query: userProfileQuery,
+        variables: {
+          uuid: userId
+        }
+      });
 
       const profiles = response?.data?.listUserProfiles?.items || [];
       
@@ -202,49 +190,10 @@ const UserValidator = () => {
     setResults([...results]);
 
     try {
-      // Build the filter based on the current override
-      let filter: any = {};
-      
-      // Parse the query override
-      const queryOverride = queryOverridesRef.current.notificationPrefsQuery;
-      
-      if (queryOverride.includes("userId: { eq:")) {
-        filter = { userId: { eq: userId } };
-      } else if (queryOverride.includes("userId: { contains:")) {
-        filter = { userId: { contains: userId } };
-      } else if (queryOverride.includes("id: { contains:")) {
-        filter = { id: { contains: userId } };
-      } else if (queryOverride.includes("OR combination")) {
-        // Use an OR combination for best chance of success
-        filter = { 
-          or: [
-            { userId: { eq: userId } },
-            { userId: { contains: userId } },
-            { id: { contains: userId } }
-          ] 
-        };
-      } else if (queryOverride.includes("userId: { beginsWith:")) {
-        // Try beginsWith for partial ID match
-        filter = { userId: { beginsWith: userId.substring(0, 10) } };
-      } else if (queryOverride.includes("userId: { eq: userId.toLowerCase")) {
-        filter = { userId: { eq: userId.toLowerCase() } };
-      } else if (queryOverride.includes("userId: { eq: userId.toUpperCase")) {
-        filter = { userId: { eq: userId.toUpperCase() } };
-      } else {
-        // Default to the OR pattern for best chance of success
-        filter = { 
-          or: [
-            { userId: { eq: userId } },
-            { userId: { contains: userId } }
-          ] 
-        };
-      }
-
-      console.log("Using NotificationPreference filter:", filter);
-
-      const prefQuery = /* GraphQL */ `
-        query GetNotificationPreferences($filter: ModelNotificationPreferenceFilterInput) {
-          listNotificationPreferences(filter: $filter, limit: 1) {
+      // Use a direct query approach similar to user profile
+      const notificationPrefQuery = /* GraphQL */ `
+        query GetNotificationPreferencesByUserId($userId: String!) {
+          listNotificationPreferences(filter: { userId: { eq: $userId } }, limit: 10) {
             items {
               id
               userId
@@ -262,9 +211,9 @@ const UserValidator = () => {
       `;
 
       const response = await client.graphql({
-        query: prefQuery,
+        query: notificationPrefQuery,
         variables: {
-          filter
+          userId: userId
         }
       });
 
@@ -384,13 +333,14 @@ const UserValidator = () => {
             ...results[rootIndex],
             status: 'success',
             message: 'Root folder exists',
-            details: `Found ${rootListing.items.length} items in the root folder`
+            details: `Root Path: ${rootPath}\n\nFound ${rootListing.items.length} items in the root folder\n\nItems:\n${JSON.stringify(rootListing.items, null, 2)}`
           };
         } else {
           results[rootIndex] = {
             ...results[rootIndex],
             status: 'warning',
-            message: 'Root folder exists but is empty'
+            message: 'Root folder exists but is empty',
+            details: `Root Path: ${rootPath}\n\nFolder exists but contains no items.`
           };
         }
       } catch (error) {
@@ -425,17 +375,27 @@ const UserValidator = () => {
         
         const foundFolders: string[] = [];
         const missingFolders: string[] = [];
+        const folderDetails: Record<string, any> = {};
         
         for (const folder of expectedFolders) {
           try {
             const folderPath = `users/${userId}/${folder}`;
-            await list({
+            const listing = await list({
               path: folderPath
             });
+            
             foundFolders.push(folder);
+            folderDetails[folder] = {
+              path: folderPath,
+              itemCount: listing.items.length,
+              items: listing.items
+            };
           } catch (error) {
             missingFolders.push(folder);
-            console.error(`Error checking folder ${folder}:`, error);
+            folderDetails[folder] = {
+              path: `users/${userId}/${folder}`,
+              error: error instanceof Error ? error.message : String(error)
+            };
           }
         }
         
@@ -444,20 +404,21 @@ const UserValidator = () => {
             ...results[subfolderIndex],
             status: 'success',
             message: 'All required subfolders exist',
-            details: `Found folders: ${foundFolders.join(', ')}`
+            details: `Found all expected folders:\n\n${JSON.stringify(folderDetails, null, 2)}`
           };
         } else if (foundFolders.length > 0) {
           results[subfolderIndex] = {
             ...results[subfolderIndex],
             status: 'warning',
             message: `Some subfolders missing (${missingFolders.length}/${expectedFolders.length})`,
-            details: `Found: ${foundFolders.join(', ')}\nMissing: ${missingFolders.join(', ')}`
+            details: `Found: ${foundFolders.join(', ')}\nMissing: ${missingFolders.join(', ')}\n\nDetails:\n${JSON.stringify(folderDetails, null, 2)}`
           };
         } else {
           results[subfolderIndex] = {
             ...results[subfolderIndex],
             status: 'failure',
-            message: 'No required subfolders found'
+            message: 'No required subfolders found',
+            details: `All expected folders are missing: ${expectedFolders.join(', ')}`
           };
         }
       } catch (error) {
@@ -489,37 +450,82 @@ const UserValidator = () => {
     }
   };
 
+  // Close all detail panels when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const targetElement = event.target as Element;
+      
+      // Skip if clicking on a detail button or panel
+      if (targetElement.closest('.detail-button') || targetElement.closest('.detail-panel')) {
+        return;
+      }
+      
+      setOpenDetailIndex(null);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+
   return (
     <Card title="User Setup Validator">
       <div className="mb-4">
-        <div className="input-group">
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Enter User ID"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            disabled={isValidating}
-            onKeyPress={(e) => e.key === 'Enter' && validateUser()}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={validateUser}
-            disabled={isValidating || !userId.trim()}
-          >
-            {isValidating ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Validating...
-              </>
-            ) : (
-              <>Validate User</>
-            )}
-          </button>
-        </div>
-        <small className="text-muted">
-          Enter a Cognito User ID (UUID) to validate their account setup
-        </small>
+        {!showUserLookup ? (
+          <>
+            <div className="input-group">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Enter User ID"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                disabled={isValidating}
+                onKeyPress={(e) => e.key === 'Enter' && validateUser()}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={validateUser}
+                disabled={isValidating || !userId.trim()}
+              >
+                {isValidating ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Validating...
+                  </>
+                ) : (
+                  <>Validate User</>
+                )}
+              </button>
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => setShowUserLookup(true)}
+                disabled={isValidating}
+                title="Search for a user"
+              >
+                <i className="bi bi-search"></i>
+              </button>
+            </div>
+            <small className="text-muted">
+              Enter a Cognito User ID (UUID) to validate their account setup, or use the search button to find a user
+            </small>
+          </>
+        ) : (
+          <>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="mb-0">User Lookup</h5>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setShowUserLookup(false)}
+              >
+                <i className="bi bi-x-lg me-1"></i>
+                Close
+              </button>
+            </div>
+            <UserLookup onSelectUser={handleUserSelect} />
+          </>
+        )}
       </div>
 
       {error && (
@@ -584,28 +590,54 @@ const UserValidator = () => {
                       <td>{result.message}</td>
                       <td>
                         {result.details && (
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
-                            data-bs-toggle="collapse"
-                            data-bs-target={`#details-${idx}`}
-                            aria-expanded="false"
-                          >
-                            View
-                          </button>
+                          <div className="position-relative">
+                            <button
+                              className="btn btn-sm btn-outline-secondary detail-button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDetailIndex(openDetailIndex === idx ? null : idx);
+                              }}
+                            >
+                              {openDetailIndex === idx ? 'Hide Details' : 'Show Details'}
+                            </button>
+                            
+                            {openDetailIndex === idx && (
+                              <div 
+                                className="position-absolute bg-light p-3 rounded shadow-sm border detail-panel" 
+                                style={{ 
+                                  top: '100%', 
+                                  right: 0, 
+                                  zIndex: 1000, 
+                                  minWidth: '300px', 
+                                  maxWidth: '600px',
+                                  marginTop: '5px'
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <h6 className="mb-0">{result.name} Details</h6>
+                                  <button 
+                                    className="btn btn-sm btn-close" 
+                                    onClick={() => setOpenDetailIndex(null)}
+                                  ></button>
+                                </div>
+                                <pre 
+                                  className="p-2 bg-white border rounded mb-0" 
+                                  style={{ 
+                                    whiteSpace: 'pre-wrap', 
+                                    fontSize: '0.8rem', 
+                                    maxHeight: '400px', 
+                                    overflow: 'auto' 
+                                  }}
+                                >
+                                  {result.details}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
-                    {result.details && (
-                      <tr id={`details-${idx}`} className="collapse">
-                        <td colSpan={4}>
-                          <div className="bg-light p-2 rounded">
-                            <pre className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
-                              {result.details}
-                            </pre>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
                   </React.Fragment>
                 ))}
               </tbody>
