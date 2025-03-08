@@ -99,67 +99,68 @@ const UserValidator = () => {
     }
   };
 
-  // Validation functions for each component
-  const validateUserProfile = async (client: any, results: ValidationResult[]) => {
-    const userProfileIndex = results.findIndex(r => r.name === 'UserProfile');
-    if (userProfileIndex === -1) return;
+ // Validation functions for each component
+ const validateUserProfile = async (client: any, results: ValidationResult[]) => {
+  const userProfileIndex = results.findIndex(r => r.name === 'UserProfile');
+  if (userProfileIndex === -1) return;
 
-    results[userProfileIndex] = {
-      ...results[userProfileIndex],
-      status: 'pending',
-      message: 'Checking user profile...'
-    };
-    setResults([...results]);
+  results[userProfileIndex] = {
+    ...results[userProfileIndex],
+    status: 'pending',
+    message: 'Checking user profile...'
+  };
+  setResults([...results]);
 
-    try {
-      // Build the filter based on the current override
-      let filter: any = {};
-      
-      // Parse the query override
-      const queryOverride = queryOverridesRef.current.userProfileQuery;
-      
-      if (queryOverride.includes("uuid: { eq:")) {
-        filter = { uuid: { eq: userId } };
-      } else if (queryOverride.includes("uuid: { contains:")) {
-        filter = { uuid: { contains: userId } };
-      } else if (queryOverride.includes("profileOwner: { contains:")) {
-        filter = { profileOwner: { contains: userId } };
-      } else if (queryOverride.includes("userId: { eq:")) {
-        filter = { userId: { eq: userId } };
-      } else if (queryOverride.includes("uuid: { eq: userId.toLowerCase")) {
-        filter = { uuid: { eq: userId.toLowerCase() } };
-      } else if (queryOverride.includes("uuid: { eq: userId.toUpperCase")) {
-        filter = { uuid: { eq: userId.toUpperCase() } };
-      } else {
-        // Default to the standard query
-        filter = { uuid: { eq: userId } };
-      }
+  try {
+    // Build the filter based on the current override
+    let filter: any = {};
+    
+    // Parse the query override
+    const queryOverride = queryOverridesRef.current.userProfileQuery;
+    
+    if (queryOverride.includes("uuid: { eq:")) {
+      filter = { uuid: { eq: userId } };
+    } else if (queryOverride.includes("uuid: { contains:")) {
+      filter = { uuid: { contains: userId } };
+    } else if (queryOverride.includes("profileOwner: { contains:")) {
+      filter = { profileOwner: { contains: userId } };
+    } else if (queryOverride.includes("userId: { eq:")) {
+      filter = { userId: { eq: userId } };
+    } else if (queryOverride.includes("uuid: { eq: userId.toLowerCase")) {
+      filter = { uuid: { eq: userId.toLowerCase() } };
+    } else if (queryOverride.includes("uuid: { eq: userId.toUpperCase")) {
+      filter = { uuid: { eq: userId.toUpperCase() } };
+    } else {
+      // Default to the standard query
+      filter = { uuid: { eq: userId } };
+    }
 
-      console.log("Using UserProfile filter:", filter);
+    console.log("Using UserProfile filter:", filter);
 
-      const userProfileQuery = /* GraphQL */ `
-        query GetUserProfile($filter: ModelUserProfileFilterInput) {
-          listUserProfiles(filter: $filter, limit: 1) {
-            items {
-              id
-              email
-              uuid
-              profileOwner
-              firstName
-              lastName
-              preferredContactMethod
-              createdAt
-            }
+    // First try the direct query via UUID as done in UserProfileModal
+    const userProfileQuery = /* GraphQL */ `
+      query GetUserProfileByUuid($uuid: String!) {
+        listUserProfiles(filter: { uuid: { eq: $uuid } }, limit: 10) {
+          items {
+            id
+            email
+            uuid
+            profileOwner
+            firstName
+            lastName
+            preferredContactMethod
+            createdAt
           }
         }
-      `;
+      }
+    `;
 
-      const response = await client.graphql({
-        query: userProfileQuery,
-        variables: {
-          filter
-        }
-      });
+    const response = await client.graphql({
+      query: userProfileQuery,
+      variables: {
+        uuid: userId
+      }
+    });
 
       const profiles = response?.data?.listUserProfiles?.items || [];
       
