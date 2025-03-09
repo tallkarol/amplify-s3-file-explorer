@@ -7,9 +7,6 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 // Import Error Boundary
 import ErrorBoundary from "@/components/error/ErrorBoundary";
 
-// Import User Status Check
-import UserStatusCheck from "@/components/auth/UserStatusCheck";
-
 // Import User Pages
 import Layout from '@/layouts/UserLayout';
 import UserDashboard from '@/pages/user/UserDashboard';
@@ -111,12 +108,10 @@ function App() {
         <Route path="/user/*" element={
           <Layout isAdmin={userRole === 'admin'}>
             <Routes>
-              <UserStatusCheck>
                 <Route path="/" element={<UserDashboard />} />
                 <Route path="/workflows" element={<UserWorkflowDashboard />} />
                 <Route path="/folder/:folderId" element={<UserDashboard />} />
                 <Route path="*" element={<Navigate to="/user" replace />} />
-              </UserStatusCheck>
             </Routes>
           </Layout>
         } />

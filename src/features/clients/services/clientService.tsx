@@ -13,11 +13,11 @@ interface ListUserProfilesResponse {
 // Create a client for making GraphQL requests
 const client = generateClient();
 
-// Create the Cognito client
+// Create the Cognito client - FIX: Replace process.env with import.meta.env for Vite
 const cognitoClient = new CognitoIdentityProviderClient({ 
-  region: process.env.REACT_APP_AWS_REGION || 'us-east-1' 
+  region: import.meta.env.VITE_AWS_REGION || 'us-east-1' 
 });
-const USER_POOL_ID = process.env.REACT_APP_USER_POOL_ID || '';
+const USER_POOL_ID = import.meta.env.VITE_USER_POOL_ID || '';
 
 /**
  * Disables a user in Cognito
@@ -188,8 +188,6 @@ export const getUserStatus = async (userId: string): Promise<string | null> => {
     throw error;
   }
 };
-
-// Add these to src/features/clients/services/clientService.ts
 
 /**
  * Suspends a user account
