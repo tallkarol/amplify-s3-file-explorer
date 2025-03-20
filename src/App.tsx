@@ -29,6 +29,9 @@ import DebugTools from "@/pages/developer/DebugTools";
 import { NotificationProvider } from "@/features/notifications/context/NotificationContext";
 import NotificationDetail from "@/features/notifications/components/NotificationDetail";
 
+// Import Inbox Component
+import Inbox from '@/pages/inbox/Inbox';
+
 // Import User Status Check
 import UserStatusCheck from '@/components/auth/UserStatusCheck';
 
@@ -79,6 +82,13 @@ function App() {
       <NotificationProvider>
         <UserStatusCheck>
           <Routes>
+            {/* Universal Inbox Route - can be accessed from any layout */}
+            <Route path="/inbox" element={
+              <Layout isAdmin={userRole === 'admin'}>
+                <Inbox />
+              </Layout>
+            } />
+            
             {/* Admin Routes */}
             <Route path="/admin/*" element={
               userRole === 'admin' || userRole === 'developer' ? (
@@ -88,6 +98,7 @@ function App() {
                     <Route path="/clients" element={<AdminClientManagement />} />
                     <Route path="/files" element={<AdminFileManagement />} />
                     <Route path="/workflows" element={<AdminWorkflowDashboard />} />
+                    <Route path="/inbox" element={<Inbox />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />
                   </Routes>
                 </AdminLayout>
@@ -98,13 +109,14 @@ function App() {
             
             {/* Developer Routes */}
             <Route path="/developer/*" element={
-              userRole === 'developer' || userRole === 'admin' ? (
+              userRole === 'developer' ? (
                 <DeveloperLayout>
                   <Routes>
                     <Route path="/" element={<DeveloperDashboard />} />
                     <Route path="/user" element={<UserDashboard />} />
                     <Route path="/admin" element={<AdminHome />} />
                     <Route path="/debug" element={<DebugTools />} />
+                    <Route path="/inbox" element={<Inbox />} />
                     <Route path="*" element={<Navigate to="/developer" replace />} />
                   </Routes>
                 </DeveloperLayout>
