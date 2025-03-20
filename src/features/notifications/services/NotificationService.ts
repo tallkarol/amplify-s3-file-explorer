@@ -1,4 +1,4 @@
-// src/services/NotificationService.ts
+// src/features/notifications/services/NotificationService.ts
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import { 
@@ -7,16 +7,6 @@ import {
   ListNotificationsResponse,
   GetNotificationPreferenceResponse 
 } from '../../../types';
-import {
-  listUserNotifications,
-  getUnreadNotificationCount,
-  getUserNotificationPreferences,
-  createNotificationMutation,
-  markNotificationAsReadMutation,
-  deleteNotificationMutation,
-  updateNotificationPreferencesMutation,
-  createNotificationPreferencesMutation
-} from '../graphql/notifications';
 
 const client = generateClient();
 
@@ -33,12 +23,53 @@ export const getNotifications = async (
   limit = 20
 ): Promise<Notification[]> => {
   try {
-    const filter = onlyUnread ? { isRead: { eq: false } } : null;
+    // Create a proper filter that works in both cases
+    let filterConditions = [];
     
+    // Always add the userId filter
+    filterConditions.push({ userId: { eq: userId } });
+    
+    // Add isRead filter if only unread requested
+    if (onlyUnread) {
+      filterConditions.push({ isRead: { eq: false } });
+    }
+    
+    // Build the filter object based on conditions
+    let filter;
+    if (filterConditions.length === 1) {
+      filter = filterConditions[0]; // Just use the userId filter directly
+    } else {
+      filter = { and: filterConditions };
+    }
+    
+    // Use an inline query that works with our filter structure
     const response = await client.graphql<GraphQLQuery<ListNotificationsResponse>>({
-      query: listUserNotifications,
+      query: /* GraphQL */ `
+        query ListUserNotifications(
+          $filter: ModelNotificationFilterInput!,
+          $limit: Int
+        ) {
+          listNotifications(
+            filter: $filter,
+            limit: $limit
+          ) {
+            items {
+              id
+              userId
+              type
+              title
+              message
+              isRead
+              actionLink
+              metadata
+              expiresAt
+              createdAt
+              updatedAt
+            }
+          }
+        }
+      `,
       variables: {
-        userId,
         filter,
         limit
       },
@@ -53,6 +84,42 @@ export const getNotifications = async (
 };
 
 /**
+ * Get a specific notification by ID
+ * @param id Notification ID
+ * @returns Promise resolving to the notification or null if not found
+ */
+export const getNotificationById = async (id: string): Promise<Notification | null> => {
+  try {
+    const response = await client.graphql<GraphQLQuery<{ getNotification: Notification }>>({
+      query: /* GraphQL */ `
+        query GetNotification($id: ID!) {
+          getNotification(id: $id) {
+            id
+            userId
+            type
+            title
+            message
+            isRead
+            actionLink
+            metadata
+            expiresAt
+            createdAt
+            updatedAt
+          }
+        }
+      `,
+      variables: { id },
+      authMode: 'userPool'
+    });
+    
+    return response.data?.getNotification || null;
+  } catch (error) {
+    console.error('Error fetching notification by ID:', error);
+    throw error;
+  }
+};
+
+/**
  * Get the count of unread notifications
  * @param userId User ID
  * @returns Promise resolving to the count of unread notifications
@@ -60,8 +127,23 @@ export const getNotifications = async (
 export const getUnreadCount = async (userId: string): Promise<number> => {
   try {
     const response = await client.graphql<GraphQLQuery<{ listNotifications: { items: { id: string }[] } }>>({
-      query: getUnreadNotificationCount,
-      variables: { userId },
+      query: /* GraphQL */ `
+        query GetUnreadNotificationCount($filter: ModelNotificationFilterInput!) {
+          listNotifications(filter: $filter) {
+            items {
+              id
+            }
+          }
+        }
+      `,
+      variables: { 
+        filter: { 
+          and: [
+            { userId: { eq: userId } },
+            { isRead: { eq: false } }
+          ]
+        }
+      },
       authMode: 'userPool'
     });
     
@@ -131,6 +213,30 @@ export const markAsRead = async (notificationId: string): Promise<{ id: string; 
     return response.data!.updateNotification;
   } catch (error) {
     console.error('Error marking notification as read:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark all notifications as read for a user
+ * @param userId User ID
+ * @returns Promise resolving when all notifications are marked as read
+ */
+export const markAllAsRead = async (userId: string): Promise<void> => {
+  try {
+    // First get all unread notifications
+    const unreadNotifications = await getNotifications(userId, true, 100);
+    
+    // Then mark each as read in parallel
+    await Promise.all(
+      unreadNotifications.map(notification => 
+        markAsRead(notification.id)
+      )
+    );
+    
+    console.log(`Marked ${unreadNotifications.length} notifications as read for user ${userId}`);
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
     throw error;
   }
 };
@@ -209,3 +315,106 @@ export const createInitialNotificationPreferences = async (userId: string): Prom
     throw error;
   }
 };
+
+// GraphQL query for getting user notification preferences
+const getUserNotificationPreferences = /* GraphQL */ `
+  query GetUserNotificationPreferences($userId: String!) {
+    listNotificationPreferences(
+      filter: { userId: { eq: $userId } },
+      limit: 1
+    ) {
+      items {
+        id
+        userId
+        receiveSystemNotifications
+        receiveFileNotifications
+        receiveAdminNotifications
+        receiveUserNotifications
+        emailNotifications
+        inAppNotifications
+        emailDigestFrequency
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+// GraphQL mutation for creating a notification
+const createNotificationMutation = /* GraphQL */ `
+  mutation CreateNotification($input: CreateNotificationInput!) {
+    createNotification(input: $input) {
+      id
+      userId
+      type
+      title
+      message
+      isRead
+      actionLink
+      metadata
+      expiresAt
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+// GraphQL mutation for marking a notification as read
+const markNotificationAsReadMutation = /* GraphQL */ `
+  mutation MarkNotificationAsRead($id: ID!) {
+    updateNotification(input: {
+      id: $id,
+      isRead: true
+    }) {
+      id
+      isRead
+      updatedAt
+    }
+  }
+`;
+
+// GraphQL mutation for deleting a notification
+const deleteNotificationMutation = /* GraphQL */ `
+  mutation DeleteNotification($id: ID!) {
+    deleteNotification(input: { id: $id }) {
+      id
+    }
+  }
+`;
+
+// GraphQL mutation for updating notification preferences
+const updateNotificationPreferencesMutation = /* GraphQL */ `
+  mutation UpdateNotificationPreferences($input: UpdateNotificationPreferenceInput!) {
+    updateNotificationPreference(input: $input) {
+      id
+      userId
+      receiveSystemNotifications
+      receiveFileNotifications
+      receiveAdminNotifications
+      receiveUserNotifications
+      emailNotifications
+      inAppNotifications
+      emailDigestFrequency
+      updatedAt
+    }
+  }
+`;
+
+// GraphQL mutation for creating notification preferences
+const createNotificationPreferencesMutation = /* GraphQL */ `
+  mutation CreateNotificationPreferences($input: CreateNotificationPreferenceInput!) {
+    createNotificationPreference(input: $input) {
+      id
+      userId
+      receiveSystemNotifications
+      receiveFileNotifications
+      receiveAdminNotifications
+      receiveUserNotifications
+      emailNotifications
+      inAppNotifications
+      emailDigestFrequency
+      createdAt
+      updatedAt
+    }
+  }
+`;

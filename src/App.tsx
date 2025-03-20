@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useState, useEffect } from "react";
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
@@ -24,8 +25,12 @@ import DeveloperLayout from '@/layouts/DeveloperLayout';
 import DeveloperDashboard from '@/pages/developer/DeveloperDashboard';
 import DebugTools from "@/pages/developer/DebugTools";
 
-// Import Notification Provider
+// Import Notification Components
 import { NotificationProvider } from "@/features/notifications/context/NotificationContext";
+import NotificationDetail from "@/features/notifications/components/NotificationDetail";
+
+// Import User Status Check
+import UserStatusCheck from '@/components/auth/UserStatusCheck';
 
 function App() {
   const { user } = useAuthenticator();
@@ -72,62 +77,86 @@ function App() {
   return (
     <ErrorBoundary>
       <NotificationProvider>
-        <Routes>
-          {/* Admin Routes */}
-          <Route path="/admin/*" element={
-            userRole === 'admin' || userRole === 'developer' ? (
-              <AdminLayout>
+        <UserStatusCheck>
+          <Routes>
+            {/* Admin Routes */}
+            <Route path="/admin/*" element={
+              userRole === 'admin' || userRole === 'developer' ? (
+                <AdminLayout>
+                  <Routes>
+                    <Route path="/" element={<AdminHome />} />
+                    <Route path="/clients" element={<AdminClientManagement />} />
+                    <Route path="/files" element={<AdminFileManagement />} />
+                    <Route path="/workflows" element={<AdminWorkflowDashboard />} />
+                    <Route path="*" element={<Navigate to="/admin" replace />} />
+                  </Routes>
+                </AdminLayout>
+              ) : (
+                <Navigate to="/user" replace />
+              )
+            } />
+            
+            {/* Developer Routes */}
+            <Route path="/developer/*" element={
+              userRole === 'developer' || userRole === 'admin' ? (
+                <DeveloperLayout>
+                  <Routes>
+                    <Route path="/" element={<DeveloperDashboard />} />
+                    <Route path="/user" element={<UserDashboard />} />
+                    <Route path="/admin" element={<AdminHome />} />
+                    <Route path="/debug" element={<DebugTools />} />
+                    <Route path="*" element={<Navigate to="/developer" replace />} />
+                  </Routes>
+                </DeveloperLayout>
+              ) : (
+                <Navigate to="/user" replace />
+              )
+            } />
+            
+            {/* User Routes */}
+            <Route path="/user/*" element={
+              <Layout isAdmin={userRole === 'admin'}>
                 <Routes>
-                  <Route path="/" element={<AdminHome />} />
-                  <Route path="/clients" element={<AdminClientManagement />} />
-                  <Route path="/files" element={<AdminFileManagement />} />
-                  <Route path="/workflows" element={<AdminWorkflowDashboard />} />
-                  <Route path="*" element={<Navigate to="/admin" replace />} />
+                    <Route path="/" element={<UserDashboard />} />
+                    <Route path="/workflows" element={<UserWorkflowDashboard />} />
+                    <Route path="/folder/:folderId" element={<UserDashboard />} />
+                    <Route path="*" element={<Navigate to="/user" replace />} />
                 </Routes>
-              </AdminLayout>
-            ) : (
-              <Navigate to="/user" replace />
-            )
-          } />
-          
-          {/* Developer Routes */}
-          <Route path="/developer/*" element={
-            userRole === 'developer' || userRole === 'admin' ? (
-              <DeveloperLayout>
-                <Routes>
-                  <Route path="/" element={<DeveloperDashboard />} />
-                  <Route path="/user" element={<UserDashboard />} />
-                  <Route path="/admin" element={<AdminHome />} />
-                  <Route path="/debug" element={<DebugTools />} />
-                  <Route path="*" element={<Navigate to="/developer" replace />} />
-                </Routes>
-              </DeveloperLayout>
-            ) : (
-              <Navigate to="/user" replace />
-            )
-          } />
-          
-          {/* User Routes */}
-          <Route path="/user/*" element={
-            <Layout isAdmin={userRole === 'admin'}>
-              <Routes>
-                  <Route path="/" element={<UserDashboard />} />
-                  <Route path="/workflows" element={<UserWorkflowDashboard />} />
-                  <Route path="/folder/:folderId" element={<UserDashboard />} />
-                  <Route path="*" element={<Navigate to="/user" replace />} />
-              </Routes>
-            </Layout>
-          } />
-          
-          {/* Default redirect */}
-          <Route path="/" element={
-            <Navigate to={
-              userRole === 'admin' ? "/admin" : 
-              userRole === 'developer' ? "/developer" : 
-              "/user"
-            } replace />
-          } />
-        </Routes>
+              </Layout>
+            } />
+            
+            {/* Notification Detail Route - Works with any layout */}
+            <Route path="/notifications/detail/:id" element={
+              <Layout isAdmin={userRole === 'admin'}>
+                <NotificationDetail />
+              </Layout>
+            } />
+            
+            {/* Notification Listing Page */}
+            <Route path="/notifications" element={
+              <Layout isAdmin={userRole === 'admin'}>
+                <div className="container py-4">
+                  <h2>All Notifications</h2>
+                  <p className="text-muted">View and manage all your notifications</p>
+                  {/* This could be replaced with a dedicated NotificationsPage component */}
+                  <div className="alert alert-info">
+                    <i className="bi bi-info-circle me-2"></i>
+                    The full notifications page is coming soon. For now, you can view notifications by clicking the bell icon.
+                  </div>
+                </div>
+              </Layout>
+            } />
+            
+            {/* Default redirect */}
+            <Route path="/" element={
+              <Navigate to={
+                userRole === 'admin' ? "/admin" : 
+                userRole === 'developer' ? "/developer" : 
+                "/user"
+              } replace />
+            } />
+          </Routes>
+        </UserStatusCheck>
       </NotificationProvider>
     </ErrorBoundary>
   );
