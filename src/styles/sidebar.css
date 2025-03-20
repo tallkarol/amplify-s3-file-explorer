@@ -213,3 +213,103 @@
 .sidebar .folder-statistics {
   --folder-color: #ffc107;
 }
+
+/* Notification/Inbox styling */
+.sidebar-notification {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.sidebar-notification-link {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.sidebar-notification-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.notification-icon-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-notification-link:hover .notification-icon-container {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.notification-icon {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.notification-label {
+  margin-left: 12px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  flex-grow: 1;
+}
+
+.notification-badge {
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #dc3545;
+  color: white;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+/* Special animation for notification indicator */
+@keyframes pulse-notification {
+  0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+  70% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.notification-has-unread .notification-icon-container {
+  animation: pulse-notification 2s infinite;
+}
+
+/* Collapsed sidebar notification styles */
+.sidebar.collapsed .sidebar-notification {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.sidebar.collapsed .notification-badge {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.65rem;
+}
+
+.sidebar.collapsed .sidebar-notification-link {
+  padding: 0.5rem;
+  width: 44px;
+  display: flex;
+  justify-content: center;
+}

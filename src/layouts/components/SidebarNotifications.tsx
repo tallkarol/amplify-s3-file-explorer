@@ -1,6 +1,5 @@
 // src/layouts/components/SidebarNotifications.tsx
 import { useNotifications } from '@/features/notifications/context/NotificationContext';
-import NotificationBell from '@/features/notifications/components/NotificationBell';
 import { Link, useLocation } from 'react-router-dom';
 
 interface SidebarNotificationsProps {
@@ -23,35 +22,54 @@ const SidebarNotifications = ({ collapsed }: SidebarNotificationsProps) => {
   };
   
   const inboxPath = getInboxPath();
+  const hasUnread = unreadCount > 0;
 
   return (
-    <div className={`sidebar-item d-flex ${collapsed ? 'justify-content-center' : 'px-3 py-2'}`}>
-      {collapsed ? (
-        <div className="position-relative">
-          <NotificationBell onClick={showNotifications} />
-          {/* Click on bell icon shows modal, but entire area navigates to inbox */}
-          <Link to={inboxPath} className="stretched-link" title="Go to Inbox"></Link>
-        </div>
-      ) : (
-        <div className="d-flex w-100">
+    <div className={`sidebar-notification ${hasUnread ? 'notification-has-unread' : ''}`}>
+      <div className="d-flex align-items-center">
+        <div className="sidebar-notification-link" role="button">
+          {/* Bell icon that toggles notifications modal */}
           <div 
-            className="nav-link d-flex align-items-center text-light hover-highlight py-2 rounded w-100"
-            style={{ cursor: 'pointer' }}
+            className="notification-icon-container"
+            onClick={showNotifications}
+            title="Show notifications"
           >
-            {/* Bell icon shows the notification modal */}
-            <span className="me-3" onClick={showNotifications}>
-              <NotificationBell onClick={() => {}} />
-            </span>
-            
-            {/* Text part navigates to the inbox page */}
-            <Link to={inboxPath} className="d-flex align-items-center justify-content-between w-100 text-white text-decoration-none">
-              <span>Inbox</span>
-              {unreadCount > 0 && (
-                <span className="badge bg-primary rounded-pill ms-2">{unreadCount}</span>
-              )}
-            </Link>
+            <i className="bi bi-bell-fill notification-icon"></i>
           </div>
+          
+          {!collapsed && (
+            <>
+              {/* Text part navigates to the inbox page */}
+              <Link to={inboxPath} className="notification-label text-decoration-none text-white">
+                Inbox
+              </Link>
+              
+              {/* Badge with unread count */}
+              {hasUnread && (
+                <span className="notification-badge">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </>
+          )}
+          
+          {/* Badge for collapsed sidebar */}
+          {collapsed && hasUnread && (
+            <span className="notification-badge">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </div>
+      </div>
+      
+      {/* Invisible link for the whole element in collapsed mode */}
+      {collapsed && (
+        <Link 
+          to={inboxPath} 
+          className="stretched-link" 
+          title="Go to Inbox"
+          aria-label="Go to Inbox"
+        ></Link>
       )}
     </div>
   );
