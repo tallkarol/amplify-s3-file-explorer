@@ -16,6 +16,7 @@ import '@/styles/admin.css';
 import '@/styles/foldergrid.css';
 import '@/styles/profile.css';
 import '@/features/workflows/styles/workflow.css';
+import '@/styles/notifications.css';
 
 Amplify.configure(outputs);
 

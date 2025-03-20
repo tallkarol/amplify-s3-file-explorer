@@ -5,6 +5,8 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import UserProfileModal from '../../features/clients/components/UserProfileModal';
+import SidebarNotifications from './SidebarNotifications';
+// import { useNotifications } from '@/features/notifications/context/NotificationContext';
 import '@/styles/sidebar.css';
 import '@/styles/adminsidebar.css';
 
@@ -205,6 +207,11 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
                 <i className="bi bi-house-door me-3 fs-5"></i>
                 {!collapsed && <span>Dashboard</span>}
               </Link>
+            </li>
+            
+            {/* Add Notifications Link */}
+            <li className="nav-item mb-2">
+              <SidebarNotifications collapsed={collapsed} />
             </li>
             
             {/* Folders directly in the sidebar instead of dropdown */}

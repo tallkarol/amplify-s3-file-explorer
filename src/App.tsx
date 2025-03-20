@@ -24,6 +24,8 @@ import DeveloperLayout from '@/layouts/DeveloperLayout';
 import DeveloperDashboard from '@/pages/developer/DeveloperDashboard';
 import DebugTools from "@/pages/developer/DebugTools";
 
+// Import Notification Provider
+import { NotificationProvider } from "@/features/notifications/context/NotificationContext";
 
 function App() {
   const { user } = useAuthenticator();
@@ -69,69 +71,64 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Routes>
-        {/* Admin Routes */}
-        <Route path="/admin/*" element={
-          userRole === 'admin' || userRole === 'developer' ? (
-            <AdminLayout>
+      <NotificationProvider>
+        <Routes>
+          {/* Admin Routes */}
+          <Route path="/admin/*" element={
+            userRole === 'admin' || userRole === 'developer' ? (
+              <AdminLayout>
+                <Routes>
+                  <Route path="/" element={<AdminHome />} />
+                  <Route path="/clients" element={<AdminClientManagement />} />
+                  <Route path="/files" element={<AdminFileManagement />} />
+                  <Route path="/workflows" element={<AdminWorkflowDashboard />} />
+                  <Route path="*" element={<Navigate to="/admin" replace />} />
+                </Routes>
+              </AdminLayout>
+            ) : (
+              <Navigate to="/user" replace />
+            )
+          } />
+          
+          {/* Developer Routes */}
+          <Route path="/developer/*" element={
+            userRole === 'developer' || userRole === 'admin' ? (
+              <DeveloperLayout>
+                <Routes>
+                  <Route path="/" element={<DeveloperDashboard />} />
+                  <Route path="/user" element={<UserDashboard />} />
+                  <Route path="/admin" element={<AdminHome />} />
+                  <Route path="/debug" element={<DebugTools />} />
+                  <Route path="*" element={<Navigate to="/developer" replace />} />
+                </Routes>
+              </DeveloperLayout>
+            ) : (
+              <Navigate to="/user" replace />
+            )
+          } />
+          
+          {/* User Routes */}
+          <Route path="/user/*" element={
+            <Layout isAdmin={userRole === 'admin'}>
               <Routes>
-                <Route path="/" element={<AdminHome />} />
-                <Route path="/clients" element={<AdminClientManagement />} />
-                <Route path="/files" element={<AdminFileManagement />} />
-                <Route path="/workflows" element={<AdminWorkflowDashboard />} />
-                <Route path="*" element={<Navigate to="/admin" replace />} />
+                  <Route path="/" element={<UserDashboard />} />
+                  <Route path="/workflows" element={<UserWorkflowDashboard />} />
+                  <Route path="/folder/:folderId" element={<UserDashboard />} />
+                  <Route path="*" element={<Navigate to="/user" replace />} />
               </Routes>
-            </AdminLayout>
-          ) : (
-            <Navigate to="/user" replace />
-          )
-        } />
-        
-        {/* Developer Routes */}
-        <Route path="/developer/*" element={
-          userRole === 'developer' || userRole === 'admin' ? (
-            <DeveloperLayout>
-              <Routes>
-                <Route path="/" element={<DeveloperDashboard />} />
-                <Route path="/user" element={<UserDashboard />} />
-                <Route path="/admin" element={<AdminHome />} />
-                <Route path="/debug" element={<DebugTools />} />
-                <Route path="*" element={<Navigate to="/developer" replace />} />
-              </Routes>
-            </DeveloperLayout>
-          ) : (
-            <Navigate to="/user" replace />
-          )
-        } />
-        
-        {/* User Routes */}
-        <Route path="/user/*" element={
-          <Layout isAdmin={userRole === 'admin'}>
-            <Routes>
-                <Route path="/" element={<UserDashboard />} />
-                <Route path="/workflows" element={<UserWorkflowDashboard />} />
-                <Route path="/folder/:folderId" element={<UserDashboard />} />
-                <Route path="*" element={<Navigate to="/user" replace />} />
-            </Routes>
-          </Layout>
-        } />
-        
-        {/* Default redirect */}
-        <Route path="/" element={
-          <Navigate to={
-            userRole === 'admin' ? "/admin" : 
-            userRole === 'developer' ? "/developer" : 
-            "/user"
-          } replace />
-        } />
-        <Route path="*" element={
-          <Navigate to={
-            userRole === 'admin' ? "/admin" : 
-            userRole === 'developer' ? "/developer" : 
-            "/user"
-          } replace />
-        } />
-      </Routes>
+            </Layout>
+          } />
+          
+          {/* Default redirect */}
+          <Route path="/" element={
+            <Navigate to={
+              userRole === 'admin' ? "/admin" : 
+              userRole === 'developer' ? "/developer" : 
+              "/user"
+            } replace />
+          } />
+        </Routes>
+      </NotificationProvider>
     </ErrorBoundary>
   );
 }

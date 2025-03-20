@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { useState, useEffect } from 'react';
 import UserProfileModal from '@/features/clients/components/UserProfileModal';
+import SidebarNotifications from './SidebarNotifications';
 import '@/styles/adminsidebar.css'; // We'll create this file for custom styles
 
 interface AdminSidebarProps {
@@ -103,6 +104,11 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               <i className="bi bi-speedometer2 me-3 fs-5"></i>
               {!collapsed && <span>Dashboard</span>}
             </Link>
+          </li>
+          
+          {/* Add Notifications Link */}
+          <li className="nav-item mb-2">
+            <SidebarNotifications collapsed={collapsed} />
           </li>
           
           {/* Client Management */}

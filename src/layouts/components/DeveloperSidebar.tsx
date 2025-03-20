@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
+import SidebarNotifications from './SidebarNotifications';
 
 interface DeveloperSidebarProps {
   collapsed: boolean;
@@ -59,6 +60,11 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
               <i className="bi bi-speedometer2 me-3 fs-5"></i>
               {!collapsed && <span>Developer Dashboard</span>}
             </Link>
+          </li>
+          
+          {/* Add Notifications Link */}
+          <li className="nav-item mb-2">
+            <SidebarNotifications collapsed={collapsed} />
           </li>
 
           {/* DASHBOARDS DROPDOWN - NEW */}

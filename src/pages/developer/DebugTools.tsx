@@ -9,6 +9,8 @@ import ErrorGenerator from '../../components/developer/ErrorGenerator';
 import ErrorLog from '../../components/developer/ErrorLog';
 import UserLookup from '../../components/developer/UserLookup';
 import ErrorLoggerDemo from '../../components/developer/ErrorLoggerDemo';
+import NotificationDemo from '../../components/developer/NotificationDemo';
+// import NotificationUsageExample from '../../features/notifications/examples/NotificationUsageExample';
 
 const DebugTools = () => {
   const { isDeveloper } = useUserRole();
@@ -17,6 +19,7 @@ const DebugTools = () => {
   const [errorStats, setErrorStats] = useState<{ count: number; lastTimestamp: Date | null }>({ count: 0, lastTimestamp: null });
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
+  const [notificationStats, setNotificationStats] = useState<{ count: number; lastTimestamp: Date | null }>({ count: 0, lastTimestamp: null });
 
   // Update error stats when an error is generated
   const handleErrorGenerated = () => {
@@ -35,6 +38,14 @@ const DebugTools = () => {
     handleErrorGenerated();
   };
 
+  // Handle notification creation
+  const handleNotificationCreated = (_type: string, _message: string) => {
+    setNotificationStats(prev => ({
+      count: prev.count + 1,
+      lastTimestamp: new Date()
+    }));
+  };
+
   // Handle user selection from UserLookup
   const handleUserSelect = (userId: string) => {
     setSelectedUserId(userId);
@@ -48,6 +59,8 @@ const DebugTools = () => {
   useEffect(() => {
     if (activeTab === 'errorlog') {
       setErrorStats({ count: 0, lastTimestamp: null });
+    } else if (activeTab === 'notifications') {
+      setNotificationStats({ count: 0, lastTimestamp: null });
     }
   }, [activeTab]);
 
@@ -124,7 +137,7 @@ const DebugTools = () => {
                     )}
                   </button>
                 </li>
-                {/* New tab for Error Logger Demo */}
+                {/* Logger Demo tab */}
                 <li className="nav-item">
                   <button
                     className={`nav-link ${activeTab === 'logger' ? 'active bg-white' : 'text-white'}`}
@@ -132,6 +145,19 @@ const DebugTools = () => {
                   >
                     <i className="bi bi-journal-text me-2"></i>
                     Logger Demo
+                  </button>
+                </li>
+                {/* New Notifications tab */}
+                <li className="nav-item">
+                  <button
+                    className={`nav-link ${activeTab === 'notifications' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('notifications')}
+                  >
+                    <i className="bi bi-bell me-2"></i>
+                    Notifications
+                    {notificationStats.count > 0 && (
+                      <span className="badge bg-primary ms-2">{notificationStats.count}</span>
+                    )}
                   </button>
                 </li>
               </ul>
@@ -158,9 +184,14 @@ const DebugTools = () => {
                 </div>
               )}
               
-              {/* New condition to render ErrorLoggerDemo */}
+              {/* Logger Demo */}
               {activeTab === 'logger' && (
                 <ErrorLoggerDemo onErrorLogged={handleErrorLogged} />
+              )}
+              
+              {/* Notifications Demo */}
+              {activeTab === 'notifications' && (
+                <NotificationDemo onNotificationCreated={handleNotificationCreated} />
               )}
             </div>
           </div>
@@ -195,6 +226,12 @@ const DebugTools = () => {
                   <tr>
                     <th scope="row">Last Error Generated</th>
                     <td>{errorStats.lastTimestamp.toLocaleString()}</td>
+                  </tr>
+                )}
+                {notificationStats.lastTimestamp && (
+                  <tr>
+                    <th scope="row">Last Notification Created</th>
+                    <td>{notificationStats.lastTimestamp.toLocaleString()}</td>
                   </tr>
                 )}
                 {selectedUserId && (
