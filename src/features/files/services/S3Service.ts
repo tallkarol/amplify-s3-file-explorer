@@ -1,6 +1,11 @@
-// src/services/s3Service.ts
-import { list, getUrl, remove } from 'aws-amplify/storage';
+// src/features/files/services/S3Service.ts
+import { list, getUrl, remove, uploadData } from 'aws-amplify/storage';
+import { generateClient } from 'aws-amplify/api';
+import { GraphQLQuery } from '@aws-amplify/api';
+// import { getCurrentUser } from 'aws-amplify/auth';
 import { S3Item } from '../../../types';
+
+const client = generateClient();
 
 // Protected folders that should not be deleted
 const PROTECTED_FOLDERS = [
@@ -10,12 +15,278 @@ const PROTECTED_FOLDERS = [
   'statistics'
 ];
 
+// Folder display names
+const FOLDER_DISPLAY_NAMES: Record<string, string> = {
+  'certificate': 'Certificates',
+  'audit-report': 'Audit Reports',
+  'auditor-resume': 'Auditor Profiles',
+  'statistics': 'Statistics'
+};
+
+// Enhanced S3Item with permissions
+export interface EnhancedS3Item extends S3Item {
+  permissions?: {
+    downloadRestricted: boolean;
+    uploadRestricted: boolean;
+    canCreateSubfolders: boolean;
+    canDeleteFolder: boolean;
+  };
+}
+
+// Folder permissions interface
+export interface FolderPermissions {
+  id?: string;
+  userId: string;
+  folderPath: string;
+  downloadRestricted: boolean;
+  uploadRestricted: boolean;
+  canCreateSubfolders: boolean;
+  canDeleteFolder: boolean;
+  inheritFromParent: boolean;
+  createdBy?: string;
+  lastModifiedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// GraphQL queries and mutations for folder permissions
+const listFolderPermissionsQuery = /* GraphQL */ `
+  query ListFolderPermissions($userId: String!) {
+    listFolderPermissions(filter: { userId: { eq: $userId } }) {
+      items {
+        id
+        userId
+        folderPath
+        downloadRestricted
+        uploadRestricted
+        canCreateSubfolders
+        canDeleteFolder
+        inheritFromParent
+        createdBy
+        lastModifiedBy
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+const getFolderPermissionQuery = /* GraphQL */ `
+  query GetFolderPermission($userId: String!, $folderPath: String!) {
+    listFolderPermissions(
+      filter: { 
+        userId: { eq: $userId },
+        folderPath: { eq: $folderPath }
+      },
+      limit: 1
+    ) {
+      items {
+        id
+        userId
+        folderPath
+        downloadRestricted
+        uploadRestricted
+        canCreateSubfolders
+        canDeleteFolder
+        inheritFromParent
+        createdBy
+        lastModifiedBy
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+const createFolderPermissionMutation = /* GraphQL */ `
+  mutation CreateFolderPermission($input: CreateFolderPermissionInput!) {
+    createFolderPermission(input: $input) {
+      id
+      userId
+      folderPath
+      downloadRestricted
+      uploadRestricted
+      canCreateSubfolders
+      canDeleteFolder
+      inheritFromParent
+      createdBy
+      lastModifiedBy
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const updateFolderPermissionMutation = /* GraphQL */ `
+  mutation UpdateFolderPermission($input: UpdateFolderPermissionInput!) {
+    updateFolderPermission(input: $input) {
+      id
+      userId
+      folderPath
+      downloadRestricted
+      uploadRestricted
+      canCreateSubfolders
+      canDeleteFolder
+      inheritFromParent
+      lastModifiedBy
+      updatedAt
+    }
+  }
+`;
+
+const deleteFolderPermissionMutation = /* GraphQL */ `
+  mutation DeleteFolderPermission($input: DeleteFolderPermissionInput!) {
+    deleteFolderPermission(input: $input) {
+      id
+    }
+  }
+`;
+
+/**
+ * Get all folder permissions for a user
+ */
+export const getUserFolderPermissions = async (userId: string): Promise<FolderPermissions[]> => {
+  try {
+    const response = await client.graphql<GraphQLQuery<{ listFolderPermissions: { items: FolderPermissions[] } }>>({
+      query: listFolderPermissionsQuery,
+      variables: { userId },
+      authMode: 'userPool'
+    });
+
+    return response.data?.listFolderPermissions?.items || [];
+  } catch (error) {
+    console.error('Error fetching folder permissions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get permissions for a specific folder
+ */
+export const getFolderPermission = async (userId: string, folderPath: string): Promise<FolderPermissions | null> => {
+  try {
+    const response = await client.graphql<GraphQLQuery<{ listFolderPermissions: { items: FolderPermissions[] } }>>({
+      query: getFolderPermissionQuery,
+      variables: { userId, folderPath },
+      authMode: 'userPool'
+    });
+
+    const items = response.data?.listFolderPermissions?.items || [];
+    return items.length > 0 ? items[0] : null;
+  } catch (error) {
+    console.error('Error fetching folder permission:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create or update folder permissions
+ */
+export const setFolderPermissions = async (permissions: Omit<FolderPermissions, 'id' | 'createdAt' | 'updatedAt'>): Promise<FolderPermissions> => {
+  try {
+    // Check if permissions already exist
+    const existing = await getFolderPermission(permissions.userId, permissions.folderPath);
+    
+    if (existing) {
+      // Update existing permissions
+      const response = await client.graphql<GraphQLQuery<{ updateFolderPermission: FolderPermissions }>>({
+        query: updateFolderPermissionMutation,
+        variables: {
+          input: {
+            id: existing.id,
+            downloadRestricted: permissions.downloadRestricted,
+            uploadRestricted: permissions.uploadRestricted,
+            canCreateSubfolders: permissions.canCreateSubfolders,
+            canDeleteFolder: permissions.canDeleteFolder,
+            inheritFromParent: permissions.inheritFromParent,
+            lastModifiedBy: permissions.lastModifiedBy
+          }
+        },
+        authMode: 'userPool'
+      });
+
+      return response.data!.updateFolderPermission;
+    } else {
+      // Create new permissions
+      const response = await client.graphql<GraphQLQuery<{ createFolderPermission: FolderPermissions }>>({
+        query: createFolderPermissionMutation,
+        variables: { input: permissions },
+        authMode: 'userPool'
+      });
+
+      return response.data!.createFolderPermission;
+    }
+  } catch (error) {
+    console.error('Error setting folder permissions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete folder permissions
+ */
+export const deleteFolderPermissions = async (permissionId: string): Promise<void> => {
+  try {
+    await client.graphql({
+      query: deleteFolderPermissionMutation,
+      variables: { input: { id: permissionId } },
+      authMode: 'userPool'
+    });
+  } catch (error) {
+    console.error('Error deleting folder permissions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get effective permissions for a folder (considering inheritance)
+ */
+export const getEffectiveFolderPermissions = async (userId: string, folderPath: string): Promise<FolderPermissions> => {
+  try {
+    // Get direct permissions for this folder
+    const directPermissions = await getFolderPermission(userId, folderPath);
+    
+    if (directPermissions && !directPermissions.inheritFromParent) {
+      return directPermissions;
+    }
+
+    // If inheriting from parent or no permissions set, traverse up the path
+    const pathParts = folderPath.split('/').filter(Boolean);
+    
+    // Default permissions if none found
+    const defaultPermissions: FolderPermissions = {
+      userId,
+      folderPath,
+      downloadRestricted: false,
+      uploadRestricted: false,
+      canCreateSubfolders: true,
+      canDeleteFolder: true,
+      inheritFromParent: true
+    };
+
+    // Check parent folders
+    for (let i = pathParts.length - 1; i >= 0; i--) {
+      const parentPath = '/' + pathParts.slice(0, i).join('/') + '/';
+      const parentPermissions = await getFolderPermission(userId, parentPath);
+      
+      if (parentPermissions && !parentPermissions.inheritFromParent) {
+        return {
+          ...parentPermissions,
+          folderPath, // Keep the original folder path
+          inheritFromParent: true // Mark as inherited
+        };
+      }
+    }
+
+    return defaultPermissions;
+  } catch (error) {
+    console.error('Error getting effective folder permissions:', error);
+    throw error;
+  }
+};
+
 /**
  * List files and folders at a specific path for a user
- * 
- * @param userId - The user's ID (Cognito sub)
- * @param path - The path to list items from (relative to the user's root)
- * @returns A promise that resolves to an array of S3Item objects
  */
 export const listUserFiles = async (userId: string, path: string = '/'): Promise<S3Item[]> => {
   try {
@@ -230,6 +501,99 @@ export const listUserFiles = async (userId: string, path: string = '/'): Promise
 };
 
 /**
+ * List files and folders with permissions
+ */
+export const listUserFilesWithPermissions = async (userId: string, path: string = '/'): Promise<EnhancedS3Item[]> => {
+  try {
+    // Get basic file listing
+    const items = await listUserFiles(userId, path);
+    
+    // Enhance with permissions
+    const enhancedItems: EnhancedS3Item[] = [];
+    
+    for (const item of items) {
+      if (item.isFolder) {
+        const permissions = await getEffectiveFolderPermissions(userId, item.key);
+        enhancedItems.push({
+          ...item,
+          permissions: {
+            downloadRestricted: permissions.downloadRestricted,
+            uploadRestricted: permissions.uploadRestricted,
+            canCreateSubfolders: permissions.canCreateSubfolders,
+            canDeleteFolder: permissions.canDeleteFolder && !item.isProtected
+          }
+        });
+      } else {
+        // For files, get parent folder permissions
+        const parentPath = getParentPath(item.key);
+        const permissions = await getEffectiveFolderPermissions(userId, parentPath);
+        enhancedItems.push({
+          ...item,
+          permissions: {
+            downloadRestricted: permissions.downloadRestricted,
+            uploadRestricted: permissions.uploadRestricted,
+            canCreateSubfolders: false, // Files can't have subfolders
+            canDeleteFolder: false // Files are not folders
+          }
+        });
+      }
+    }
+    
+    return enhancedItems;
+  } catch (error) {
+    console.error('Error listing files with permissions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new subfolder
+ */
+export const createSubfolder = async (userId: string, parentPath: string, folderName: string): Promise<void> => {
+  try {
+    // Validate folder name
+    if (!folderName || folderName.trim() === '') {
+      throw new Error('Folder name cannot be empty');
+    }
+
+    if (!/^[a-zA-Z0-9\-_\s]+$/.test(folderName)) {
+      throw new Error('Folder name can only contain letters, numbers, hyphens, underscores, and spaces');
+    }
+
+    // Check permissions
+    const permissions = await getEffectiveFolderPermissions(userId, parentPath);
+    if (!permissions.canCreateSubfolders) {
+      throw new Error('You do not have permission to create subfolders in this location');
+    }
+
+    // Normalize folder name (replace spaces with hyphens, lowercase)
+    const normalizedName = folderName.trim().toLowerCase().replace(/\s+/g, '-');
+    
+    // Create the folder path
+    const newFolderPath = parentPath === '/' 
+      ? `/${normalizedName}/`
+      : `${parentPath}${normalizedName}/`;
+
+    // Create the full S3 key
+    const fullPath = `users/${userId}${newFolderPath}`;
+
+    // Create the folder by uploading an empty file
+    await uploadData({
+      path: fullPath,
+      data: new Blob([''], { type: 'text/plain' }),
+      options: {
+        contentType: 'text/plain'
+      }
+    });
+
+    console.log(`Successfully created folder: ${fullPath}`);
+  } catch (error) {
+    console.error('Error creating subfolder:', error);
+    throw error;
+  }
+};
+
+/**
  * Get a download URL for a file
  * 
  * @param key - The full S3 key of the file
@@ -327,3 +691,72 @@ export const deleteFolder = async (key: string): Promise<void> => {
     throw error;
   }
 };
+
+/**
+ * Delete a folder with permission checks
+ */
+export const deleteFolderWithPermissions = async (userId: string, folderPath: string): Promise<void> => {
+  try {
+    // Check if this is a protected folder
+    if (isProtectedPath(`users/${userId}${folderPath}`)) {
+      throw new Error('This folder is protected and cannot be deleted');
+    }
+
+    // Check permissions
+    const permissions = await getEffectiveFolderPermissions(userId, folderPath);
+    if (!permissions.canDeleteFolder) {
+      throw new Error('You do not have permission to delete this folder');
+    }
+
+    // Proceed with deletion
+    await deleteFolder(`users/${userId}${folderPath}`);
+  } catch (error) {
+    console.error('Error deleting folder:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if user can upload to a specific path
+ */
+export const canUploadToPath = async (userId: string, path: string): Promise<boolean> => {
+  try {
+    const parentPath = getParentPath(path);
+    const permissions = await getEffectiveFolderPermissions(userId, parentPath);
+    return !permissions.uploadRestricted;
+  } catch (error) {
+    console.error('Error checking upload permissions:', error);
+    return false;
+  }
+};
+
+/**
+ * Check if user can download from a specific path
+ */
+export const canDownloadFromPath = async (userId: string, path: string): Promise<boolean> => {
+  try {
+    const parentPath = getParentPath(path);
+    const permissions = await getEffectiveFolderPermissions(userId, parentPath);
+    return !permissions.downloadRestricted;
+  } catch (error) {
+    console.error('Error checking download permissions:', error);
+    return false;
+  }
+};
+
+/**
+ * Get parent path from a file/folder path
+ */
+const getParentPath = (path: string): string => {
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length <= 2) return '/'; // users/userId/ -> /
+  
+  // Remove users/userId prefix and get parent
+  const relativeParts = parts.slice(2);
+  if (relativeParts.length === 0) return '/';
+  
+  relativeParts.pop(); // Remove last part (file or folder name)
+  return relativeParts.length === 0 ? '/' : `/${relativeParts.join('/')}/`;
+};
+
+export { FOLDER_DISPLAY_NAMES };

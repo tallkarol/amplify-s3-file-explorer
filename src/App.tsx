@@ -35,6 +35,8 @@ import Inbox from '@/pages/inbox/Inbox';
 // Import User Status Check
 import UserStatusCheck from '@/components/auth/UserStatusCheck';
 
+import CertificationApplicationForm from '@/pages/developer/CertificationApplicationForm';
+
 function App() {
   const { user } = useAuthenticator();
   const [userRole, setUserRole] = useState<'admin' | 'developer' | 'user'>('user');
@@ -116,6 +118,7 @@ function App() {
                     <Route path="/user" element={<UserDashboard />} />
                     <Route path="/admin" element={<AdminHome />} />
                     <Route path="/debug" element={<DebugTools />} />
+                    <Route path="/certification-form" element={<CertificationApplicationForm />} />
                     <Route path="/inbox" element={<Inbox />} />
                     <Route path="*" element={<Navigate to="/developer" replace />} />
                   </Routes>

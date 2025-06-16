@@ -21,7 +21,7 @@ const schema = a.schema({
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
 
-    ErrorLog: a
+  ErrorLog: a
     .model({
       userId: a.string(),
       timestamp: a.timestamp(),
@@ -98,6 +98,24 @@ const schema = a.schema({
       allow.ownerDefinedIn('userId'),
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
+
+  // NEW: Folder Permissions Model
+  FolderPermission: a
+    .model({
+      userId: a.string(),
+      folderPath: a.string(),
+      downloadRestricted: a.boolean(),
+      uploadRestricted: a.boolean(),
+      canCreateSubfolders: a.boolean(),
+      canDeleteFolder: a.boolean(),
+      inheritFromParent: a.boolean(),
+      createdBy: a.string(),
+      lastModifiedBy: a.string(),
+    })
+    .authorization((allow) => [
+      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
+    ]),
+
 }).authorization((allow) => [allow.resource(postConfirmation)]);
 
 export type Schema = ClientSchema<typeof schema>;
@@ -111,4 +129,3 @@ export const data = defineData({
     },
   },
 });
-

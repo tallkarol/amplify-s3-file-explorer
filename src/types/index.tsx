@@ -148,3 +148,28 @@ export type AlertType = 'primary' | 'secondary' | 'success' | 'danger' | 'warnin
   
 // Loading spinner types
 export type SpinnerSize = 'sm' | 'md' | 'lg';
+
+// src/types.ts (add these to your existing types)
+export interface EnhancedS3Item extends S3Item {
+  permissions?: {
+    downloadRestricted: boolean;
+    uploadRestricted: boolean;
+    canCreateSubfolders: boolean;
+    canDeleteFolder: boolean;
+  };
+}
+
+export interface FolderPermissions {
+  id?: string;
+  userId: string;
+  folderPath: string;
+  downloadRestricted: boolean;
+  uploadRestricted: boolean;
+  canCreateSubfolders: boolean;
+  canDeleteFolder: boolean;
+  inheritFromParent: boolean;
+  createdBy?: string;
+  lastModifiedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

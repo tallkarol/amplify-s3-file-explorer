@@ -283,6 +283,19 @@ const DeveloperSidebar = ({ collapsed, onToggle }: DeveloperSidebarProps) => {
               {!collapsed && <span>Debug Tools</span>}
             </Link>
           </li>
+            <li className="nav-item mb-2">
+              <Link 
+                to="/developer/certification-form" 
+                className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+                  isActive('/developer/certification-form') 
+                    ? 'active bg-info text-white' 
+                    : 'text-light hover-highlight'
+                }`}
+              >
+                <i className="bi bi-file-earmark-text me-3 fs-5"></i>
+                {!collapsed && <span>Certification Form</span>}
+              </Link>
+              </li>
         </ul>
       </div>
       
