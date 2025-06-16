@@ -6,18 +6,15 @@ import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import AlertMessage from '../../../components/common/AlertMessage';
 import UserList from '../components/UserList';
 import ClientProfileCard from '../components/ClientProfileCard';
-import AdminFileBrowser from '../../files/components/AdminFileBrowser';
-import FolderGrid from '../../files/components/FolderGrid';
-import UserAllFiles from '../../files/components/UserAllFiles';
+import FileExplorerTab from './FileExplorerTab';
 import { UserProfile } from '../../../types';
-import { fetchAllClients } from '../services/clientService'; // Updated import
+import { fetchAllClients } from '../services/clientService';
 import '../styles/adminclientmanagement.css';
 
 const AdminClientManagement: React.FC = () => {
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<'files' | 'profile' | 'actions'>('files');
-  const [currentPath, setCurrentPath] = useState('/');
+  const [activeTab, setActiveTab] = useState<'profile' | 'files' | 'actions'>('profile'); // Profile first now
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -26,7 +23,6 @@ const AdminClientManagement: React.FC = () => {
   useEffect(() => {
     loadClients();
     
-    // Check if a specific client was requested via URL params
     const clientId = searchParams.get('clientId');
     if (clientId) {
       // Will be set after clients are loaded
@@ -34,7 +30,6 @@ const AdminClientManagement: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Set selected client after clients are loaded
     const clientId = searchParams.get('clientId');
     if (clientId && clients.length > 0) {
       const client = clients.find(c => c.uuid === clientId);
@@ -49,7 +44,7 @@ const AdminClientManagement: React.FC = () => {
     setError(null);
     
     try {
-      const users = await fetchAllClients(); // Updated function name
+      const users = await fetchAllClients();
       setClients(users);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
@@ -60,33 +55,17 @@ const AdminClientManagement: React.FC = () => {
 
   const handleClientSelect = (client: UserProfile) => {
     setSelectedClient(client);
-    setActiveTab('files');
-    setCurrentPath('/');
+    setActiveTab('profile'); // Always start with profile
     setSearchParams({ clientId: client.uuid });
   };
 
   const clearClientSelection = () => {
     setSelectedClient(null);
-    setCurrentPath('/');
     setSearchParams({});
   };
 
-  const handlePathChange = (newPath: string) => {
-    setCurrentPath(newPath);
-  };
-
   const handleContactClient = () => {
-    // Updated to match ClientProfileCard interface (no parameters)
     alert('Email functionality coming soon!');
-  };
-
-  const navigateToClientFiles = () => {
-    setActiveTab('files');
-    setCurrentPath('/');
-  };
-
-  const handleFolderSelect = (folderPath: string) => {
-    setCurrentPath(folderPath);
   };
 
   return (
@@ -97,12 +76,12 @@ const AdminClientManagement: React.FC = () => {
           <h2 className="admin-client-title">
             {selectedClient 
               ? `Managing ${selectedClient.firstName || selectedClient.lastName || selectedClient.email}` 
-              : 'Enhanced Client Management'}
+              : 'Client Management'}
           </h2>
           <p className="admin-client-subtitle">
             {selectedClient 
-              ? `Client ID: ${selectedClient.uuid} • Advanced folder permissions and management` 
-              : 'Select a client to manage their account, files, permissions, and folder structure'}
+              ? `Client ID: ${selectedClient.uuid} • Complete client and file management` 
+              : 'Select a client to manage their profile, files, and account settings'}
           </p>
         </div>
         {selectedClient && (
@@ -140,8 +119,7 @@ const AdminClientManagement: React.FC = () => {
                     All Clients ({clients.length})
                   </h5>
                   <p className="text-muted mb-0">
-                    Click on a client to access enhanced file management with folder permissions, 
-                    subfolder creation, and access controls.
+                    Select a client to manage their profile, files, and account settings with advanced permissions and folder management.
                   </p>
                 </div>
                 
@@ -154,23 +132,23 @@ const AdminClientManagement: React.FC = () => {
               </Card>
             </div>
           ) : (
-            /* Detail View with Enhanced Features */
+            /* Detail View */
             <div className="admin-client-detail">
-              {/* Tab Navigation */}
+              {/* Tab Navigation - Reordered */}
               <div className="admin-client-tabs">
-                <button 
-                  className={`admin-client-tab ${activeTab === 'files' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('files')}
-                >
-                  <i className="bi bi-folder me-2"></i>
-                  Enhanced File Management
-                </button>
                 <button 
                   className={`admin-client-tab ${activeTab === 'profile' ? 'active' : ''}`}
                   onClick={() => setActiveTab('profile')}
                 >
                   <i className="bi bi-person me-2"></i>
                   Profile
+                </button>
+                <button 
+                  className={`admin-client-tab ${activeTab === 'files' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('files')}
+                >
+                  <i className="bi bi-folder me-2"></i>
+                  File Management
                 </button>
                 <button 
                   className={`admin-client-tab ${activeTab === 'actions' ? 'active' : ''}`}
@@ -181,120 +159,93 @@ const AdminClientManagement: React.FC = () => {
                 </button>
               </div>
 
-              {/* Tab Content Area */}
+              {/* Tab Content */}
               <div className="admin-client-tab-content">
-                {activeTab === 'files' && (
-                  <div className="admin-client-grid">
-                    {/* Left Side - Client Card (Always Visible) */}
-                    <div className="admin-client-sidebar">
-                      <ClientProfileCard
-                        client={selectedClient}
-                        onManageFiles={() => {
-                          setActiveTab('files');
-                          navigateToClientFiles();
-                        }}
-                        onContactClient={handleContactClient}
-                      />
-                      
-                      {/* Quick Stats */}
-                      <Card className="mt-3">
-                        <h6 className="mb-3">
-                          <i className="bi bi-bar-chart me-2"></i>
-                          Quick Stats
-                        </h6>
-                        <div className="d-flex justify-content-between mb-2">
-                          <span>Current Folder:</span>
-                          <small className="text-muted">{currentPath}</small>
-                        </div>
-                        <div className="d-flex justify-content-between mb-2">
-                          <span>Account Status:</span>
-                          <span className={`badge bg-${selectedClient.status === 'active' ? 'success' : 'warning'}`}>
-                            {selectedClient.status || 'Active'}
-                          </span>
-                        </div>
-                      </Card>
-                      
-                      {/* Workflows Preview Section */}
-                      <div className="admin-client-preview-card mt-3">
-                        <div className="admin-client-preview-header">
-                          <h6 className="admin-client-preview-title">
-                            <i className="bi bi-diagram-3 me-2 text-muted"></i>
-                            Workflow Management
-                          </h6>
-                          <span className="admin-client-preview-badge">Preview</span>
-                        </div>
-                        <div className="admin-client-preview-body">
-                          <div className="admin-client-preview-content">
-                            <i className="bi bi-tools admin-client-preview-icon"></i>
-                            <p className="admin-client-preview-text">
-                              Workflow management functionality is coming soon. You'll be able to create 
-                              and manage certification workflows for your clients directly from this interface.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Side - Enhanced File Browser */}
-                    <div className="admin-client-content">
-                      {currentPath === '/' ? (
-                        <>
-                          <Card title={`Folders for ${selectedClient.firstName || selectedClient.email}`}>
-                            <FolderGrid 
-                              userId={selectedClient.uuid}
-                              onSelectFolder={handleFolderSelect} 
-                            />
-                          </Card>
-                          <UserAllFiles 
-                            userId={selectedClient.uuid} 
-                            userName={selectedClient.firstName || selectedClient.email}
-                          />
-                        </>
-                      ) : (
-                        <AdminFileBrowser 
-                          selectedUser={selectedClient} 
-                          initialPath={currentPath}
-                          onPathChange={handlePathChange}
-                        />
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {activeTab === 'profile' && (
                   <div className="admin-client-grid">
                     <div className="admin-client-sidebar">
                       <ClientProfileCard
                         client={selectedClient}
-                        onManageFiles={() => {
-                          setActiveTab('files');
-                          navigateToClientFiles();
-                        }}
+                        onManageFiles={() => setActiveTab('files')}
                         onContactClient={handleContactClient}
                       />
                     </div>
                     
                     <div className="admin-client-content">
-                      <Card title="Client Profile">
+                      <Card title="Client Details">
                         <div className="row">
                           <div className="col-md-6">
-                            <p><strong>Name:</strong> {selectedClient.firstName} {selectedClient.lastName}</p>
-                            <p><strong>Email:</strong> {selectedClient.email}</p>
-                            <p><strong>Company:</strong> {selectedClient.companyName || 'Not specified'}</p>
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Full Name</label>
+                              <p className="mb-0">{selectedClient.firstName} {selectedClient.lastName}</p>
+                            </div>
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Email Address</label>
+                              <p className="mb-0">{selectedClient.email}</p>
+                            </div>
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Company</label>
+                              <p className="mb-0">{selectedClient.companyName || 'Not specified'}</p>
+                            </div>
                           </div>
                           <div className="col-md-6">
-                            <p><strong>Phone:</strong> {selectedClient.phoneNumber || 'Not specified'}</p>
-                            <p><strong>Preferred Contact:</strong> {selectedClient.preferredContactMethod || 'Email'}</p>
-                            <p><strong>Status:</strong> 
-                              <span className={`badge bg-${selectedClient.status === 'active' ? 'success' : 'warning'} ms-2`}>
-                                {selectedClient.status || 'Active'}
-                              </span>
-                            </p>
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Phone Number</label>
+                              <p className="mb-0">{selectedClient.phoneNumber || 'Not specified'}</p>
+                            </div>
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Preferred Contact Method</label>
+                              <p className="mb-0">
+                                <span className="badge bg-primary">
+                                  {selectedClient.preferredContactMethod || 'Email'}
+                                </span>
+                              </p>
+                            </div>
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Account Status</label>
+                              <p className="mb-0">
+                                <span className={`badge bg-${selectedClient.status === 'active' ? 'success' : 'warning'}`}>
+                                  {selectedClient.status || 'Active'}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <hr />
+                        
+                        <div className="row">
+                          <div className="col-md-6">
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Client ID</label>
+                              <p className="mb-0">
+                                <code className="bg-light p-1 rounded">{selectedClient.uuid}</code>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="col-md-6">
+                            <div className="mb-3">
+                              <label className="form-label fw-bold">Member Since</label>
+                              <p className="mb-0">
+                                {selectedClient.createdAt 
+                                  ? new Date(selectedClient.createdAt).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })
+                                  : 'Unknown'
+                                }
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </Card>
                     </div>
                   </div>
+                )}
+
+                {activeTab === 'files' && (
+                  <FileExplorerTab client={selectedClient} />
                 )}
 
                 {activeTab === 'actions' && (
@@ -302,28 +253,59 @@ const AdminClientManagement: React.FC = () => {
                     <div className="admin-client-sidebar">
                       <ClientProfileCard
                         client={selectedClient}
-                        onManageFiles={() => {
-                          setActiveTab('files');
-                          navigateToClientFiles();
-                        }}
+                        onManageFiles={() => setActiveTab('files')}
                         onContactClient={handleContactClient}
                       />
                     </div>
                     
                     <div className="admin-client-content">
-                      <Card title="Client Actions">
-                        <div className="d-grid gap-2 d-md-flex">
-                          <button className="btn btn-primary">
-                            <i className="bi bi-envelope me-2"></i>
-                            Send Message
-                          </button>
-                          <button className="btn btn-outline-primary">
-                            <i className="bi bi-shield-check me-2"></i>
-                            Reset Permissions
-                          </button>
-                          <button className="btn btn-outline-warning">
-                            <i className="bi bi-pause me-2"></i>
-                            Suspend Account
+                      <Card title="Account Actions">
+                        <div className="row g-3">
+                          <div className="col-md-6">
+                            <div className="d-grid">
+                              <button className="btn btn-primary">
+                                <i className="bi bi-envelope me-2"></i>
+                                Send Message
+                              </button>
+                            </div>
+                          </div>
+                          <div className="col-md-6">
+                            <div className="d-grid">
+                              <button className="btn btn-outline-primary">
+                                <i className="bi bi-key me-2"></i>
+                                Reset Password
+                              </button>
+                            </div>
+                          </div>
+                          <div className="col-md-6">
+                            <div className="d-grid">
+                              <button className="btn btn-outline-info">
+                                <i className="bi bi-shield-check me-2"></i>
+                                Reset Permissions
+                              </button>
+                            </div>
+                          </div>
+                          <div className="col-md-6">
+                            <div className="d-grid">
+                              <button className="btn btn-outline-warning">
+                                <i className="bi bi-pause me-2"></i>
+                                Suspend Account
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <hr className="my-4" />
+                        
+                        <div className="alert alert-warning">
+                          <h6 className="alert-heading">
+                            <i className="bi bi-exclamation-triangle me-2"></i>
+                            Danger Zone
+                          </h6>
+                          <p className="mb-2">These actions cannot be undone and will permanently affect the client's account.</p>
+                          <button className="btn btn-outline-danger btn-sm">
+                            <i className="bi bi-trash me-2"></i>
+                            Delete Account
                           </button>
                         </div>
                       </Card>
