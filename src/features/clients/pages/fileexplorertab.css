@@ -1,0 +1,750 @@
+/* src/features/clients/pages/FileExplorerTab.css */
+
+.file-explorer-container {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+/* Modern Header Styling */
+.file-explorer-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e1e5e9;
+  padding: 24px 32px;
+}
+
+/* Breadcrumb Navigation */
+.breadcrumb-container {
+  margin-bottom: 24px;
+}
+
+.breadcrumb-modern {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 12px 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.breadcrumb-item-modern {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-button {
+  background: none;
+  border: none;
+  color: #495057;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-button:hover {
+  background: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+}
+
+.breadcrumb-current {
+  color: #0d6efd;
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+.breadcrumb-separator {
+  margin: 0 8px;
+  color: #adb5bd;
+  font-size: 12px;
+}
+
+/* Toolbar */
+.toolbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Action Buttons */
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.action-button.primary {
+  background: #0d6efd;
+  color: white;
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.25);
+}
+
+.action-button.primary:hover {
+  background: #0b5ed7;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
+}
+
+.action-button.secondary {
+  background: rgba(108, 117, 125, 0.1);
+  color: #495057;
+  border: 1px solid rgba(108, 117, 125, 0.2);
+}
+
+.action-button.secondary:hover {
+  background: rgba(108, 117, 125, 0.15);
+  transform: translateY(-1px);
+}
+
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+/* View Selector */
+.view-selector .view-toggle {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(108, 117, 125, 0.2);
+  color: #495057;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.view-selector .view-toggle:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+/* Stats Container */
+.stats-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-separator {
+  color: #adb5bd;
+  font-size: 12px;
+}
+
+/* Permissions Panel */
+.permissions-panel-container {
+  margin: 24px 32px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Modern Alert */
+.modern-alert {
+  margin: 24px 32px;
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 2px 12px rgba(220, 53, 69, 0.15);
+}
+
+/* File Table Container */
+.file-table-container {
+  position: relative;
+}
+
+.loading-container {
+  padding: 80px 32px;
+  text-align: center;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+/* File Table */
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.file-table th {
+  background: #f8f9fa;
+  border: none;
+  border-bottom: 2px solid #e9ecef;
+  padding: 16px 24px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.file-table td {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f1f3f4;
+  vertical-align: middle;
+}
+
+/* Column Widths */
+.col-icon { width: 56px; }
+.col-name { min-width: 200px; }
+.col-type { width: 100px; }
+.col-size { width: 100px; }
+.col-modified { width: 140px; }
+.col-permissions { width: 140px; }
+.col-actions { width: 120px; }
+
+/* File Row Styling */
+.file-row {
+  transition: all 0.2s ease;
+}
+
+.folder-row:hover {
+  background: rgba(13, 110, 253, 0.04);
+  cursor: pointer;
+}
+
+.file-row-item:hover {
+  background: rgba(248, 249, 250, 0.8);
+}
+
+.creating-row {
+  background: rgba(255, 193, 7, 0.08);
+  border-left: 4px solid #ffc107;
+}
+
+/* File Icons */
+.file-icon {
+  font-size: 20px;
+  display: block;
+}
+
+/* File Names */
+.file-name-container {
+  display: flex;
+  align-items: center;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #495057;
+  transition: color 0.2s ease;
+  cursor: default;
+}
+
+.folder-name {
+  color: #0d6efd;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.folder-name:hover {
+  color: #0b5ed7;
+  text-decoration: underline;
+}
+
+/* Folder Name Input */
+.folder-name-input {
+  border-radius: 6px;
+  border: 2px solid #0d6efd;
+  font-weight: 500;
+  padding: 8px 12px;
+}
+
+.folder-name-input:focus {
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.creating-text {
+  color: #ffc107;
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Modern Badges */
+.modern-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.permission-badges {
+  display: flex;
+  gap: 4px;
+}
+
+.permission-badge {
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.action-btn.primary {
+  background: #0d6efd;
+  color: white;
+}
+
+.action-btn.primary:hover {
+  background: #0b5ed7;
+  transform: translateY(-1px);
+}
+
+.action-btn.secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.action-btn.secondary:hover {
+  background: #5c636a;
+  transform: translateY(-1px);
+}
+
+.action-btn.success {
+  background: #198754;
+  color: white;
+}
+
+.action-btn.success:hover {
+  background: #157347;
+  transform: translateY(-1px);
+}
+
+.action-btn.cancel {
+  background: #dc3545;
+  color: white;
+}
+
+.action-btn.cancel:hover {
+  background: #bb2d3b;
+  transform: translateY(-1px);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.dropdown-toggle-split {
+  padding: 0;
+  width: 28px;
+}
+
+/* Empty State */
+.empty-state {
+  padding: 80px 32px;
+  text-align: center;
+}
+
+.empty-content {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.empty-icon {
+  font-size: 64px;
+  color: #adb5bd;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.empty-title {
+  color: #495057;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.empty-description {
+  color: #6c757d;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .file-explorer-header {
+    padding: 20px 24px;
+  }
+  
+  .toolbar-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .stats-container {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 768px) {
+  .file-explorer-header {
+    padding: 16px 20px;
+  }
+  
+  .breadcrumb-modern {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+  }
+  
+  .toolbar-section {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .action-button span {
+    display: none;
+  }
+  
+  .action-button {
+    padding: 10px;
+    min-width: 40px;
+  }
+  
+  .file-table th,
+  .file-table td {
+    padding: 12px 16px;
+  }
+  
+  .permissions-panel-container,
+  .modern-alert {
+    margin: 16px 20px;
+  }
+  
+  /* Hide less important columns on mobile */
+  .col-size,
+  .col-permissions {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-explorer-header {
+    padding: 12px 16px;
+  }
+  
+  .file-table th,
+  .file-table td {
+    padding: 10px 12px;
+  }
+  
+  .col-modified {
+    display: none;
+  }
+  
+  .stats-container {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  
+  .stat-item {
+    font-size: 12px;
+  }
+}
+
+/* Drag and Drop Enhancements */
+.drag-active .file-table-container {
+  background: rgba(13, 110, 253, 0.02);
+}
+
+.drag-active .file-table {
+  border: 2px dashed #0d6efd;
+  border-radius: 8px;
+}
+
+/* Focus and accessibility improvements */
+.breadcrumb-button:focus,
+.action-button:focus,
+.action-btn:focus {
+  outline: 2px solid #0d6efd;
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Add these styles to your FileExplorerTab.css */
+
+/* Action Dropdown */
+.action-dropdown {
+  background: transparent;
+  border: none;
+  color: #6c757d;
+  padding: 8px;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.action-dropdown:hover {
+  background: rgba(108, 117, 125, 0.1);
+  color: #495057;
+}
+
+.action-dropdown:focus {
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+  outline: none;
+}
+
+.action-dropdown::after {
+  display: none; /* Hide the default dropdown arrow */
+}
+
+/* Action Menu */
+.action-menu {
+  border: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 8px 0;
+  min-width: 180px;
+  margin-top: 4px;
+}
+
+.dropdown-item-action {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #495057;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+}
+
+.dropdown-item-action:hover {
+  background: rgba(13, 110, 253, 0.08);
+  color: #0d6efd;
+}
+
+.dropdown-item-action:focus {
+  background: rgba(13, 110, 253, 0.08);
+  color: #0d6efd;
+  outline: none;
+}
+
+.dropdown-item-action.danger {
+  color: #dc3545;
+}
+
+.dropdown-item-action.danger:hover,
+.dropdown-item-action.danger:focus {
+  background: rgba(220, 53, 69, 0.08);
+  color: #dc3545;
+}
+
+.dropdown-item-info {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #6c757d;
+  background: rgba(248, 249, 250, 0.5);
+}
+
+.dropdown-item-info:hover {
+  background: rgba(248, 249, 250, 0.5);
+  color: #6c757d;
+}
+
+/* Remove the old action buttons styles */
+.action-buttons {
+  display: none; /* This will hide the old button group */
+}
+
+/* Hover effect for the entire row to show the action button */
+.file-row .action-dropdown {
+  opacity: 0.6;
+}
+
+.file-row:hover .action-dropdown {
+  opacity: 1;
+}
+
+/* Alternative: If you want the dropdown to only appear on hover */
+.file-row .action-dropdown {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.file-row:hover .action-dropdown {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Add these styles to src/features/clients/pages/FileExplorerTab.css */
+
+/* Action Dropdown */
+.action-dropdown {
+  background: transparent;
+  border: none;
+  color: #6c757d;
+  padding: 8px;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.action-dropdown:hover {
+  background: rgba(108, 117, 125, 0.1);
+  color: #495057;
+}
+
+.action-dropdown:focus {
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+  outline: none;
+}
+
+.action-dropdown::after {
+  display: none; /* Hide the default dropdown arrow */
+}
+
+/* Action Menu */
+.action-menu {
+  border: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 8px 0;
+  min-width: 180px;
+  margin-top: 4px;
+}
+
+.dropdown-item-action {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #495057;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+}
+
+.dropdown-item-action:hover {
+  background: rgba(13, 110, 253, 0.08);
+  color: #0d6efd;
+}
+
+.dropdown-item-action:focus {
+  background: rgba(13, 110, 253, 0.08);
+  color: #0d6efd;
+  outline: none;
+}
+
+.dropdown-item-action.danger {
+  color: #dc3545;
+}
+
+.dropdown-item-action.danger:hover,
+.dropdown-item-action.danger:focus {
+  background: rgba(220, 53, 69, 0.08);
+  color: #dc3545;
+}
+
+.dropdown-item-info {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #6c757d;
+  background: rgba(248, 249, 250, 0.5);
+}
+
+.dropdown-item-info:hover {
+  background: rgba(248, 249, 250, 0.5);
+  color: #6c757d;
+}
+
+/* Hover effect for the entire row to show the action button */
+.file-row .action-dropdown {
+  opacity: 0.6;
+}
+
+.file-row:hover .action-dropdown {
+  opacity: 1;
+}

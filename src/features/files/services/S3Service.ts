@@ -7,20 +7,26 @@ import { S3Item } from '../../../types';
 
 const client = generateClient();
 
-// Protected folders that should not be deleted
+// Protected folders that should not be deleted (UPDATED)
 const PROTECTED_FOLDERS = [
   'certificate',
   'audit-report',
   'auditor-resume',
-  'statistics'
+  'statistics',
+  'private',
+  'confirmation-notices',
+  'other'
 ];
 
-// Folder display names
+// Folder display names (UPDATED)
 const FOLDER_DISPLAY_NAMES: Record<string, string> = {
   'certificate': 'Certificates',
   'audit-report': 'Audit Reports',
   'auditor-resume': 'Auditor Profiles',
-  'statistics': 'Statistics'
+  'statistics': 'Statistics',
+  'private': 'Private Documents',
+  'confirmation-notices': 'Confirmation Notices',
+  'other': 'Other Documents'
 };
 
 // Enhanced S3Item with permissions
@@ -156,7 +162,7 @@ export const getUserFolderPermissions = async (userId: string): Promise<FolderPe
     return response.data?.listFolderPermissions?.items || [];
   } catch (error) {
     console.error('Error fetching folder permissions:', error);
-    throw error;
+    return []; // Return empty array instead of throwing to prevent UI breaks
   }
 };
 
@@ -175,7 +181,7 @@ export const getFolderPermission = async (userId: string, folderPath: string): P
     return items.length > 0 ? items[0] : null;
   } catch (error) {
     console.error('Error fetching folder permission:', error);
-    throw error;
+    return null; // Return null instead of throwing to prevent UI breaks
   }
 };
 
@@ -281,7 +287,16 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
     return defaultPermissions;
   } catch (error) {
     console.error('Error getting effective folder permissions:', error);
-    throw error;
+    // Return safe defaults on error
+    return {
+      userId,
+      folderPath,
+      downloadRestricted: false,
+      uploadRestricted: false,
+      canCreateSubfolders: true,
+      canDeleteFolder: !PROTECTED_FOLDERS.some(folder => folderPath.includes(folder)),
+      inheritFromParent: true
+    };
   }
 };
 
@@ -542,7 +557,17 @@ export const listUserFilesWithPermissions = async (userId: string, path: string 
     return enhancedItems;
   } catch (error) {
     console.error('Error listing files with permissions:', error);
-    throw error;
+    // Fallback to basic listing with default permissions
+    const basicItems = await listUserFiles(userId, path);
+    return basicItems.map(item => ({
+      ...item,
+      permissions: {
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: !item.isProtected,
+        canDeleteFolder: !item.isProtected
+      }
+    }));
   }
 };
 
@@ -595,9 +620,6 @@ export const createSubfolder = async (userId: string, parentPath: string, folder
 
 /**
  * Get a download URL for a file
- * 
- * @param key - The full S3 key of the file
- * @returns A promise that resolves to a download URL
  */
 export const getFileUrl = async (key: string): Promise<string> => {
   try {
@@ -613,9 +635,6 @@ export const getFileUrl = async (key: string): Promise<string> => {
 
 /**
  * Check if a path is protected from deletion
- * 
- * @param key - The full S3 key to check
- * @returns Boolean indicating if the path is protected
  */
 export const isProtectedPath = (key: string): boolean => {
   // Check if this is one of the protected folders or a file within them
@@ -627,9 +646,6 @@ export const isProtectedPath = (key: string): boolean => {
 
 /**
  * Delete a file or folder
- * 
- * @param key - The full S3 key of the file or folder
- * @returns A promise that resolves when the delete operation is complete
  */
 export const deleteFile = async (key: string): Promise<void> => {
   try {
@@ -652,9 +668,6 @@ export const deleteFile = async (key: string): Promise<void> => {
 
 /**
  * Delete a folder and all its contents
- * 
- * @param key - The full folder key ending with /
- * @returns A promise that resolves when the delete operation is complete
  */
 export const deleteFolder = async (key: string): Promise<void> => {
   try {
@@ -759,4 +772,4 @@ const getParentPath = (path: string): string => {
   return relativeParts.length === 0 ? '/' : `/${relativeParts.join('/')}/`;
 };
 
-export { FOLDER_DISPLAY_NAMES };
+export { FOLDER_DISPLAY_NAMES, PROTECTED_FOLDERS };

@@ -44,6 +44,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
       companyName: '',
       phoneNumber: event.request.userAttributes.phone_number || '',
       preferredContactMethod: 'email',
+      status: 'active'
     });
     
     console.log('Creating notification preferences...');
@@ -60,23 +61,26 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     });
     
     console.log('Creating welcome notification...');
-    // Create welcome notification (simplified, without metadata)
+    // Create welcome notification
     await client.models.Notification.create({
       userId: userId,
       type: 'system',
       title: 'Welcome to S3 Secure File Share',
-      message: 'Thank you for joining! Your account has been successfully created.',
+      message: 'Your account has been successfully created.',
       isRead: false,
       actionLink: '/user'
     });
 
     console.log('Creating S3 folders...');
-    // Create S3 folders in parallel, not sequentially
+    // Create S3 folders in parallel
     const userFolderKey = `users/${userId}/`;
     const certificateFolderKey = `users/${userId}/certificate/`;
     const auditReportFolderKey = `users/${userId}/audit-report/`;
     const auditorResumeFolderKey = `users/${userId}/auditor-resume/`;
     const statisticsFolderKey = `users/${userId}/statistics/`;
+    const privateFolderKey = `users/${userId}/private/`;
+    const confirmationNoticesFolderKey = `users/${userId}/confirmation-notices/`;
+    const otherFolderKey = `users/${userId}/other/`;
 
     // Retrieve the bucket name from the environment variable set by Amplify Storage.
     const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";
@@ -87,11 +91,112 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
       s3.putObject({Bucket: bucketName, Key: certificateFolderKey, Body: "", ContentType: "text/plain"}).promise(),
       s3.putObject({Bucket: bucketName, Key: auditReportFolderKey, Body: "", ContentType: "text/plain"}).promise(),
       s3.putObject({Bucket: bucketName, Key: auditorResumeFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: statisticsFolderKey, Body: "", ContentType: "text/plain"}).promise()
+      s3.putObject({Bucket: bucketName, Key: statisticsFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+      s3.putObject({Bucket: bucketName, Key: privateFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+      s3.putObject({Bucket: bucketName, Key: confirmationNoticesFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+      s3.putObject({Bucket: bucketName, Key: otherFolderKey, Body: "", ContentType: "text/plain"}).promise()
     ];
     
     // Execute all folder creations in parallel
     await Promise.all(folderRequests);
+
+    console.log('Creating default folder permissions...');
+    // Create default folder permissions for protected folders
+    const currentUser = event.request.userAttributes.email; // Use email as fallback for createdBy
+    
+    const defaultPermissions = [
+      // Certificate folder - allow all operations
+      {
+        userId: userId,
+        folderPath: '/certificate/',
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: true,
+        canDeleteFolder: false, // Protected folder
+        inheritFromParent: false,
+        createdBy: currentUser,
+        lastModifiedBy: currentUser
+      },
+      // Audit Report folder - allow all operations
+      {
+        userId: userId,
+        folderPath: '/audit-report/',
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: true,
+        canDeleteFolder: false, // Protected folder
+        inheritFromParent: false,
+        createdBy: currentUser,
+        lastModifiedBy: currentUser
+      },
+      // Auditor Resume folder - allow all operations
+      {
+        userId: userId,
+        folderPath: '/auditor-resume/',
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: true,
+        canDeleteFolder: false, // Protected folder
+        inheritFromParent: false,
+        createdBy: currentUser,
+        lastModifiedBy: currentUser
+      },
+      // Statistics folder - allow all operations
+      {
+        userId: userId,
+        folderPath: '/statistics/',
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: true,
+        canDeleteFolder: false, // Protected folder
+        inheritFromParent: false,
+        createdBy: currentUser,
+        lastModifiedBy: currentUser
+      },
+      // Private folder - allow all operations (NEW)
+      {
+        userId: userId,
+        folderPath: '/private/',
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: true,
+        canDeleteFolder: false, // Protected folder
+        inheritFromParent: false,
+        createdBy: currentUser,
+        lastModifiedBy: currentUser
+      },
+      // Confirmation Notices folder - restrict uploads, allow downloads (NEW)
+      {
+        userId: userId,
+        folderPath: '/confirmation-notices/',
+        downloadRestricted: false,
+        uploadRestricted: true, // Only admins should upload here
+        canCreateSubfolders: false,
+        canDeleteFolder: false, // Protected folder
+        inheritFromParent: false,
+        createdBy: currentUser,
+        lastModifiedBy: currentUser
+      },
+      // Other folder - allow all operations (NEW)
+      {
+        userId: userId,
+        folderPath: '/other/',
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: true,
+        canDeleteFolder: false, // Protected folder
+        inheritFromParent: false,
+        createdBy: currentUser,
+        lastModifiedBy: currentUser
+      }
+    ];
+
+    // Create permissions in parallel
+    const permissionRequests = defaultPermissions.map(permission =>
+      client.models.FolderPermission.create(permission)
+    );
+    
+    await Promise.all(permissionRequests);
     
     console.log('Post-confirmation handler completed successfully');
     return event;
