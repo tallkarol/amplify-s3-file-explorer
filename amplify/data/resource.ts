@@ -126,8 +126,7 @@ export const data = defineData({
   schema,
   authorizationModes: {
     defaultAuthorizationMode: "userPool",
-    apiKeyAuthorizationMode: {
-      expiresInDays: 30,
-    },
+    // Removed apiKeyAuthorizationMode - not needed since we use userPool auth
+    // This fixes the CloudFormation error where the API key resource doesn't exist
   },
 });
