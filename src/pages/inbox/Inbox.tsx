@@ -11,11 +11,11 @@ import { useNavigate, Link } from 'react-router-dom';
 const Inbox = () => {
   const { user } = useAuthenticator();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'notifications' | 'messages'>('notifications');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'system' | 'file' | 'user' | 'admin'>('all');
   const [markingAllRead, setMarkingAllRead] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -63,10 +63,8 @@ const Inbox = () => {
 
   // Fetch notifications on component mount and when filter changes
   useEffect(() => {
-    if (activeTab === 'notifications') {
-      fetchNotifications();
-    }
-  }, [activeTab, filter]);
+    fetchNotifications();
+  }, [filter]);
 
   // Fetch notifications from API
   const fetchNotifications = async () => {
@@ -234,16 +232,31 @@ const Inbox = () => {
     }
   };
 
-  // Filter notifications based on search term
+  // Filter notifications based on search term and category
   const filteredNotifications = notifications.filter(notification => {
-    if (!searchTerm) return true;
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const matchesSearch = notification.title.toLowerCase().includes(term) ||
+                           notification.message.toLowerCase().includes(term);
+      if (!matchesSearch) return false;
+    }
     
-    const term = searchTerm.toLowerCase();
-    return (
-      notification.title.toLowerCase().includes(term) ||
-      notification.message.toLowerCase().includes(term)
-    );
+    // Category filter
+    if (categoryFilter !== 'all' && notification.type !== categoryFilter) {
+      return false;
+    }
+    
+    return true;
   });
+
+  // Categorize notifications for counts
+  const categorizedNotifications = {
+    system: notifications.filter(n => n.type === 'system'),
+    file: notifications.filter(n => n.type === 'file'),
+    user: notifications.filter(n => n.type === 'user'),
+    admin: notifications.filter(n => n.type === 'admin')
+  };
 
   // Check if there are unread notifications
   const hasUnread = notifications.some(n => !n.isRead);
@@ -256,7 +269,7 @@ const Inbox = () => {
             <div>
               <h2>{getContextTitle()}</h2>
               <p className="text-muted">
-                View and manage your notifications and messages in one place.
+                View and manage your notifications in one place.
               </p>
             </div>
             <Link to={getBackLink()} className="btn btn-outline-primary">
@@ -268,34 +281,6 @@ const Inbox = () => {
       </div>
 
       <div className="row">
-        <div className="col-12">
-          {/* Tab navigation */}
-          <ul className="nav nav-tabs mb-4">
-            <li className="nav-item">
-              <button
-                className={`nav-link ${activeTab === 'notifications' ? 'active' : ''}`}
-                onClick={() => setActiveTab('notifications')}
-              >
-                <i className="bi bi-bell me-2"></i>
-                Notifications
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                className={`nav-link ${activeTab === 'messages' ? 'active' : ''}`}
-                onClick={() => setActiveTab('messages')}
-              >
-                <i className="bi bi-chat-left-text me-2"></i>
-                Messages
-                <span className="badge bg-secondary ms-2">Coming Soon</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {activeTab === 'notifications' ? (
-        <div className="row">
           {/* Left column - List of notifications */}
           <div className="col-md-5 col-lg-4 mb-4 mb-md-0">
             <div className="card border-0 shadow-sm h-100">
@@ -322,8 +307,8 @@ const Inbox = () => {
                 </div>
               </div>
               
-              <div className="card-header bg-white border-top-0 border-bottom-0 pb-0">
-                <div className="input-group">
+              <div className="card-header bg-white border-top-0 pb-2">
+                <div className="input-group mb-3">
                   <span className="input-group-text bg-light border-end-0">
                     <i className="bi bi-search"></i>
                   </span>
@@ -344,6 +329,45 @@ const Inbox = () => {
                     </button>
                   )}
                 </div>
+                
+                {/* Category Filters */}
+                <div className="d-flex gap-2 flex-wrap">
+                  <button 
+                    className={`btn btn-sm ${categoryFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setCategoryFilter('all')}
+                  >
+                    <i className="bi bi-grid me-1"></i>
+                    All ({notifications.length})
+                  </button>
+                  <button 
+                    className={`btn btn-sm ${categoryFilter === 'system' ? 'btn-info' : 'btn-outline-info'}`}
+                    onClick={() => setCategoryFilter('system')}
+                  >
+                    <i className="bi bi-info-circle me-1"></i>
+                    System ({categorizedNotifications.system.length})
+                  </button>
+                  <button 
+                    className={`btn btn-sm ${categoryFilter === 'file' ? 'btn-success' : 'btn-outline-success'}`}
+                    onClick={() => setCategoryFilter('file')}
+                  >
+                    <i className="bi bi-file-earmark me-1"></i>
+                    Files ({categorizedNotifications.file.length})
+                  </button>
+                  <button 
+                    className={`btn btn-sm ${categoryFilter === 'user' ? 'btn-primary' : 'btn-outline-primary'}`}
+                    onClick={() => setCategoryFilter('user')}
+                  >
+                    <i className="bi bi-person me-1"></i>
+                    Users ({categorizedNotifications.user.length})
+                  </button>
+                  <button 
+                    className={`btn btn-sm ${categoryFilter === 'admin' ? 'btn-danger' : 'btn-outline-danger'}`}
+                    onClick={() => setCategoryFilter('admin')}
+                  >
+                    <i className="bi bi-shield me-1"></i>
+                    Admin ({categorizedNotifications.admin.length})
+                  </button>
+                </div>
               </div>
               
               <div className="card-body p-0">
@@ -362,20 +386,29 @@ const Inbox = () => {
                   </div>
                 ) : filteredNotifications.length === 0 ? (
                   <EmptyState
-                    icon={filter === 'unread' ? 'check-circle' : 'bell-slash'}
+                    icon={
+                      searchTerm ? 'search' :
+                      filter === 'unread' ? 'check-circle' :
+                      categoryFilter === 'system' ? 'info-circle' :
+                      categoryFilter === 'file' ? 'file-earmark' :
+                      categoryFilter === 'user' ? 'person' :
+                      categoryFilter === 'admin' ? 'shield' :
+                      'bell-slash'
+                    }
                     title={
-                      searchTerm
-                        ? "No matching notifications"
-                        : filter === 'unread'
-                        ? "No unread notifications"
-                        : "No notifications"
+                      searchTerm ? "No matching notifications" :
+                      filter === 'unread' ? "No unread notifications" :
+                      categoryFilter === 'system' ? "No system notifications" :
+                      categoryFilter === 'file' ? "No file notifications" :
+                      categoryFilter === 'user' ? "No user notifications" :
+                      categoryFilter === 'admin' ? "No admin notifications" :
+                      "No notifications"
                     }
                     message={
-                      searchTerm
-                        ? `No notifications match "${searchTerm}"`
-                        : filter === 'unread'
-                        ? "You've read all your notifications"
-                        : "You don't have any notifications yet"
+                      searchTerm ? `No notifications match "${searchTerm}"` :
+                      filter === 'unread' ? "You've read all your notifications" :
+                      categoryFilter !== 'all' ? `No notifications in the ${categoryFilter} category` :
+                      "You don't have any notifications yet"
                     }
                   />
                 ) : (
@@ -595,34 +628,6 @@ const Inbox = () => {
             </div>
           </div>
         </div>
-      ) : (
-        <div className="row">
-          <div className="col-12">
-            <div className="card border-0 shadow-sm">
-              <div className="card-body p-5 text-center">
-                <div 
-                  className="bg-light rounded-circle mb-3 mx-auto d-flex align-items-center justify-content-center"
-                  style={{ width: '100px', height: '100px' }}
-                >
-                  <i className="bi bi-chat-dots text-primary fs-1"></i>
-                </div>
-                <h3>Messaging Coming Soon</h3>
-                <p className="text-muted mb-4">
-                  We're working on bringing you a powerful messaging system.<br />
-                  Stay tuned for updates!
-                </p>
-                <button 
-                  className="btn btn-outline-primary"
-                  onClick={() => setActiveTab('notifications')}
-                >
-                  <i className="bi bi-bell me-2"></i>
-                  View Notifications Instead
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

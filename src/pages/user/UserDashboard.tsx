@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import FileBrowser from '@/features/files/components/FileBrowser';
 import FolderGrid from '@/features/files/components/FolderGrid';
+import AdditionalFolders from '@/features/files/components/AdditionalFolders';
 import UserAllFiles from '@/features/files/components/UserAllFiles';
 import Card from '@/components/common/Card'; 
 import DragDropDemo from '@/features/files/components/DragDropDemo';
@@ -138,6 +139,9 @@ const UserDashboard = () => {
               onSelectFolder={handleFolderSelect}
               currentPath={getCurrentPath()}
             />
+            
+            {/* Additional folders below core 4 */}
+            <AdditionalFolders userId={user.userId} />
           </Card>
 
           {/* Added: User All Files component */}

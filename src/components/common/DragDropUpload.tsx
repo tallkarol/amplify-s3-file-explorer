@@ -1,7 +1,10 @@
 // src/components/common/DragDropUpload.tsx
 import { useState, useRef, useEffect, DragEvent, ReactNode } from 'react';
 import { uploadData } from 'aws-amplify/storage';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 import AlertMessage from './AlertMessage';
+import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
+import { getAllAdminUserIds } from '@/services/adminService';
 
 interface DragDropUploadProps {
   currentPath: string;
@@ -18,6 +21,7 @@ const DragDropUpload = ({
   children, 
   disabled = false 
 }: DragDropUploadProps) => {
+  const { user } = useAuthenticator();
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -181,6 +185,36 @@ const DragDropUpload = ({
           });
           
           successCount++;
+          
+          // Send notifications after successful upload
+          try {
+            const isAdminUploadingForUser = user.userId !== userId;
+            
+            if (isAdminUploadingForUser) {
+              // Admin uploading for a user - notify the user
+              await notifyUserOfFileUpload(
+                userId,
+                user.username || user.signInDetails?.loginId || 'Administrator',
+                file.name,
+                currentPath,
+                `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
+              );
+            } else {
+              // User uploading their own files - notify admins
+              const adminIds = await getAllAdminUserIds();
+              if (adminIds.length > 0) {
+                await notifyAdminsOfUserFileUpload(
+                  adminIds,
+                  user.username || user.signInDetails?.loginId || 'User',
+                  file.name,
+                  currentPath
+                );
+              }
+            }
+          } catch (notifError) {
+            console.error('Error sending notification:', notifError);
+            // Don't fail the upload if notification fails
+          }
         } catch (err) {
           console.error('Error uploading file:', err);
           setError(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);

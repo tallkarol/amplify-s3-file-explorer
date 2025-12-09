@@ -4,9 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
-import UserProfileModal from '../../features/clients/components/UserProfileModal';
 import SidebarNotifications from './SidebarNotifications';
-// import { useNotifications } from '@/features/notifications/context/NotificationContext';
 import '@/styles/sidebar.css';
 import '@/styles/adminsidebar.css';
 
@@ -23,7 +21,6 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [userInitials, setUserInitials] = useState('');
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
   const isActiveFolder = (folder: string) => location.pathname.includes(`/folder/${folder}`);
@@ -129,12 +126,7 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
     if (user) {
       fetchUserProfile();
     }
-  }, [user, client, isProfileModalOpen]);
-  
-  // Toggle profile modal
-  const toggleProfileModal = () => {
-    setIsProfileModalOpen(!isProfileModalOpen);
-  };
+  }, [user, client]);
 
   // Folder shortcuts data
   const folderShortcuts = [
@@ -162,12 +154,8 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
           </button>
         </div>
         
-        {/* User info section - using the admin sidebar styling */}
-        <div 
-          className="user-info-section p-3 clickable" 
-          onClick={toggleProfileModal}
-          title="Edit profile"
-        >
+        {/* User info section - non-clickable display */}
+        <div className="user-info-section p-3">
           <div className="d-flex align-items-center">
             <div className="user-avatar">
               {userInitials}
@@ -175,12 +163,9 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
             
             {!collapsed && (
               <div className="user-details ms-3 fade-in">
-                <div className="d-flex align-items-center justify-content-between">
-                  <h6 className="user-name mb-0 text-truncate text-white" style={{ maxWidth: '160px' }}>
-                    {companyName || fullName || userEmail || (user?.username || '')}
-                  </h6>
-                  <i className="bi bi-pencil-square ms-2 edit-icon"></i>
-                </div>
+                <h6 className="user-name mb-0 text-truncate text-white" style={{ maxWidth: '160px' }}>
+                  {companyName || fullName || userEmail || (user?.username || '')}
+                </h6>
                 
                 <div className="d-flex align-items-center mt-1">
                   <span className={`badge ${isAdmin ? 'bg-danger' : 'bg-info'} me-2`} style={{ fontSize: '0.65rem' }}>
@@ -231,6 +216,24 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
                 </Link>
               </li>
             ))}
+            
+            {/* Divider */}
+            <div className="border-top border-secondary my-2"></div>
+            
+            {/* Profile & Settings Link */}
+            <li className="nav-item mb-2">
+              <Link 
+                to="/user/profile" 
+                className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+                  isActive('/user/profile') 
+                    ? 'active bg-primary text-white' 
+                    : 'text-light hover-highlight'
+                }`}
+              >
+                <i className="bi bi-gear me-3 fs-5"></i>
+                {!collapsed && <span>Profile & Settings</span>}
+              </Link>
+            </li>
           </ul>
         </div>
         
@@ -255,12 +258,6 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
           </button>
         </div>
       </div>
-      
-      {/* User profile modal */}
-      <UserProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-      />
     </>
   );
 };

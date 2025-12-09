@@ -62,14 +62,6 @@ const features: Feature[] = [
     defaultValue: false,
     category: 'experimental',
     allowedGroups: ['admin', 'developer']
-  },
-  {
-    id: 'workflow_automation',
-    name: 'Workflow Automation',
-    description: 'Enable automated workflows for file processing and approvals.',
-    defaultValue: false,
-    category: 'experimental',
-    allowedGroups: ['admin']
   }
 ];
 

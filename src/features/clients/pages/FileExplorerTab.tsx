@@ -4,7 +4,6 @@ import { Button, Dropdown, Alert, Form, Badge } from 'react-bootstrap';
 // import Card from '../../../components/common/Card';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import DragDropUpload from '../../../components/common/DragDropUpload';
-import FolderPermissionsPanel from '../../files/components/FolderPermissionsPanel';
 import { UserProfile } from '../../../types';
 import { 
   EnhancedS3Item, 
@@ -32,7 +31,6 @@ const FileExplorerTab: React.FC<FileExplorerTabProps> = ({ client }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
-  const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   // Folder creation states
@@ -405,14 +403,6 @@ const getFileColor = (file: EnhancedS3Item) => {
             
             <Button 
               className="action-button secondary"
-              onClick={() => setShowPermissionsPanel(!showPermissionsPanel)}
-            >
-              <i className="bi bi-shield-lock"></i>
-              <span>Permissions</span>
-            </Button>
-            
-            <Button 
-              className="action-button secondary"
               onClick={() => fetchFiles()}
               disabled={loading}
             >
@@ -465,18 +455,6 @@ const getFileColor = (file: EnhancedS3Item) => {
         </div>
       </div>
 
-      {/* Permissions Panel */}
-      {showPermissionsPanel && (
-        <div className="permissions-panel-container">
-          <FolderPermissionsPanel
-            userId={client.uuid}
-            currentPath={currentPath}
-            onPermissionsChange={() => fetchFiles()}
-            onClose={() => setShowPermissionsPanel(false)}
-          />
-        </div>
-      )}
-
       {/* Error Alert */}
       {error && (
         <Alert variant="danger" dismissible onClose={() => setError(null)} className="modern-alert">
@@ -511,7 +489,6 @@ const getFileColor = (file: EnhancedS3Item) => {
                     <th className="col-type">Type</th>
                     <th className="col-size">Size</th>
                     <th className="col-modified">Modified</th>
-                    <th className="col-permissions">Permissions</th>
                     <th className="col-actions">Actions</th>
                   </tr>
                 </thead>
@@ -607,21 +584,6 @@ const getFileColor = (file: EnhancedS3Item) => {
                       </td>
                       <td className="col-size">{file.isFolder ? '—' : formatFileSize(file.size)}</td>
                       <td className="col-modified">{formatDate(file.lastModified)}</td>
-                      <td className="col-permissions">
-                        <div className="permission-badges">
-                          {file.permissions?.downloadRestricted ? (
-                            <Badge bg="warning" className="permission-badge" title="Download restricted">
-                              <i className="bi bi-download me-1"></i>
-                              Restricted
-                            </Badge>
-                          ) : (
-                            <Badge bg="success" className="permission-badge" title="Download allowed">
-                              <i className="bi bi-check-circle me-1"></i>
-                              Open
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
                       <td className="col-actions">
                         {file.name !== '..' && (
                           <Dropdown align="end">
@@ -648,28 +610,16 @@ const getFileColor = (file: EnhancedS3Item) => {
                                 )}
                               </Dropdown.Item>
                               
-                              {file.isFolder && (
+                              {file.isFolder && file.permissions?.canDeleteFolder && !file.isProtected && (
                                 <>
+                                  <Dropdown.Divider />
                                   <Dropdown.Item 
-                                    onClick={() => setShowPermissionsPanel(true)}
-                                    className="dropdown-item-action"
+                                    onClick={() => deleteFolder(file)} 
+                                    className="dropdown-item-action danger"
                                   >
-                                    <i className="bi bi-shield-lock me-2"></i>
-                                    Manage Permissions
+                                    <i className="bi bi-trash me-2"></i>
+                                    Delete Folder
                                   </Dropdown.Item>
-                                  
-                                  {file.permissions?.canDeleteFolder && !file.isProtected && (
-                                    <>
-                                      <Dropdown.Divider />
-                                      <Dropdown.Item 
-                                        onClick={() => deleteFolder(file)} 
-                                        className="dropdown-item-action danger"
-                                      >
-                                        <i className="bi bi-trash me-2"></i>
-                                        Delete Folder
-                                      </Dropdown.Item>
-                                    </>
-                                  )}
                                 </>
                               )}
                               

@@ -6,7 +6,7 @@ import { GraphQLQuery } from '@aws-amplify/api';
 import Card from '@/components/common/Card';
 import AlertMessage from '@/components/common/AlertMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
-import FolderGrid from '../components/FolderGrid';
+import AdminFolderGrid from '../components/AdminFolderGrid';
 import { UserProfile } from '@/types';
 
 // Import the updated components
@@ -170,7 +170,7 @@ const AdminFileManagement = () => {
                 {currentPath === '/' ? (
                 <>
                   <Card title={`Folders for ${selectedUser.firstName || selectedUser.email}`}>
-                    <FolderGrid 
+                    <AdminFolderGrid 
                       userId={selectedUser.uuid}
                       onSelectFolder={handleFolderSelect} 
                     />

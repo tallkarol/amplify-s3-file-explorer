@@ -46,7 +46,7 @@ export interface UserProfile {
   preferredContactMethod?: 'email' | 'phone';
   createdAt?: string;
   updatedAt?: string;
-  status?: 'active' | 'inactive' | 'suspended';
+  status?: 'active' | 'inactive' | 'deleted';
 }
 
 // Additional contact type

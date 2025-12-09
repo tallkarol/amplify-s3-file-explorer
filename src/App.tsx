@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { trackUserLogin } from '@/services/loginTrackingService';
 
 // Import Error Boundary
 import ErrorBoundary from "@/components/error/ErrorBoundary";
@@ -11,14 +12,13 @@ import ErrorBoundary from "@/components/error/ErrorBoundary";
 // Import User Pages
 import Layout from '@/layouts/UserLayout';
 import UserDashboard from '@/pages/user/UserDashboard';
-import UserWorkflowDashboard from "@/features/workflows/pages/UserWorkflowDashboard";
+import UserProfile from '@/pages/user/UserProfile';
 
 // Import Admin Pages
 import AdminLayout from '@/layouts/AdminLayout';
 import AdminHome from '@/pages/admin/AdminDashboard';
 import AdminClientManagement from '@/features/clients/pages/AdminClientManagement';
 import AdminFileManagement from '@/features/files/pages/AdminFileManagement';
-import AdminWorkflowDashboard from "@/features/workflows/pages/AdminWorkflowDashboard";
 
 // Import Developer Pages
 import DeveloperLayout from '@/layouts/DeveloperLayout';
@@ -71,6 +71,22 @@ function App() {
     checkUserRole();
   }, [user]);
 
+  // Track user login for first-time login notifications
+  useEffect(() => {
+    async function handleLogin() {
+      if (user?.userId && user?.signInDetails?.loginId) {
+        try {
+          await trackUserLogin(user.userId, user.signInDetails.loginId);
+        } catch (error) {
+          console.error('Error tracking login:', error);
+          // Don't block the user if tracking fails
+        }
+      }
+    }
+
+    handleLogin();
+  }, [user?.userId]); // Only run when userId changes (login)
+
   if (isLoading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -99,7 +115,6 @@ function App() {
                     <Route path="/" element={<AdminHome />} />
                     <Route path="/clients" element={<AdminClientManagement />} />
                     <Route path="/files" element={<AdminFileManagement />} />
-                    <Route path="/workflows" element={<AdminWorkflowDashboard />} />
                     <Route path="/inbox" element={<Inbox />} />
                     <Route path="*" element={<Navigate to="/admin" replace />} />
                   </Routes>
@@ -115,8 +130,20 @@ function App() {
                 <DeveloperLayout>
                   <Routes>
                     <Route path="/" element={<DeveloperDashboard />} />
-                    <Route path="/user" element={<UserDashboard />} />
+                    
+                    {/* Admin Views in Developer Context */}
                     <Route path="/admin" element={<AdminHome />} />
+                    <Route path="/admin/clients" element={<AdminClientManagement />} />
+                    <Route path="/admin/files" element={<AdminFileManagement />} />
+                    <Route path="/admin/inbox" element={<Inbox />} />
+                    
+                    {/* User Views in Developer Context */}
+                    <Route path="/user" element={<UserDashboard />} />
+                    <Route path="/user/profile" element={<UserProfile />} />
+                    <Route path="/user/folder/:folderId" element={<UserDashboard />} />
+                    <Route path="/user/inbox" element={<Inbox />} />
+                    
+                    {/* Developer Tools */}
                     <Route path="/debug" element={<DebugTools />} />
                     <Route path="/certification-form" element={<CertificationApplicationForm />} />
                     <Route path="/inbox" element={<Inbox />} />
@@ -133,7 +160,8 @@ function App() {
               <Layout isAdmin={userRole === 'admin'}>
                 <Routes>
                     <Route path="/" element={<UserDashboard />} />
-                    <Route path="/workflows" element={<UserWorkflowDashboard />} />
+                    <Route path="/profile" element={<UserProfile />} />
+                    <Route path="/inbox" element={<Inbox />} />
                     <Route path="/folder/:folderId" element={<UserDashboard />} />
                     <Route path="*" element={<Navigate to="/user" replace />} />
                 </Routes>

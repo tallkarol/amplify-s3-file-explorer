@@ -126,7 +126,7 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
             </Link>
           </li>
           
-          {/* File Management
+          {/* File Management */}
           <li className="nav-item mb-2">
             <Link 
               to="/admin/files" 
@@ -137,9 +137,9 @@ const AdminSidebar = ({ collapsed, onToggle }: AdminSidebarProps) => {
               }`}
             >
               <i className="bi bi-folder me-3 fs-5"></i>
-              {!collapsed && <span>Files</span>}
+              {!collapsed && <span>File Management</span>}
             </Link>
-          </li> */}
+          </li>
         </ul>
       </div>
         

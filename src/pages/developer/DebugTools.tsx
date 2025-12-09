@@ -10,6 +10,7 @@ import ErrorLog from '../../components/developer/ErrorLog';
 import UserLookup from '../../components/developer/UserLookup';
 import ErrorLoggerDemo from '../../components/developer/ErrorLoggerDemo';
 import NotificationDemo from '../../components/developer/NotificationDemo';
+import DuplicateUserDetector from '../../components/developer/DuplicateUserDetector';
 // import NotificationUsageExample from '../../features/notifications/examples/NotificationUsageExample';
 
 const DebugTools = () => {
@@ -160,6 +161,16 @@ const DebugTools = () => {
                     )}
                   </button>
                 </li>
+                {/* Duplicate User Detector tab */}
+                <li className="nav-item">
+                  <button
+                    className={`nav-link ${activeTab === 'duplicates' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('duplicates')}
+                  >
+                    <i className="bi bi-person-x me-2"></i>
+                    Duplicate Users
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -192,6 +203,11 @@ const DebugTools = () => {
               {/* Notifications Demo */}
               {activeTab === 'notifications' && (
                 <NotificationDemo onNotificationCreated={handleNotificationCreated} />
+              )}
+              
+              {/* Duplicate User Detector */}
+              {activeTab === 'duplicates' && (
+                <DuplicateUserDetector />
               )}
             </div>
           </div>

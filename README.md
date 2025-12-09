@@ -52,7 +52,7 @@ src/
 │   ├── clients/          # Client management
 │   ├── files/            # File management
 │   ├── notifications/    # Notification system
-│   └── workflows/        # Workflow management
+│   └── support/          # Support system
 │
 ├── hooks/                # Custom React hooks
 ├── layouts/              # Page layouts for different user roles
@@ -140,12 +140,39 @@ The project includes an `amplify.yml` configuration for CI/CD pipeline integrati
 - `src/App.tsx`: Main application component with routing
 - `src/main.tsx`: Application entry point
 
+## User Features
+
+### Password Reset
+
+**For Users:**
+If you forget your password, you can reset it at the login screen:
+1. Click the "Forgot Password?" link on the login page
+2. Enter your email address
+3. Check your email for a verification code
+4. Enter the code and create a new password
+
+**For Admins:**
+Administrators can trigger password resets for users:
+1. Navigate to Admin → Client Management
+2. Select the user
+3. Go to the "Actions" tab
+4. Click "Reset Password"
+5. The user will receive an email with instructions to reset their password
+
+### Account Lifecycle
+
+User accounts follow a three-stage lifecycle:
+- **Active**: User can login and access the system normally
+- **Inactive**: Account is temporarily disabled (can be reactivated)
+- **Deleted**: Account is soft-deleted; email can be reused for new accounts
+
 ## Security Considerations
 
 - Role-based access control for user/admin/developer permissions
 - S3 bucket configured with appropriate access policies
 - All data transfers encrypted in transit
 - User authentication with Cognito and JWT tokens
+- Duplicate email prevention to maintain account integrity
 
 ## Compliance
 

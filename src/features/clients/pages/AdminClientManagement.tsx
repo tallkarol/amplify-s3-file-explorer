@@ -6,7 +6,9 @@ import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import AlertMessage from '../../../components/common/AlertMessage';
 import UserList from '../components/UserList';
 import ClientProfileCard from '../components/ClientProfileCard';
+import UserActionsCard from '../components/UserActionsCard';
 import FileExplorerTab from './FileExplorerTab';
+import UserFolderPermissions from '@/features/files/components/UserFolderPermissions';
 import { UserProfile } from '../../../types';
 import { fetchAllClients } from '../services/clientService';
 import '../styles/adminclientmanagement.css';
@@ -14,7 +16,7 @@ import '../styles/adminclientmanagement.css';
 const AdminClientManagement: React.FC = () => {
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'files' | 'actions'>('profile'); // Profile first now
+  const [activeTab, setActiveTab] = useState<'profile' | 'files' | 'permissions' | 'actions'>('profile'); // Profile first now
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -151,6 +153,13 @@ const AdminClientManagement: React.FC = () => {
                   File Management
                 </button>
                 <button 
+                  className={`admin-client-tab ${activeTab === 'permissions' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('permissions')}
+                >
+                  <i className="bi bi-folder-lock me-2"></i>
+                  Permissions
+                </button>
+                <button 
                   className={`admin-client-tab ${activeTab === 'actions' ? 'active' : ''}`}
                   onClick={() => setActiveTab('actions')}
                 >
@@ -248,6 +257,16 @@ const AdminClientManagement: React.FC = () => {
                   <FileExplorerTab client={selectedClient} />
                 )}
 
+                {activeTab === 'permissions' && (
+                  <div className="admin-client-content" style={{ gridColumn: '1 / -1' }}>
+                    <UserFolderPermissions 
+                      userId={selectedClient.uuid}
+                      userEmail={selectedClient.email}
+                      userName={`${selectedClient.firstName} ${selectedClient.lastName}`.trim()}
+                    />
+                  </div>
+                )}
+
                 {activeTab === 'actions' && (
                   <div className="admin-client-grid">
                     <div className="admin-client-sidebar">
@@ -259,56 +278,10 @@ const AdminClientManagement: React.FC = () => {
                     </div>
                     
                     <div className="admin-client-content">
-                      <Card title="Account Actions">
-                        <div className="row g-3">
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-primary">
-                                <i className="bi bi-envelope me-2"></i>
-                                Send Message
-                              </button>
-                            </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-outline-primary">
-                                <i className="bi bi-key me-2"></i>
-                                Reset Password
-                              </button>
-                            </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-outline-info">
-                                <i className="bi bi-shield-check me-2"></i>
-                                Reset Permissions
-                              </button>
-                            </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-outline-warning">
-                                <i className="bi bi-pause me-2"></i>
-                                Suspend Account
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <hr className="my-4" />
-                        
-                        <div className="alert alert-warning">
-                          <h6 className="alert-heading">
-                            <i className="bi bi-exclamation-triangle me-2"></i>
-                            Danger Zone
-                          </h6>
-                          <p className="mb-2">These actions cannot be undone and will permanently affect the client's account.</p>
-                          <button className="btn btn-outline-danger btn-sm">
-                            <i className="bi bi-trash me-2"></i>
-                            Delete Account
-                          </button>
-                        </div>
-                      </Card>
+                      <UserActionsCard 
+                        user={selectedClient} 
+                        onStatusChange={loadClients}
+                      />
                     </div>
                   </div>
                 )}

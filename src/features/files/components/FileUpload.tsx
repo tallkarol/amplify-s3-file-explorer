@@ -4,6 +4,7 @@ import { uploadData } from 'aws-amplify/storage';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import AlertMessage from '../../../components/common/AlertMessage';
 import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
+import { getAllAdminUserIds } from '@/services/adminService';
 
 interface FileUploadProps {
   currentPath: string;
@@ -86,32 +87,33 @@ const FileUpload = ({
           successCount++;
           
           // Create notifications if admin is uploading for a user or if we want to notify admins of user uploads
-          if (isAdmin && userId !== user.userId) {
-            // Admin uploading for a user - notify the user
-            // Fix: Remove attributes access
-            const adminName = user.username;
-            await notifyUserOfFileUpload(
-              userId,
-              adminName,
-              file.name,
-              currentPath,
-              `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
-            );
-          } else if (!isAdmin) {
-            // Regular user uploading - could notify admins
-            // Note: In a real system, you'd query for all admin users
-            // This is a placeholder that would be replaced with actual admin IDs
-            const adminIds = ['ADMIN_USER_ID']; // Replace with real admin IDs
-            if (adminIds.length > 0) {
-              // Fix: Remove attributes access
-              const userName = user.username;
-              await notifyAdminsOfUserFileUpload(
-                adminIds,
-                userName,
+          try {
+            const isAdminUploadingForUser = isAdmin && userId !== user.userId;
+            
+            if (isAdminUploadingForUser) {
+              // Admin uploading for a user - notify the user
+              await notifyUserOfFileUpload(
+                userId,
+                user.username || user.signInDetails?.loginId || 'Administrator',
                 file.name,
-                currentPath
+                currentPath,
+                `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
               );
+            } else if (!isAdmin) {
+              // Regular user uploading - notify admins
+              const adminIds = await getAllAdminUserIds();
+              if (adminIds.length > 0) {
+                await notifyAdminsOfUserFileUpload(
+                  adminIds,
+                  user.username || user.signInDetails?.loginId || 'User',
+                  file.name,
+                  currentPath
+                );
+              }
             }
+          } catch (notifError) {
+            console.error('Error sending notification:', notifError);
+            // Don't fail the upload if notification fails
           }
         } catch (err) {
           console.error('Error uploading file:', err);

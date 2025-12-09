@@ -48,7 +48,9 @@ const schema = a.schema({
       companyName: a.string(),
       phoneNumber: a.string(),
       preferredContactMethod: a.enum(['email', 'phone']),
-      status: a.enum(['active', 'inactive', 'suspended']),
+      status: a.enum(['active', 'inactive', 'deleted']),
+      firstLoginAt: a.datetime(),
+      lastLoginAt: a.datetime(),
     })
     .authorization((allow) => [
       allow.ownerDefinedIn('profileOwner'),

@@ -65,10 +65,15 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     await client.models.Notification.create({
       userId: userId,
       type: 'system',
-      title: 'Welcome to S3 Secure File Share',
-      message: 'Your account has been successfully created.',
+      title: 'Welcome to S3 Secure File Share! 🎉',
+      message: 'Your account has been successfully created. Get started by uploading your first document or exploring your secure folders. We\'ve set up everything you need to manage your certification documents securely.',
       isRead: false,
-      actionLink: '/user'
+      actionLink: '/user',
+      metadata: {
+        icon: 'check-circle',
+        color: 'success',
+        isWelcome: true
+      }
     });
 
     console.log('Creating S3 folders...');
