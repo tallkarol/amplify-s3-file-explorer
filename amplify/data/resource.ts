@@ -1,6 +1,7 @@
 // amplify/data/resource.ts
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-confirmation/resource";
+import { preSignup } from "../auth/pre-signup/resource";
 
 const schema = a.schema({
   SupportTicket: a
@@ -124,6 +125,10 @@ export type Schema = ClientSchema<typeof schema>;
 
 export const data = defineData({
   schema,
+  functions: {
+    preSignup,
+    postConfirmation,
+  },
   authorizationModes: {
     defaultAuthorizationMode: "userPool",
     apiKeyAuthorizationMode: {
