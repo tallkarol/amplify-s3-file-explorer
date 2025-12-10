@@ -3,25 +3,19 @@ import type { PreSignUpTriggerHandler } from "aws-lambda";
 import { type Schema } from "../../data/resource";
 import { Amplify } from "aws-amplify";
 import { generateClient } from "aws-amplify/data";
-import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
 import { env } from "$amplify/env/pre-signup";
-import { dataEnv } from "$amplify/env/data";
 
-// Merge the imported env with AWS environment variables into a single flat object.
-const clientEnv = {
-  ...env,
-  ...dataEnv,
-  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID!,
-  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY!,
-  AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN!,
-  AWS_REGION: process.env.AWS_REGION!,
-};
+Amplify.configure({
+  API: {
+    GraphQL: {
+      endpoint: env.AMPLIFY_DATA_GRAPHQL_ENDPOINT,
+      region: env.AWS_REGION,
+      defaultAuthMode: 'iam',
+    },
+  },
+});
 
-const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(clientEnv);
-
-Amplify.configure(resourceConfig, libraryOptions);
-
-const client = generateClient<Schema>();
+const client = generateClient<Schema>({ authMode: 'iam' });
 
 export const handler: PreSignUpTriggerHandler = async (event) => {
   try {
