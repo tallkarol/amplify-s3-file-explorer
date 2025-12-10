@@ -128,7 +128,7 @@ export const data = defineData({
     defaultAuthorizationMode: "userPool",
     // Re-enable API key for optional public access; CloudFormation will mint a fresh key
     apiKeyAuthorizationMode: {
-      expiresInDays: 90, // keep short-lived to reduce exposure
+      expiresInDays: 90, // keep bounded; adjust as needed
       description: "Amplify data API key",
     },
   },
