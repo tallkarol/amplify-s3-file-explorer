@@ -40,14 +40,23 @@ const UserStatsCard = ({ user }: UserStatsCardProps) => {
     setLoading(true);
     
     try {
-      // Create an array to hold all folder stats
+      // Batch fetch files for all folders in parallel
+      const folderFilesPromises = folderConfig.map(folder => 
+        listUserFiles(user.uuid, folder.path).catch(err => {
+          console.error(`Error fetching files for ${folder.name}:`, err);
+          return [];
+        })
+      );
+      
+      const allFolderFiles = await Promise.all(folderFilesPromises);
+      
+      // Process results
       const stats: FolderStats[] = [];
       let filesTotal = 0;
       let sizeTotal = 0;
       
-      // Process each folder to get statistics
-      for (const folder of folderConfig) {
-        const files = await listUserFiles(user.uuid, folder.path);
+      folderConfig.forEach((folder, index) => {
+        const files = allFolderFiles[index];
         
         // Count only files, not folders
         const fileCount = files.filter(item => !item.isFolder).length;
@@ -66,7 +75,7 @@ const UserStatsCard = ({ user }: UserStatsCardProps) => {
           icon: folder.icon,
           color: folder.color
         });
-      }
+      });
       
       setFolderStats(stats);
       setTotalFiles(filesTotal);

@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import { listUserFiles, isFolderVisible } from '../services/S3Service';
+import { listUserFilesWithPermissions, getEffectiveFolderPermissions, getFolderFileCounts, normalizeFolderPath, EnhancedS3Item } from '../services/S3Service';
 import { S3Item } from '@/types';
 import useFolderStats from '../hooks/useFolderStats';
 import FolderRow from './FolderRow';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import '@/styles/foldergrid.css';
 
-interface FolderWithCount extends S3Item {
+interface FolderWithCount extends EnhancedS3Item {
   fileCount?: number;
 }
 
@@ -61,14 +61,27 @@ const FolderGrid: React.FC<FolderGridProps> = ({ userId, onSelectFolder }) => {
     const fetchFolders = async () => {
       setLoading(true);
       try {
-        const items = await listUserFiles(userId, '/');
-        const folderItems = items.filter(item => item.isFolder && item.name !== '..');
+        // Use listUserFilesWithPermissions to get folders with permissions attached
+        const items = await listUserFilesWithPermissions(userId, '/');
+        const folderItems = items.filter(item => item.isFolder && item.name !== '..') as EnhancedS3Item[];
         
-        // Check visibility for each folder
+        // Check visibility using cached permissions (no API calls)
         const visibilityChecks = await Promise.all(
           folderItems.map(async (folder) => {
-            const visible = await isFolderVisible(userId, folder.key);
-            return { folder, visible };
+            const userPrefix = `users/${userId}/`;
+            let folderPath = folder.key;
+            if (folderPath.startsWith(userPrefix)) {
+              folderPath = folderPath.substring(userPrefix.length);
+            }
+            const normalizedPath = normalizeFolderPath(folderPath);
+            const permissions = await getEffectiveFolderPermissions(userId, normalizedPath);
+            console.log('[FolderGrid] Visibility check:', {
+              folderName: folder.name,
+              folderPath: normalizedPath,
+              isVisible: permissions.isVisible,
+              hasDirectPermissions: !!permissions.id
+            });
+            return { folder, visible: permissions.isVisible };
           })
         );
         
@@ -76,19 +89,28 @@ const FolderGrid: React.FC<FolderGridProps> = ({ userId, onSelectFolder }) => {
           .filter(({ visible }) => visible)
           .map(({ folder }) => folder);
         
-        // Get file counts for each folder
-        const foldersWithCounts = await Promise.all(
-          visible.map(async (folder) => {
-            try {
-              const files = await listUserFiles(userId, folder.key);
-              const fileCount = files.filter(item => !item.isFolder).length;
-              return { ...folder, fileCount };
-            } catch (error) {
-              console.error(`Error getting file count for ${folder.name}:`, error);
-              return { ...folder, fileCount: 0 };
-            }
-          })
-        );
+        // Batch fetch file counts using optimized function
+        const folderPathsForCounts = visible.map(folder => {
+          const userPrefix = `users/${userId}/`;
+          let folderPath = folder.key;
+          if (folderPath.startsWith(userPrefix)) {
+            folderPath = folderPath.substring(userPrefix.length);
+          }
+          return normalizeFolderPath(folderPath);
+        });
+        
+        const fileCounts = await getFolderFileCounts(userId, folderPathsForCounts);
+        
+        // Map counts back to folders, preserving permissions
+        const foldersWithCounts = visible.map((folder) => {
+          const userPrefix = `users/${userId}/`;
+          let folderPath = folder.key;
+          if (folderPath.startsWith(userPrefix)) {
+            folderPath = folderPath.substring(userPrefix.length);
+          }
+          const normalizedPath = normalizeFolderPath(folderPath);
+          return { ...folder, fileCount: fileCounts[normalizedPath] || 0 };
+        });
         
         setVisibleFolders(foldersWithCounts);
       } catch (error) {

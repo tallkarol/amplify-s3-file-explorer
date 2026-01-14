@@ -1,7 +1,7 @@
 // src/features/files/components/FileBrowser.tsx
 import React, { useState, useEffect } from 'react';
 import { S3Item, BreadcrumbItem } from '@/types';
-import { listUserFiles, getFileUrl, canUploadToPath, isFolderVisible } from '../services/S3Service';
+import { listUserFilesWithPermissions, getFileUrl, canUploadToPath, isFolderVisible, EnhancedS3Item } from '../services/S3Service';
 import Card from '@/components/common/Card';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
@@ -94,7 +94,8 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
     setError(null);
     
     try {
-      const items = await listUserFiles(userId, currentPath);
+      // Use listUserFilesWithPermissions to get items with permissions attached
+      const items = await listUserFilesWithPermissions(userId, currentPath);
       
       // Filter folders by visibility for regular users (admin/dev see all)
       let filteredItems = items;
@@ -235,12 +236,24 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
   };
 
   // Determine if drag and drop should be disabled
-  const isDragDropDisabled = currentPath === '/' || (!canUpload && !isAdmin && !userIsAdmin);
+  // Hide drag-drop UI when permissions don't allow uploads (even for admins)
+  const isDragDropDisabled = currentPath === '/' || !canUpload;
 
-  // Get file icon based on file type
-  const getFileIcon = (file: S3Item) => {
+  // Get file icon based on file type and permissions
+  const getFileIcon = (file: EnhancedS3Item | S3Item) => {
     if (file.name === '..') return 'arrow-up';
-    if (file.isFolder) return file.isProtected ? 'lock' : 'folder';
+    if (file.isFolder) {
+      // Check for restrictions in permissions
+      const enhancedFile = file as EnhancedS3Item;
+      const uploadRestricted = enhancedFile.permissions?.uploadRestricted === true;
+      const downloadRestricted = enhancedFile.permissions?.downloadRestricted === true;
+      
+      // Show lock icon if folder has restrictions or is protected
+      if (file.isProtected || uploadRestricted || downloadRestricted) {
+        return 'lock';
+      }
+      return 'folder';
+    }
     
     const extension = file.name.split('.').pop()?.toLowerCase();
     switch (extension) {
@@ -259,10 +272,21 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
     }
   };
 
-  // Get file color based on type
-  const getFileColor = (file: S3Item) => {
+  // Get file color based on type and permissions
+  const getFileColor = (file: EnhancedS3Item | S3Item) => {
     if (file.name === '..') return 'secondary';
-    if (file.isFolder) return file.isProtected ? 'danger' : 'primary';
+    if (file.isFolder) {
+      // Check for restrictions in permissions
+      const enhancedFile = file as EnhancedS3Item;
+      const uploadRestricted = enhancedFile.permissions?.uploadRestricted === true;
+      const downloadRestricted = enhancedFile.permissions?.downloadRestricted === true;
+      
+      // Show danger color if folder has restrictions or is protected
+      if (file.isProtected || uploadRestricted || downloadRestricted) {
+        return 'danger';
+      }
+      return 'primary';
+    }
     
     const extension = file.name.split('.').pop()?.toLowerCase();
     switch (extension) {
@@ -350,7 +374,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
                 Refresh
               </button>
               
-              {currentPath !== '/' && (canUpload || isAdmin || userIsAdmin) ? (
+              {currentPath !== '/' && canUpload ? (
                 <FileUpload
                   currentPath={currentPath}
                   userId={userId}
@@ -382,15 +406,22 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
                   className={`file-document-item ${file.isFolder ? 'folder' : ''}`}
                   onClick={() => handleFileAction(file)}
                 >
-                  <div className={`file-document-icon bg-${getFileColor(file)}-subtle text-${getFileColor(file)}`}>
+                  <div className={`file-document-icon bg-${getFileColor(file)}-subtle text-${getFileColor(file)} position-relative`}>
                     <i className={`bi bi-${getFileIcon(file)}`}></i>
+                    {file.isFolder && (file.isProtected || (file as EnhancedS3Item).permissions?.uploadRestricted === true || (file as EnhancedS3Item).permissions?.downloadRestricted === true) && (
+                      <i className="bi bi-shield-lock text-danger position-absolute" style={{ 
+                        fontSize: '0.7rem', 
+                        marginLeft: '-0.7rem', 
+                        marginTop: '0.7rem' 
+                      }}></i>
+                    )}
                   </div>
                   
                   <div className="file-document-content">
-                    <div className="file-document-title">
+                    <div className="file-document-title d-flex align-items-center">
                       {file.name}
-                      {file.isProtected && (
-                        <span className="file-document-protected-badge ms-2">Protected</span>
+                      {file.isFolder && (file.isProtected || (file as EnhancedS3Item).permissions?.uploadRestricted === true || (file as EnhancedS3Item).permissions?.downloadRestricted === true) && (
+                        <span className="badge bg-danger ms-2" style={{ fontSize: '0.6rem' }}>Restricted</span>
                       )}
                     </div>
                     
@@ -425,7 +456,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
                       </button>
                     )}
                     
-                    {(isAdmin || !file.isProtected) && !file.name.startsWith('..') && (
+                    {!file.name.startsWith('..') && (
                       <button 
                         className="btn btn-sm btn-outline-danger file-action-btn"
                         onClick={(e) => {
@@ -449,7 +480,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
               message={currentPath === '/' 
                 ? "This is the root folder. Please navigate to a specific folder to upload files." 
                 : "This folder is empty. Upload files to get started or drag & drop files here."}
-              action={currentPath !== '/' && (canUpload || isAdmin || userIsAdmin) ? (
+              action={currentPath !== '/' && canUpload ? (
                 <FileUpload
                   currentPath={currentPath}
                   userId={userId}

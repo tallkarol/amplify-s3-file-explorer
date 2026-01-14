@@ -4,7 +4,7 @@ import { uploadData } from 'aws-amplify/storage';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import AlertMessage from '../../../components/common/AlertMessage';
 import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
-import { canUploadToPath } from '../services/S3Service';
+import { canUploadToPath, invalidateFileCountCache } from '../services/S3Service';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface FileUploadProps {
@@ -34,13 +34,6 @@ const FileUpload = ({
   // Check permissions when path or userId changes
   useEffect(() => {
     const checkPermissions = async () => {
-      // Admin/dev bypass permission checks
-      if (isAdmin || userIsAdmin) {
-        setCanUpload(true);
-        setCheckingPermissions(false);
-        return;
-      }
-
       // Can't upload to root folder
       if (currentPath === '/') {
         setCanUpload(false);
@@ -50,6 +43,7 @@ const FileUpload = ({
 
       setCheckingPermissions(true);
       try {
+        // Check actual permissions (UI reflects restrictions even for admins)
         const hasPermission = await canUploadToPath(userId, currentPath);
         setCanUpload(hasPermission);
       } catch (err) {
@@ -62,7 +56,7 @@ const FileUpload = ({
     };
 
     checkPermissions();
-  }, [currentPath, userId, isAdmin, userIsAdmin]);
+  }, [currentPath, userId]);
 
   // Handle file selection
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -128,13 +122,18 @@ const FileUpload = ({
           console.log(`Uploading file to: ${uploadPath}`);
           
           // Upload the file
-          await uploadData({
+          const result = await uploadData({
             path: uploadPath,
             data: file,
             options: {
               contentType: file.type,
             }
           });
+          
+          console.log('[FileUpload] Upload result for', file.name, ':', result);
+          
+          // Invalidate file count cache after successful upload
+          invalidateFileCountCache(userId);
           
           successCount++;
           
@@ -210,7 +209,8 @@ const FileUpload = ({
     }
 
     // Check permissions before opening dialog
-    if (!canUpload && !isAdmin && !userIsAdmin) {
+    // Note: Admins can still upload even if restricted (checked in handleUpload), but UI reflects restriction
+    if (!canUpload) {
       setError('You do not have permission to upload files to this folder.');
       return;
     }
@@ -251,7 +251,7 @@ const FileUpload = ({
           <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
           Checking...
         </button>
-      ) : canUpload || isAdmin || userIsAdmin ? (
+      ) : canUpload ? (
         <button 
           className="btn btn-sm btn-primary"
           onClick={openFileDialog}

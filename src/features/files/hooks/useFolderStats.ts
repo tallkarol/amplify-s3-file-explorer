@@ -1,6 +1,6 @@
 // src/hooks/useFolderStats.ts
 import { useState, useEffect } from 'react';
-import { listUserFiles } from '@/features/files/services/S3Service';
+import { getFolderFileCounts } from '@/features/files/services/S3Service';
 
 interface FolderStat {
   id: string;
@@ -31,20 +31,15 @@ export const useFolderStats = (userId: string) => {
           { id: 'statistics', path: '/statistics/' }
         ];
 
-        // Fetch file counts for each folder
-        const stats = await Promise.all(
-          folderPaths.map(async (folder) => {
-            try {
-              const files = await listUserFiles(userId, folder.path);
-              // Count only files, not directories
-              const fileCount = files.filter(item => !item.isFolder).length;
-              return { id: folder.id, count: fileCount };
-            } catch (err) {
-              console.error(`Error fetching stats for ${folder.id}:`, err);
-              return { id: folder.id, count: 0 };
-            }
-          })
-        );
+        // Batch fetch file counts using optimized function (uses cache)
+        const paths = folderPaths.map(f => f.path);
+        const countsByPath = await getFolderFileCounts(userId, paths);
+
+        // Map counts back to folder IDs
+        const stats = folderPaths.map(folder => ({
+          id: folder.id,
+          count: countsByPath[folder.path] || 0
+        }));
 
         setFolderStats(stats);
       } catch (err) {

@@ -37,19 +37,20 @@ const DragDropUpload = ({
   // Check permissions when path or userId changes
   useEffect(() => {
     const checkPermissions = async () => {
-      // Admin/dev bypass permission checks
-      if (isAdmin) {
-        setCanUpload(true);
-        return;
-      }
-
       // Can't upload to root folder
       if (currentPath === '/') {
         setCanUpload(false);
         return;
       }
 
+      // If disabled prop is set, respect it (used by AdminFileBrowser to pass permission state)
+      if (disabled) {
+        setCanUpload(false);
+        return;
+      }
+
       try {
+        // Check actual permissions (UI reflects restrictions even for admins)
         const hasPermission = await canUploadToPath(userId, currentPath);
         setCanUpload(hasPermission);
       } catch (err) {
@@ -60,7 +61,7 @@ const DragDropUpload = ({
     };
 
     checkPermissions();
-  }, [currentPath, userId, isAdmin]);
+  }, [currentPath, userId, disabled]);
 
   // Set up event listeners for the entire document
   useEffect(() => {
@@ -90,7 +91,11 @@ const DragDropUpload = ({
     e.preventDefault();
     e.stopPropagation();
     
-    if (disabled || currentPath === '/' || (!canUpload && !isAdmin)) return;
+    // Don't allow drag if disabled, root folder, or no permission
+    // UI reflects actual permissions (even for admins)
+    if (disabled || currentPath === '/' || !canUpload) {
+      return;
+    }
     
     dragCounter.current++;
     
@@ -116,7 +121,8 @@ const DragDropUpload = ({
     e.preventDefault();
     e.stopPropagation();
     
-    if (disabled || currentPath === '/' || (!canUpload && !isAdmin)) return;
+    // UI reflects actual permissions (even for admins)
+    if (disabled || currentPath === '/' || !canUpload) return;
     
     // Set the drop effect
     e.dataTransfer.dropEffect = 'copy';
@@ -199,6 +205,7 @@ const DragDropUpload = ({
     if (selectedFiles.length === 0) return;
     
     // Defense in depth: Check permissions again before upload
+    // Admins can bypass this check (they can upload even if restricted), but UI reflects restriction
     if (!isAdmin) {
       try {
         const hasPermission = await canUploadToPath(userId, currentPath);
@@ -212,6 +219,8 @@ const DragDropUpload = ({
         return;
       }
     }
+    // Note: Admins bypass permission check here - they can upload even if folder is restricted
+    // But the UI (button visibility, drag-drop) reflects the actual permissions
     
     setIsUploading(true);
     setError(null);
@@ -331,8 +340,8 @@ const DragDropUpload = ({
         )}
       </div>
       
-      {/* Upload button (kept for compatibility) */}
-      {currentPath !== '/' && !disabled && (
+      {/* Upload button (kept for compatibility) - only show if permissions allow */}
+      {currentPath !== '/' && !disabled && canUpload && (
         <button 
           className="btn btn-sm btn-primary"
           onClick={openFileDialog}

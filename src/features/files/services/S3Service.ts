@@ -7,6 +7,16 @@ import { S3Item } from '../../../types';
 
 const client = generateClient();
 
+// Permission cache: userId -> Map<folderPath, FolderPermissions>
+const permissionCache = new Map<string, Map<string, FolderPermissions>>();
+const permissionCacheTimestamp = new Map<string, number>();
+const CACHE_TTL = 60000; // 1 minute cache
+
+// File count cache: userId -> Map<folderPath, fileCount>
+const fileCountCache = new Map<string, Map<string, number>>();
+const fileCountCacheTimestamp = new Map<string, number>();
+const FILE_COUNT_CACHE_TTL = 30000; // 30 second cache for file counts
+
 // Protected folders that should not be deleted (UPDATED)
 const PROTECTED_FOLDERS = [
   'certificate',
@@ -79,34 +89,6 @@ const listFolderPermissionsQuery = /* GraphQL */ `
   }
 `;
 
-const getFolderPermissionQuery = /* GraphQL */ `
-  query GetFolderPermission($userId: String!, $folderPath: String!) {
-    listFolderPermissions(
-      filter: { 
-        userId: { eq: $userId },
-        folderPath: { eq: $folderPath }
-      },
-      limit: 1
-    ) {
-      items {
-        id
-        userId
-        folderPath
-        downloadRestricted
-        uploadRestricted
-        canCreateSubfolders
-        canDeleteFolder
-        inheritFromParent
-        isVisible
-        createdBy
-        lastModifiedBy
-        createdAt
-        updatedAt
-      }
-    }
-  }
-`;
-
 const createFolderPermissionMutation = /* GraphQL */ `
   mutation CreateFolderPermission($input: CreateFolderPermissionInput!) {
     createFolderPermission(input: $input) {
@@ -118,6 +100,7 @@ const createFolderPermissionMutation = /* GraphQL */ `
       canCreateSubfolders
       canDeleteFolder
       inheritFromParent
+      isVisible
       createdBy
       lastModifiedBy
       createdAt
@@ -138,7 +121,9 @@ const updateFolderPermissionMutation = /* GraphQL */ `
       canDeleteFolder
       inheritFromParent
       isVisible
+      createdBy
       lastModifiedBy
+      createdAt
       updatedAt
     }
   }
@@ -171,21 +156,125 @@ export const getUserFolderPermissions = async (userId: string): Promise<FolderPe
 };
 
 /**
- * Get permissions for a specific folder
+ * Normalize folder path to ensure consistent format
+ */
+export const normalizeFolderPath = (path: string | null | undefined): string => {
+  // Handle null/undefined
+  if (!path) {
+    console.warn('[S3Service] normalizeFolderPath received null/undefined, returning "/"');
+    return '/';
+  }
+  
+  // Trim and handle empty/whitespace
+  let normalized = path.trim();
+  
+  // Handle empty string or just whitespace
+  if (!normalized || normalized === '') {
+    console.warn('[S3Service] normalizeFolderPath received empty string, returning "/"');
+    return '/';
+  }
+  
+  // Remove any double slashes in the middle (but preserve leading /)
+  normalized = normalized.replace(/([^/])\/\//g, '$1/');
+  
+  // Ensure path starts with /
+  if (!normalized.startsWith('/')) {
+    normalized = '/' + normalized;
+  }
+  
+  // Handle root path - should be just '/'
+  // Check for '//', '///', etc. and normalize to '/'
+  if (normalized.match(/^\/+$/)) {
+    return '/';
+  }
+  
+  // For non-root paths, ensure they end with /
+  if (!normalized.endsWith('/')) {
+    normalized = normalized + '/';
+  }
+  
+  // Final check: if somehow we still have '//' or more, convert to '/'
+  if (normalized.match(/^\/\/+$/)) {
+    return '/';
+  }
+  
+  return normalized;
+};
+
+/**
+ * Load all permissions for a user into cache
+ */
+const loadUserPermissionsIntoCache = async (userId: string): Promise<void> => {
+  const now = Date.now();
+  const cacheTime = permissionCacheTimestamp.get(userId) || 0;
+  
+  // Return cached data if still valid
+  if (permissionCache.has(userId) && (now - cacheTime) < CACHE_TTL) {
+    return;
+  }
+  
+  try {
+    const allPermissions = await getUserFolderPermissions(userId);
+    const pathMap = new Map<string, FolderPermissions>();
+    
+    // Index permissions by normalized path
+    for (const perm of allPermissions) {
+      const normalizedPath = normalizeFolderPath(perm.folderPath);
+      pathMap.set(normalizedPath, perm);
+    }
+    
+    console.log('[loadUserPermissionsIntoCache] Loaded permissions for userId:', userId, {
+      count: allPermissions.length,
+      paths: Array.from(pathMap.keys()),
+      permissions: allPermissions.map(p => ({
+        path: p.folderPath,
+        normalizedPath: normalizeFolderPath(p.folderPath),
+        isVisible: p.isVisible,
+        inheritFromParent: p.inheritFromParent
+      }))
+    });
+    
+    permissionCache.set(userId, pathMap);
+    permissionCacheTimestamp.set(userId, now);
+  } catch (error) {
+    console.error('[S3Service] Error loading permissions into cache:', error);
+    // Set empty cache to prevent repeated failures
+    permissionCache.set(userId, new Map());
+    permissionCacheTimestamp.set(userId, now);
+  }
+};
+
+/**
+ * Invalidate cache for a user (call after creating/updating/deleting permissions)
+ */
+export const invalidatePermissionCache = (userId: string): void => {
+  permissionCache.delete(userId);
+  permissionCacheTimestamp.delete(userId);
+};
+
+/**
+ * Get permissions for a specific folder (uses cache)
  */
 export const getFolderPermission = async (userId: string, folderPath: string): Promise<FolderPermissions | null> => {
   try {
-    const response = await client.graphql<GraphQLQuery<{ listFolderPermissions: { items: FolderPermissions[] } }>>({
-      query: getFolderPermissionQuery,
-      variables: { userId, folderPath },
-      authMode: 'userPool'
-    });
-
-    const items = response.data?.listFolderPermissions?.items || [];
-    return items.length > 0 ? items[0] : null;
+    const normalizedPath = normalizeFolderPath(folderPath);
+    
+    // Ensure cache is loaded
+    await loadUserPermissionsIntoCache(userId);
+    
+    const userCache = permissionCache.get(userId);
+    if (!userCache) {
+      return null;
+    }
+    
+    return userCache.get(normalizedPath) || null;
   } catch (error) {
-    console.error('Error fetching folder permission:', error);
-    return null; // Return null instead of throwing to prevent UI breaks
+    console.error('[S3Service] Error fetching folder permission:', {
+      error,
+      userId,
+      folderPath
+    });
+    return null;
   }
 };
 
@@ -194,41 +283,73 @@ export const getFolderPermission = async (userId: string, folderPath: string): P
  */
 export const setFolderPermissions = async (permissions: Omit<FolderPermissions, 'id' | 'createdAt' | 'updatedAt'>): Promise<FolderPermissions> => {
   try {
-    // Check if permissions already exist
-    const existing = await getFolderPermission(permissions.userId, permissions.folderPath);
+    // Normalize the folder path before processing
+    const normalizedPath = normalizeFolderPath(permissions.folderPath);
+    const normalizedPermissions = {
+      ...permissions,
+      folderPath: normalizedPath
+    };
+    
+    // Check if permissions already exist (uses cache)
+    const existing = await getFolderPermission(normalizedPermissions.userId, normalizedPermissions.folderPath);
     
     if (existing) {
       // Update existing permissions
+      const updateInput = {
+        id: existing.id,
+        downloadRestricted: normalizedPermissions.downloadRestricted,
+        uploadRestricted: normalizedPermissions.uploadRestricted,
+        canCreateSubfolders: normalizedPermissions.canCreateSubfolders,
+        canDeleteFolder: normalizedPermissions.canDeleteFolder,
+        inheritFromParent: normalizedPermissions.inheritFromParent,
+        isVisible: normalizedPermissions.isVisible,
+        lastModifiedBy: normalizedPermissions.lastModifiedBy
+      };
+      
       const response = await client.graphql<GraphQLQuery<{ updateFolderPermission: FolderPermissions }>>({
         query: updateFolderPermissionMutation,
         variables: {
-          input: {
-            id: existing.id,
-            downloadRestricted: permissions.downloadRestricted,
-            uploadRestricted: permissions.uploadRestricted,
-            canCreateSubfolders: permissions.canCreateSubfolders,
-            canDeleteFolder: permissions.canDeleteFolder,
-            inheritFromParent: permissions.inheritFromParent,
-            isVisible: permissions.isVisible,
-            lastModifiedBy: permissions.lastModifiedBy
-          }
+          input: updateInput
         },
         authMode: 'userPool'
       });
 
-      return response.data!.updateFolderPermission;
+      const result = response.data!.updateFolderPermission;
+      
+      if (!result) {
+        throw new Error('Update mutation returned null or undefined');
+      }
+      
+      // Invalidate cache after update
+      invalidatePermissionCache(normalizedPermissions.userId);
+      
+      return result;
     } else {
       // Create new permissions
       const response = await client.graphql<GraphQLQuery<{ createFolderPermission: FolderPermissions }>>({
         query: createFolderPermissionMutation,
-        variables: { input: permissions },
+        variables: { input: normalizedPermissions },
         authMode: 'userPool'
       });
 
-      return response.data!.createFolderPermission;
+      const result = response.data!.createFolderPermission;
+      
+      if (!result) {
+        throw new Error('Create mutation returned null or undefined');
+      }
+      
+      // Invalidate cache after create
+      invalidatePermissionCache(normalizedPermissions.userId);
+      
+      return result;
     }
   } catch (error) {
-    console.error('Error setting folder permissions:', error);
+    console.error('[S3Service] Error setting folder permissions:', {
+      error,
+      permissions,
+      fullError: JSON.stringify(error, null, 2),
+      errorDetails: (error as any)?.errors
+    });
     throw error;
   }
 };
@@ -250,46 +371,132 @@ export const deleteFolderPermissions = async (permissionId: string): Promise<voi
 };
 
 /**
- * Get effective permissions for a folder (considering inheritance)
+ * Get effective permissions for a folder (considering inheritance) - optimized with cache
  */
 export const getEffectiveFolderPermissions = async (userId: string, folderPath: string): Promise<FolderPermissions> => {
   try {
-    // Get direct permissions for this folder
-    const directPermissions = await getFolderPermission(userId, folderPath);
+    const normalizedPath = normalizeFolderPath(folderPath);
     
-    if (directPermissions && !directPermissions.inheritFromParent) {
-      return directPermissions;
+    // Ensure cache is loaded
+    await loadUserPermissionsIntoCache(userId);
+    
+    const userCache = permissionCache.get(userId);
+    if (!userCache) {
+      console.log('[getEffectiveFolderPermissions] No cache found, returning defaults for:', normalizedPath);
+      // Return defaults if cache failed
+      return {
+        userId,
+        folderPath: normalizedPath,
+        downloadRestricted: false,
+        uploadRestricted: false,
+        canCreateSubfolders: true,
+        canDeleteFolder: true,
+        inheritFromParent: true,
+        isVisible: true
+      };
     }
-
-    // If inheriting from parent or no permissions set, traverse up the path
-    const pathParts = folderPath.split('/').filter(Boolean);
     
-    // Default permissions if none found (permissive defaults)
+    // Get direct permissions for this folder
+    const directPermissions = userCache.get(normalizedPath);
+    console.log('[getEffectiveFolderPermissions] Checking:', {
+      folderPath: normalizedPath,
+      hasDirectPermissions: !!directPermissions,
+      directPermissions: directPermissions ? {
+        isVisible: directPermissions.isVisible,
+        inheritFromParent: directPermissions.inheritFromParent
+      } : null
+    });
+    
+    // Default permissions if none found (permissive defaults - folders are visible by default)
     const defaultPermissions: FolderPermissions = {
       userId,
-      folderPath,
+      folderPath: normalizedPath,
       downloadRestricted: false,
       uploadRestricted: false,
       canCreateSubfolders: true,
       canDeleteFolder: true,
       inheritFromParent: true,
-      isVisible: true
+      isVisible: true // CRITICAL: Default to visible
     };
 
-    // Check parent folders
+    // If folder has explicit permissions and doesn't inherit, return them as-is
+    if (directPermissions && !directPermissions.inheritFromParent) {
+      // Ensure isVisible defaults to true if not explicitly set (null/undefined -> true)
+      return {
+        ...directPermissions,
+        isVisible: (directPermissions.isVisible !== undefined && directPermissions.isVisible !== null) 
+          ? directPermissions.isVisible 
+          : true
+      };
+    }
+
+    // If inheriting from parent or no permissions set, traverse up the path (using cache)
+    const pathParts = normalizedPath.split('/').filter(Boolean);
+    
+    // Check parent folders (using cache, no API calls)
+    // IMPORTANT: For visibility, we default to true unless explicitly set on THIS folder
+    // Parent visibility settings should NOT hide child folders
+    let inheritedPermissions: FolderPermissions | null = null;
+    
     for (let i = pathParts.length - 1; i >= 0; i--) {
       const parentPath = '/' + pathParts.slice(0, i).join('/') + '/';
-      const parentPermissions = await getFolderPermission(userId, parentPath);
+      const normalizedParentPath = normalizeFolderPath(parentPath);
+      const parentPermissions = userCache.get(normalizedParentPath);
       
       if (parentPermissions && !parentPermissions.inheritFromParent) {
-        return {
-          ...parentPermissions,
-          folderPath, // Keep the original folder path
-          inheritFromParent: true // Mark as inherited
-        };
+        inheritedPermissions = parentPermissions;
+        break;
       }
     }
 
+    // Determine final isVisible value
+    // CRITICAL: isVisible should ONLY be false if explicitly set to false on THIS folder
+    // Never inherit isVisible: false from parents
+    // Treat null/undefined as "not set" and default to true
+    let finalIsVisible = true; // Default to visible
+    
+    if (directPermissions && directPermissions.isVisible !== undefined && directPermissions.isVisible !== null) {
+      // Folder has explicit isVisible setting (not null/undefined) - use it
+      finalIsVisible = directPermissions.isVisible;
+      console.log('[getEffectiveFolderPermissions] Using direct isVisible:', finalIsVisible, 'for', normalizedPath);
+    } else {
+      // No explicit setting on folder (null/undefined) - default to visible (don't inherit parent's isVisible)
+      finalIsVisible = true;
+      console.log('[getEffectiveFolderPermissions] No direct isVisible (was', directPermissions?.isVisible, '), defaulting to true for', normalizedPath);
+    }
+
+    // If we found inherited permissions, merge them but override isVisible
+    if (inheritedPermissions) {
+      console.log('[getEffectiveFolderPermissions] Found inherited permissions for', normalizedPath, {
+        inheritedIsVisible: inheritedPermissions.isVisible,
+        finalIsVisible
+      });
+      const result = {
+        ...inheritedPermissions,
+        folderPath: normalizedPath, // Keep the original folder path
+        inheritFromParent: true, // Mark as inherited
+        // CRITICAL FIX: Never inherit parent's isVisible - always default to true unless folder explicitly sets it
+        isVisible: finalIsVisible
+      };
+      console.log('[getEffectiveFolderPermissions] Returning inherited permissions with isVisible:', result.isVisible);
+      return result;
+    }
+
+    // No permissions found anywhere - return defaults (visible by default)
+    // If folder has permissions but inherits, use its explicit isVisible or default to true
+    if (directPermissions) {
+      const result = {
+        ...defaultPermissions,
+        ...directPermissions,
+        folderPath: normalizedPath,
+        // Ensure isVisible is true unless explicitly set to false
+        isVisible: finalIsVisible
+      };
+      console.log('[getEffectiveFolderPermissions] Returning direct permissions with isVisible:', result.isVisible);
+      return result;
+    }
+
+    console.log('[getEffectiveFolderPermissions] Returning default permissions (isVisible: true) for', normalizedPath);
     return defaultPermissions;
   } catch (error: any) {
     // Check if it's an authorization error
@@ -330,6 +537,103 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
 };
 
 /**
+ * Get file count for a folder (with caching)
+ */
+export const getFolderFileCount = async (userId: string, folderPath: string): Promise<number> => {
+  const normalizedPath = normalizeFolderPath(folderPath);
+  const now = Date.now();
+  const cacheTime = fileCountCacheTimestamp.get(userId) || 0;
+  
+  // Check cache first
+  const userFileCountCache = fileCountCache.get(userId);
+  if (userFileCountCache && (now - cacheTime) < FILE_COUNT_CACHE_TTL) {
+    const cachedCount = userFileCountCache.get(normalizedPath);
+    if (cachedCount !== undefined) {
+      return cachedCount;
+    }
+  }
+  
+  // Cache miss - fetch and cache
+  try {
+    const files = await listUserFiles(userId, normalizedPath);
+    const count = files.filter(item => !item.isFolder).length;
+    
+    // Update cache
+    if (!userFileCountCache) {
+      fileCountCache.set(userId, new Map([[normalizedPath, count]]));
+    } else {
+      userFileCountCache.set(normalizedPath, count);
+    }
+    fileCountCacheTimestamp.set(userId, now);
+    
+    return count;
+  } catch (error) {
+    console.error(`Error getting file count for ${folderPath}:`, error);
+    return 0;
+  }
+};
+
+/**
+ * Get file counts for multiple folders (batched with caching)
+ */
+export const getFolderFileCounts = async (userId: string, folderPaths: string[]): Promise<Record<string, number>> => {
+  const now = Date.now();
+  const cacheTime = fileCountCacheTimestamp.get(userId) || 0;
+  const isCacheValid = (now - cacheTime) < FILE_COUNT_CACHE_TTL;
+  
+  let userFileCountCache = fileCountCache.get(userId);
+  if (!userFileCountCache) {
+    userFileCountCache = new Map();
+    fileCountCache.set(userId, userFileCountCache);
+  }
+  
+  const results: Record<string, number> = {};
+  const pathsToFetch: string[] = [];
+  
+  // Check cache for each path
+  for (const folderPath of folderPaths) {
+    const normalizedPath = normalizeFolderPath(folderPath);
+    if (isCacheValid) {
+      const cachedCount = userFileCountCache.get(normalizedPath);
+      if (cachedCount !== undefined) {
+        results[normalizedPath] = cachedCount;
+        continue;
+      }
+    }
+    pathsToFetch.push(normalizedPath);
+  }
+  
+  // Fetch missing counts in parallel
+  if (pathsToFetch.length > 0) {
+    const fetchPromises = pathsToFetch.map(async (path) => {
+      try {
+        const files = await listUserFiles(userId, path);
+        const count = files.filter(item => !item.isFolder).length;
+        userFileCountCache.set(path, count);
+        results[path] = count;
+      } catch (error) {
+        console.error(`Error getting file count for ${path}:`, error);
+        userFileCountCache.set(path, 0);
+        results[path] = 0;
+      }
+    });
+    
+    await Promise.all(fetchPromises);
+    fileCountCacheTimestamp.set(userId, now);
+  }
+  
+  return results;
+};
+
+/**
+ * Invalidate file count cache for a user
+ */
+export const invalidateFileCountCache = (userId: string): void => {
+  fileCountCache.delete(userId);
+  fileCountCacheTimestamp.delete(userId);
+};
+
+/**
  * List files and folders at a specific path for a user
  */
 export const listUserFiles = async (userId: string, path: string = '/'): Promise<S3Item[]> => {
@@ -343,7 +647,7 @@ export const listUserFiles = async (userId: string, path: string = '/'): Promise
       ? `users/${userId}/` 
       : `users/${userId}${directoryPath}`;
     
-    console.log('Listing files at path:', fullPath);
+    // Removed excessive logging
     
     // List objects from S3
     const result = await list({
@@ -545,39 +849,67 @@ export const listUserFiles = async (userId: string, path: string = '/'): Promise
 };
 
 /**
- * List files and folders with permissions
+ * List files and folders with permissions - OPTIMIZED with batch permission loading
  */
 export const listUserFilesWithPermissions = async (userId: string, path: string = '/'): Promise<EnhancedS3Item[]> => {
   try {
+    // Load all permissions for this user into cache FIRST (single API call)
+    await loadUserPermissionsIntoCache(userId);
+    
     // Get basic file listing
     const items = await listUserFiles(userId, path);
     
-    // Enhance with permissions
+    // Enhance with permissions (now using cache, no additional API calls)
     const enhancedItems: EnhancedS3Item[] = [];
+    const userPrefix = `users/${userId}/`;
     
     for (const item of items) {
       if (item.isFolder) {
-        const permissions = await getEffectiveFolderPermissions(userId, item.key);
+        // Extract folder path from item.key (remove users/{userId}/ prefix)
+        let folderPath = item.key;
+        if (folderPath.startsWith(userPrefix)) {
+          folderPath = folderPath.substring(userPrefix.length);
+        }
+        const normalizedFolderPath = normalizeFolderPath(folderPath);
+        
+        const permissions = await getEffectiveFolderPermissions(userId, normalizedFolderPath);
+        // Set isProtected based on permissions: if folder has any restrictions, mark as protected
+        const hasPermissionRestrictions = permissions.downloadRestricted || permissions.uploadRestricted;
+        const isProtected = hasPermissionRestrictions || item.isProtected;
+        
         enhancedItems.push({
           ...item,
+          isProtected,
           permissions: {
-            downloadRestricted: permissions.downloadRestricted,
-            uploadRestricted: permissions.uploadRestricted,
-            canCreateSubfolders: permissions.canCreateSubfolders,
-            canDeleteFolder: permissions.canDeleteFolder && !item.isProtected
+            // Ensure boolean values (not null/undefined)
+            downloadRestricted: permissions.downloadRestricted === true,
+            uploadRestricted: permissions.uploadRestricted === true,
+            canCreateSubfolders: permissions.canCreateSubfolders === true,
+            canDeleteFolder: permissions.canDeleteFolder === true && !isProtected
           }
         });
       } else {
-        // For files, get parent folder permissions
+        // For files, get parent folder permissions (from cache)
         const parentPath = getParentPath(item.key);
-        const permissions = await getEffectiveFolderPermissions(userId, parentPath);
+        let folderPath = parentPath;
+        if (folderPath.startsWith(userPrefix)) {
+          folderPath = folderPath.substring(userPrefix.length);
+        }
+        const normalizedFolderPath = normalizeFolderPath(folderPath);
+        
+        const permissions = await getEffectiveFolderPermissions(userId, normalizedFolderPath);
+        const hasPermissionRestrictions = permissions.downloadRestricted || permissions.uploadRestricted;
+        const isProtected = hasPermissionRestrictions || item.isProtected;
+        
         enhancedItems.push({
           ...item,
+          isProtected,
           permissions: {
-            downloadRestricted: permissions.downloadRestricted,
-            uploadRestricted: permissions.uploadRestricted,
-            canCreateSubfolders: false, // Files can't have subfolders
-            canDeleteFolder: false // Files are not folders
+            // Ensure boolean values (not null/undefined)
+            downloadRestricted: permissions.downloadRestricted === true,
+            uploadRestricted: permissions.uploadRestricted === true,
+            canCreateSubfolders: false,
+            canDeleteFolder: false
           }
         });
       }
@@ -640,7 +972,8 @@ export const createSubfolder = async (userId: string, parentPath: string, folder
       }
     });
 
-    console.log(`Successfully created folder: ${fullPath}`);
+    // Invalidate file count cache for parent folder
+    invalidateFileCountCache(userId);
   } catch (error) {
     console.error('Error creating subfolder:', error);
     throw error;
@@ -683,12 +1016,17 @@ export const deleteFile = async (key: string): Promise<void> => {
       throw new Error('This item is protected and cannot be deleted');
     }
     
+    // Extract userId for cache invalidation
+    const match = key.match(/^users\/([^/]+)\//);
+    if (match) {
+      const userId = match[1];
+      invalidateFileCountCache(userId);
+    }
+    
     // Delete the file
     await remove({
       path: key
     });
-    
-    console.log(`Successfully deleted: ${key}`);
   } catch (error) {
     console.error('Error deleting file:', error);
     throw error;
@@ -703,6 +1041,13 @@ export const deleteFolder = async (key: string): Promise<void> => {
     // Check if this is a protected folder
     if (isProtectedPath(key)) {
       throw new Error('This folder is protected and cannot be deleted');
+    }
+    
+    // Extract userId for cache invalidation
+    const match = key.match(/^users\/([^/]+)\//);
+    if (match) {
+      const userId = match[1];
+      invalidateFileCountCache(userId);
     }
     
     // List all items in the folder
@@ -726,8 +1071,6 @@ export const deleteFolder = async (key: string): Promise<void> => {
     
     // Delete the folder itself (represented by an empty object)
     await remove({ path: key });
-    
-    console.log(`Successfully deleted folder: ${key}`);
   } catch (error) {
     console.error('Error deleting folder:', error);
     throw error;
@@ -770,7 +1113,15 @@ export const canUploadToPath = async (userId: string, path: string): Promise<boo
     const folderPath = path.endsWith('/') ? path : `${path}/`;
     // Check permissions for the folder itself (permissions are set on folders)
     const permissions = await getEffectiveFolderPermissions(userId, folderPath);
-    return !permissions.uploadRestricted;
+    // Treat null/undefined as false (not restricted) - only explicitly true means restricted
+    const isRestricted = permissions.uploadRestricted === true;
+    console.log('[canUploadToPath] Checking upload permission:', {
+      path: folderPath,
+      uploadRestricted: permissions.uploadRestricted,
+      isRestricted,
+      canUpload: !isRestricted
+    });
+    return !isRestricted;
   } catch (error) {
     console.error('Error checking upload permissions:', error);
     return false;

@@ -1,5 +1,5 @@
 // src/features/files/components/FolderPermissionsPanel.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Alert, Button, Form, Row, Col, Badge } from 'react-bootstrap';
 import Card from '../../../components/common/Card';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
@@ -19,27 +19,58 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
   onPermissionsChange,
   onClose
 }) => {
-  const [permissions, setPermissions] = useState<FolderPermissions>({
-    userId,
-    folderPath: currentPath,
-    downloadRestricted: false,
-    uploadRestricted: false,
-    canCreateSubfolders: true,
-    canDeleteFolder: true,
-    inheritFromParent: true,
-    isVisible: true
-  });
+  // Helper function to create normalized permissions object
+  const createNormalizedPermissions = (base: Partial<FolderPermissions> = {}, overrideUserId?: string, overridePath?: string): FolderPermissions => {
+    // Normalize the folder path to prevent // issues
+    const finalPath = base.folderPath || overridePath || currentPath || '/';
+    const normalizedPath = finalPath === '//' ? '/' : finalPath;
+    
+    return {
+    userId: base.userId || overrideUserId || userId,
+    folderPath: normalizedPath,
+    downloadRestricted: base.downloadRestricted ?? false,
+    uploadRestricted: base.uploadRestricted ?? false,
+    canCreateSubfolders: base.canCreateSubfolders ?? true,
+    canDeleteFolder: base.canDeleteFolder ?? true,
+    inheritFromParent: base.inheritFromParent ?? true,
+    isVisible: base.isVisible ?? true,
+    id: base.id,
+    createdBy: base.createdBy,
+    lastModifiedBy: base.lastModifiedBy,
+    createdAt: base.createdAt,
+    updatedAt: base.updatedAt
+    };
+  };
+
+  const [permissions, setPermissions] = useState<FolderPermissions>(createNormalizedPermissions({}, userId, currentPath));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const loadingRef = useRef<boolean>(false);
 
   useEffect(() => {
-    loadPermissions();
+    // Only load permissions if we have valid userId and currentPath, and not already loading
+    if (userId && currentPath && !loadingRef.current) {
+      loadPermissions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, currentPath]);
 
   const loadPermissions = async () => {
+    // Prevent concurrent loads
+    if (loadingRef.current) {
+      return;
+    }
+    
+    // Validate inputs
+    if (!userId || !currentPath) {
+      console.warn('[FolderPermissionsPanel] Missing userId or currentPath:', { userId, currentPath });
+      return;
+    }
+    
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -48,27 +79,22 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
       const existingPermissions = await getFolderPermission(userId, currentPath);
       
       if (existingPermissions) {
-        setPermissions(existingPermissions);
+        // Normalize all boolean fields to ensure they're never undefined
+        const normalized = createNormalizedPermissions(existingPermissions, userId, currentPath);
+        setPermissions(normalized);
       } else {
         // Set default permissions for new folder
-        setPermissions({
-          userId,
-          folderPath: currentPath,
-          downloadRestricted: false,
-          uploadRestricted: false,
-          canCreateSubfolders: true,
-          canDeleteFolder: true,
-          inheritFromParent: true,
-          isVisible: true
-        });
+        const defaults = createNormalizedPermissions({}, userId, currentPath);
+        setPermissions(defaults);
       }
       setHasChanges(false);
     } catch (err: any) {
       const errorMessage = err?.errors?.[0]?.message || err?.message || 'Failed to load permissions';
+      console.error('[FolderPermissionsPanel] Error loading folder permissions:', errorMessage);
       setError(`Error loading permissions: ${errorMessage}`);
-      console.error('Error loading folder permissions:', err);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
@@ -87,12 +113,24 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
 
     try {
       const currentUser = await getCurrentUser();
-      const updatedPermissions = await setFolderPermissions({
-        ...permissions,
-        lastModifiedBy: currentUser.username
-      });
+      const username = currentUser.username;
+      
+      // Check if this is a new permission (no id) or existing one
+      const isNewPermission = !permissions.id;
+      
+      // Ensure all required fields are set before saving
+      const normalizedPermissions = createNormalizedPermissions(permissions, userId, currentPath);
+      const permissionsToSave = {
+        ...normalizedPermissions,
+        createdBy: isNewPermission ? username : normalizedPermissions.createdBy,
+        lastModifiedBy: username
+      };
+      
+      const updatedPermissions = await setFolderPermissions(permissionsToSave);
 
-      setPermissions(updatedPermissions);
+      // Normalize the response to ensure all boolean fields are defined
+      const normalizedResponse = createNormalizedPermissions(updatedPermissions, userId, currentPath);
+      setPermissions(normalizedResponse);
       setHasChanges(false);
       setSuccess('Permissions saved successfully!');
       
@@ -106,8 +144,8 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
       }
     } catch (err: any) {
       const errorMessage = err?.errors?.[0]?.message || err?.message || 'Failed to save permissions';
+      console.error('[FolderPermissionsPanel] Error saving folder permissions:', errorMessage);
       setError(`Error saving permissions: ${errorMessage}`);
-      console.error('Error saving folder permissions:', err);
     } finally {
       setSaving(false);
     }

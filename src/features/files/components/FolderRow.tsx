@@ -1,10 +1,11 @@
 // src/features/files/components/FolderRow.tsx
 import React from 'react';
 import { S3Item } from '@/types';
+import { EnhancedS3Item } from '../services/S3Service';
 import '@/styles/folderrow.css';
 
 interface FolderRowProps {
-  folder: S3Item;
+  folder: S3Item | EnhancedS3Item;
   onClick: () => void;
   onAction?: (action: string) => void;
   showActions?: boolean;
@@ -26,6 +27,14 @@ const FolderRow: React.FC<FolderRowProps> = ({
       .join(' ');
   };
 
+  // Check if folder has restrictions (works for both admin and user views)
+  const enhancedFolder = folder as EnhancedS3Item;
+  // Check for explicit true values (not null/undefined)
+  const uploadRestricted = enhancedFolder.permissions?.uploadRestricted === true;
+  const downloadRestricted = enhancedFolder.permissions?.downloadRestricted === true;
+  const hasRestrictions = uploadRestricted || downloadRestricted;
+  const isProtected = folder.isProtected || hasRestrictions;
+
   return (
     <div 
       className="folder-row d-flex align-items-center p-3 border-bottom"
@@ -43,13 +52,23 @@ const FolderRow: React.FC<FolderRowProps> = ({
       }}
     >
       <div className="d-flex align-items-center flex-grow-1 min-w-0">
-        <div className="me-3 flex-shrink-0">
-          <i className="bi bi-folder text-primary" style={{ fontSize: '1.5rem' }}></i>
+        <div className="me-3 flex-shrink-0 position-relative">
+          <i className={`bi bi-${isProtected ? 'lock' : 'folder'} ${isProtected ? 'text-danger' : 'text-primary'}`} style={{ fontSize: '1.5rem' }}></i>
+          {isProtected && (
+            <i className="bi bi-shield-lock text-danger position-absolute" style={{ 
+              fontSize: '0.7rem', 
+              marginLeft: '-0.7rem', 
+              marginTop: '0.7rem' 
+            }}></i>
+          )}
         </div>
         
         <div className="flex-grow-1 min-w-0">
-          <div className="fw-medium" style={{ fontSize: '0.95rem', color: '#212529' }}>
+          <div className="fw-medium d-flex align-items-center" style={{ fontSize: '0.95rem', color: '#212529' }}>
             {formatFolderName(folder.name)}
+            {isProtected && (
+              <span className="badge bg-danger ms-2" style={{ fontSize: '0.6rem' }}>Restricted</span>
+            )}
           </div>
         </div>
       </div>

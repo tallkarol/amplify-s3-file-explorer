@@ -13,11 +13,13 @@ import { UserProfile } from '../../../types';
 import { 
   EnhancedS3Item, 
   listUserFilesWithPermissions,
-  listUserFiles,
   deleteFolderWithPermissions, 
   canDownloadFromPath,
   getFileUrl,
-  FOLDER_DISPLAY_NAMES 
+  FOLDER_DISPLAY_NAMES,
+  getFolderFileCounts,
+  normalizeFolderPath,
+  canUploadToPath
 } from '../services/S3Service';
 
 interface BreadcrumbItem {
@@ -42,14 +44,32 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
+  const [permissionsFolderPath, setPermissionsFolderPath] = useState<string | null>(null);
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [folderFileCounts, setFolderFileCounts] = useState<Record<string, number>>({});
+  const [canUpload, setCanUpload] = useState<boolean>(true); // Admin can always upload, but check for user context
 
   useEffect(() => {
     fetchFiles();
     updateBreadcrumbs(currentPath);
+    checkUploadPermissions();
   }, [selectedUser, currentPath]);
+
+  const checkUploadPermissions = async () => {
+    if (!selectedUser || currentPath === '/') {
+      setCanUpload(false);
+      return;
+    }
+    
+    try {
+      const hasPermission = await canUploadToPath(selectedUser.uuid, currentPath);
+      setCanUpload(hasPermission);
+    } catch (err) {
+      console.error('Error checking upload permissions:', err);
+      setCanUpload(false);
+    }
+  };
 
   useEffect(() => {
     setCurrentPath(initialPath);
@@ -65,23 +85,38 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
       const items = await listUserFilesWithPermissions(selectedUser.uuid, currentPath);
       setFiles(items);
       
-      // Get file counts for folders
+      // Get file counts for folders using optimized batch function
       const folderItems = items.filter(item => item.isFolder && item.name !== '..');
-      const counts: Record<string, number> = {};
-      
-      await Promise.all(
-        folderItems.map(async (folder) => {
-          try {
-            const folderFiles = await listUserFiles(selectedUser.uuid, folder.key);
-            counts[folder.key] = folderFiles.filter(item => !item.isFolder).length;
-          } catch (error) {
-            console.error(`Error getting file count for ${folder.name}:`, error);
-            counts[folder.key] = 0;
+      if (folderItems.length > 0) {
+        // Extract folder paths from keys (remove users/{userId}/ prefix)
+        const folderPaths = folderItems.map(folder => {
+          const userPrefix = `users/${selectedUser.uuid}/`;
+          let folderPath = folder.key;
+          if (folderPath.startsWith(userPrefix)) {
+            folderPath = folderPath.substring(userPrefix.length);
           }
-        })
-      );
-      
-      setFolderFileCounts(counts);
+          return normalizeFolderPath(folderPath);
+        });
+        
+        // Batch fetch file counts (uses cache)
+        const countsByPath = await getFolderFileCounts(selectedUser.uuid, folderPaths);
+        
+        // Map counts back to folder keys
+        const counts: Record<string, number> = {};
+        folderItems.forEach(folder => {
+          const userPrefix = `users/${selectedUser.uuid}/`;
+          let folderPath = folder.key;
+          if (folderPath.startsWith(userPrefix)) {
+            folderPath = folderPath.substring(userPrefix.length);
+          }
+          const normalizedPath = normalizeFolderPath(folderPath);
+          counts[folder.key] = countsByPath[normalizedPath] || 0;
+        });
+        
+        setFolderFileCounts(counts);
+      } else {
+        setFolderFileCounts({});
+      }
     } catch (err) {
       console.error('Error fetching files:', err);
       setError(`Failed to load files: ${err instanceof Error ? err.message : String(err)}`);
@@ -191,7 +226,7 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
     fetchFiles();
   };
 
-  const isDragDropDisabled = currentPath === '/' || !selectedUser;
+  const isDragDropDisabled = currentPath === '/' || !selectedUser || !canUpload;
 
   const folders = files.filter(f => f.isFolder && f.name !== '..');
   const fileItems = files.filter(f => !f.isFolder || f.name === '..');
@@ -225,9 +260,12 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
     if (file.name === '..') return 'arrow-up';
     if (file.isFolder) {
       if (file.isProtected) return 'lock';
-      if (file.permissions?.uploadRestricted && file.permissions?.downloadRestricted) return 'folder-x';
-      if (file.permissions?.downloadRestricted) return 'folder-minus';
-      if (file.permissions?.uploadRestricted) return 'folder-check';
+      // Check for explicit true values (not null/undefined)
+      const uploadRestricted = file.permissions?.uploadRestricted === true;
+      const downloadRestricted = file.permissions?.downloadRestricted === true;
+      if (uploadRestricted && downloadRestricted) return 'folder-x';
+      if (downloadRestricted) return 'folder-minus';
+      if (uploadRestricted) return 'folder-check';
       return 'folder';
     }
     
@@ -252,9 +290,12 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
     if (file.name === '..') return 'secondary';
     if (file.isFolder) {
       if (file.isProtected) return 'danger';
-      if (file.permissions?.uploadRestricted && file.permissions?.downloadRestricted) return 'dark';
-      if (file.permissions?.downloadRestricted) return 'warning';
-      if (file.permissions?.uploadRestricted) return 'info';
+      // Check for explicit true values (not null/undefined)
+      const uploadRestricted = file.permissions?.uploadRestricted === true;
+      const downloadRestricted = file.permissions?.downloadRestricted === true;
+      if (uploadRestricted && downloadRestricted) return 'dark';
+      if (downloadRestricted) return 'warning';
+      if (uploadRestricted) return 'info';
       return 'primary';
     }
     
@@ -332,6 +373,29 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
 
           <Dropdown.Menu>
             <Dropdown.Item onClick={() => {
+              // Extract folder path from file.key (remove users/{userId}/ prefix)
+              let folderPath = file.key;
+              const userPrefix = `users/${selectedUser.uuid}/`;
+              const userPrefixNoSlash = `users/${selectedUser.uuid}`;
+              
+              if (folderPath.startsWith(userPrefix)) {
+                folderPath = folderPath.substring(userPrefix.length);
+              } else if (folderPath.startsWith(userPrefixNoSlash)) {
+                folderPath = folderPath.substring(userPrefixNoSlash.length);
+              }
+              
+              // Normalize: ensure starts with / and ends with / (except root)
+              if (!folderPath.startsWith('/')) {
+                folderPath = '/' + folderPath;
+              }
+              // For root, it should be just '/', not '//'
+              if (folderPath === '/' || folderPath === '//') {
+                folderPath = '/';
+              } else if (!folderPath.endsWith('/')) {
+                folderPath += '/';
+              }
+              
+              setPermissionsFolderPath(folderPath);
               setShowPermissionsPanel(true);
             }}>
               <i className="bi bi-shield-lock me-2"></i>
@@ -425,7 +489,10 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
             <Button
               variant="outline-primary"
               size="sm"
-              onClick={() => setShowPermissionsPanel(!showPermissionsPanel)}
+              onClick={() => {
+                setPermissionsFolderPath(null); // Use current browsing path
+                setShowPermissionsPanel(!showPermissionsPanel);
+              }}
             >
               <i className="bi bi-shield-lock me-1"></i>
               Permissions
@@ -483,9 +550,16 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
           <div className="mb-3">
             <FolderPermissionsPanel
               userId={selectedUser.uuid}
-              currentPath={currentPath}
-              onPermissionsChange={() => fetchFiles()}
-              onClose={() => setShowPermissionsPanel(false)}
+              currentPath={permissionsFolderPath || currentPath}
+              onPermissionsChange={() => {
+                fetchFiles();
+                // Clear the specific folder path so next time it uses currentPath
+                setPermissionsFolderPath(null);
+              }}
+              onClose={() => {
+                setShowPermissionsPanel(false);
+                setPermissionsFolderPath(null);
+              }}
             />
           </div>
         )}
@@ -525,6 +599,29 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
                     onClick={() => navigateToFolder(folder.key)}
                     onAction={(action) => {
                       if (action === 'manage') {
+                        // Extract folder path from folder.key (remove users/{userId}/ prefix)
+                        let folderPath = folder.key;
+                        const userPrefix = `users/${selectedUser.uuid}/`;
+                        const userPrefixNoSlash = `users/${selectedUser.uuid}`;
+                        
+                        if (folderPath.startsWith(userPrefix)) {
+                          folderPath = folderPath.substring(userPrefix.length);
+                        } else if (folderPath.startsWith(userPrefixNoSlash)) {
+                          folderPath = folderPath.substring(userPrefixNoSlash.length);
+                        }
+                        
+                        // Normalize: ensure starts with / and ends with / (except root)
+                        if (!folderPath.startsWith('/')) {
+                          folderPath = '/' + folderPath;
+                        }
+                        // For root, it should be just '/', not '//'
+                        if (folderPath === '/' || folderPath === '//') {
+                          folderPath = '/';
+                        } else if (!folderPath.endsWith('/')) {
+                          folderPath += '/';
+                        }
+                        
+                        setPermissionsFolderPath(folderPath);
                         setShowPermissionsPanel(true);
                       }
                     }}
@@ -569,12 +666,12 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
                       </td>
                       <td>
                         <div className="d-flex gap-1">
-                          {file.permissions?.downloadRestricted && (
+                          {file.permissions?.downloadRestricted === true && (
                             <span className="badge bg-warning" title="Download restricted">
                               <i className="bi bi-download"></i>
                             </span>
                           )}
-                          {file.permissions?.uploadRestricted && (
+                          {file.permissions?.uploadRestricted === true && (
                             <span className="badge bg-info" title="Upload restricted">
                               <i className="bi bi-upload"></i>
                             </span>

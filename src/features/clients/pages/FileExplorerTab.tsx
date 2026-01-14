@@ -39,6 +39,7 @@ const FileExplorerTab: React.FC<FileExplorerTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
+  const [permissionsFolderPath, setPermissionsFolderPath] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   // Folder creation states
@@ -423,7 +424,10 @@ const getFileColor = (file: EnhancedS3Item) => {
             
             <Button 
               className="action-button secondary"
-              onClick={() => setShowPermissionsPanel(!showPermissionsPanel)}
+              onClick={() => {
+                setPermissionsFolderPath(null); // Use current browsing path
+                setShowPermissionsPanel(!showPermissionsPanel);
+              }}
             >
               <i className="bi bi-shield-lock"></i>
               <span>Permissions</span>
@@ -488,9 +492,15 @@ const getFileColor = (file: EnhancedS3Item) => {
         <div className="permissions-panel-container">
           <FolderPermissionsPanel
             userId={client.uuid}
-            currentPath={currentPath}
-            onPermissionsChange={() => fetchFiles()}
-            onClose={() => setShowPermissionsPanel(false)}
+            currentPath={permissionsFolderPath || currentPath}
+            onPermissionsChange={() => {
+              fetchFiles();
+              setPermissionsFolderPath(null);
+            }}
+            onClose={() => {
+              setShowPermissionsPanel(false);
+              setPermissionsFolderPath(null);
+            }}
           />
         </div>
       )}
@@ -669,7 +679,32 @@ const getFileColor = (file: EnhancedS3Item) => {
                               {file.isFolder && (
                                 <>
                                   <Dropdown.Item 
-                                    onClick={() => setShowPermissionsPanel(true)}
+                                    onClick={() => {
+                                      // Extract folder path from file.key (remove users/{userId}/ prefix)
+                                      let folderPath = file.key;
+                                      const userPrefix = `users/${client.uuid}/`;
+                                      const userPrefixNoSlash = `users/${client.uuid}`;
+                                      
+                                      if (folderPath.startsWith(userPrefix)) {
+                                        folderPath = folderPath.substring(userPrefix.length);
+                                      } else if (folderPath.startsWith(userPrefixNoSlash)) {
+                                        folderPath = folderPath.substring(userPrefixNoSlash.length);
+                                      }
+                                      
+                                      // Normalize: ensure starts with / and ends with / (except root)
+                                      if (!folderPath.startsWith('/')) {
+                                        folderPath = '/' + folderPath;
+                                      }
+                                      // For root, it should be just '/', not '//'
+                                      if (folderPath === '/' || folderPath === '//') {
+                                        folderPath = '/';
+                                      } else if (!folderPath.endsWith('/')) {
+                                        folderPath += '/';
+                                      }
+                                      
+                                      setPermissionsFolderPath(folderPath);
+                                      setShowPermissionsPanel(true);
+                                    }}
                                     className="dropdown-item-action"
                                   >
                                     <i className="bi bi-shield-lock me-2"></i>
