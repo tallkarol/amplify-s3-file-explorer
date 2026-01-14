@@ -19,6 +19,25 @@ const getUserDisplayName = async (userId: string): Promise<string> => {
 };
 
 /**
+ * Get user email from UUID (preferred for user upload notifications)
+ * Falls back to userId only if email is unavailable
+ */
+const getUserEmail = async (userId: string): Promise<string> => {
+  try {
+    const userProfile = await fetchUserByUuid(userId);
+    if (userProfile?.email) {
+      console.log('[getUserEmail] Found email for user:', userId, 'email:', userProfile.email);
+      return userProfile.email;
+    }
+    console.warn('[getUserEmail] No email found for user:', userId, 'profile:', userProfile);
+    return userId;
+  } catch (error) {
+    console.error('[getUserEmail] Error fetching user email:', error);
+    return userId;
+  }
+};
+
+/**
  * Creates a notification when an admin uploads a file for a user
  * @param userId User ID to notify
  * @param adminUserId Admin user ID who uploaded the file
@@ -107,33 +126,47 @@ export const notifyAdminsOfUserFileUpload = async (
       adminCount: adminIds.length
     });
     
-    // Get user display name
-    const userName = await getUserDisplayName(userUserId);
-    console.log('[notifyAdminsOfUserFileUpload] User display name:', userName);
+    // Filter out the uploader from admin list - don't notify the user who uploaded
+    const eligibleAdminIds = adminIds.filter(adminId => adminId !== userUserId);
+    
+    if (eligibleAdminIds.length === 0) {
+      console.log('[notifyAdminsOfUserFileUpload] No eligible admins to notify (all admins are the uploader)');
+      return;
+    }
+    
+    console.log('[notifyAdminsOfUserFileUpload] Filtered admin list:', {
+      originalCount: adminIds.length,
+      filteredCount: eligibleAdminIds.length,
+      excludedUploader: userUserId
+    });
+    
+    // Get user email (preferred over display name for user upload notifications)
+    const userEmail = await getUserEmail(userUserId);
+    console.log('[notifyAdminsOfUserFileUpload] User email:', userEmail);
     
     // Ensure actionLink is never undefined
     const actionLink = `/admin/files?clientId=${userUserId}&path=${encodeURIComponent(folderPath)}` || '/admin';
     
-    // Create notification for each admin
-    const notificationPromises = adminIds.map(async (adminId, index) => {
+    // Create notification for each admin (excluding the uploader)
+    const notificationPromises = eligibleAdminIds.map(async (adminId, index) => {
       const notificationPayload = {
         userId: adminId,
         type: 'file' as const,
         title: 'User File Upload',
-        message: `${userName} has uploaded a new file "${fileName}" to their ${getFolderDisplayName(folderPath)} folder.`,
+        message: `${userEmail} has uploaded a new file "${fileName}" to their ${getFolderDisplayName(folderPath)} folder.`,
         isRead: false,
         actionLink,
         metadata: {
           fileName,
           folderPath,
-          uploadedBy: userName,
+          uploadedBy: userEmail,
           uploadedByUserId: userUserId,
           icon: 'file-earmark-arrow-up',
           color: 'info'
         }
       };
       
-      console.log(`[notifyAdminsOfUserFileUpload] Creating notification ${index + 1}/${adminIds.length} for admin:`, adminId);
+      console.log(`[notifyAdminsOfUserFileUpload] Creating notification ${index + 1}/${eligibleAdminIds.length} for admin:`, adminId);
       
       try {
         const result = await createNotification(notificationPayload);

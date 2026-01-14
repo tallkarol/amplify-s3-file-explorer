@@ -48,6 +48,8 @@ export interface UserProfile {
   updatedAt?: string;
   lastLogin?: string;
   status?: 'active' | 'inactive' | 'suspended';
+  isAdmin?: boolean;
+  isDeveloper?: boolean;
 }
 
 // Additional contact type

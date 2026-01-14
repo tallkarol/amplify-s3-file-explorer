@@ -73,6 +73,8 @@ const listUserProfilesQuery = /* GraphQL */ `
         preferredContactMethod
         createdAt
         status
+        isAdmin
+        isDeveloper
       }
     }
   }

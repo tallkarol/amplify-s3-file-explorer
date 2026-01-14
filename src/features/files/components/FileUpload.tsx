@@ -148,8 +148,14 @@ const FileUpload = ({
               currentPath
             });
             
-            if ((isAdmin || userIsAdmin) && userId !== user.userId) {
-              // Admin/developer uploading for a user - notify the user
+            // Determine if this is an admin uploading for a user
+            const isAdminUploadingForUser = (isAdmin || userIsAdmin) && userId !== user.userId;
+            
+            // Determine if this is a regular user uploading their own file
+            const isUserUploadingOwnFile = !isAdmin && !userIsAdmin && userId === user.userId;
+            
+            if (isAdminUploadingForUser) {
+              // Admin uploading for a user - notify the user only
               console.log('[FileUpload] Admin uploading for user - notifying user:', userId);
               await notifyUserOfFileUpload(
                 userId,
@@ -159,9 +165,9 @@ const FileUpload = ({
                 `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
               );
               console.log('[FileUpload] Successfully notified user of admin upload');
-            } else if (!isAdmin && !userIsAdmin) {
-              // Regular user uploading - notify all admins
-              console.log('[FileUpload] User uploading - notifying admins');
+            } else if (isUserUploadingOwnFile) {
+              // User uploading their own file - notify admins only, NOT the user
+              console.log('[FileUpload] User uploading their own file - notifying admins only');
               await notifyAdminsOfFileUpload(
                 user.userId, // User's ID (will be converted to display name in the service)
                 file.name,
@@ -169,7 +175,8 @@ const FileUpload = ({
               );
               console.log('[FileUpload] Successfully notified admins of user upload');
             } else {
-              console.log('[FileUpload] Skipping notification - user uploading for themselves or conditions not met');
+              // Admin uploading their own file, or other edge cases - skip notifications
+              console.log('[FileUpload] Skipping notification - uploader is same as target user or other edge case');
             }
           } catch (notificationError: any) {
             // Log error but don't break the upload flow

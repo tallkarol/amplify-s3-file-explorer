@@ -6,48 +6,10 @@ import { GraphQLQuery } from '@aws-amplify/api';
 const client = generateClient();
 
 /**
- * Fetches all admin and developer users from the system
- * This function gets all user profiles and then checks their Cognito groups
+ * Fetches all admin users from the system
+ * Now uses the isAdmin field in UserProfile instead of querying all users
  */
 export const getAllAdminUserIds = async (): Promise<string[]> => {
-  try {
-    const listUserProfilesQuery = /* GraphQL */ `
-      query ListUserProfiles {
-        listUserProfiles {
-          items {
-            uuid
-            profileOwner
-          }
-        }
-      }
-    `;
-
-    const response = await client.graphql<GraphQLQuery<any>>({
-      query: listUserProfilesQuery,
-      authMode: 'userPool'
-    });
-
-    const users: { uuid?: string }[] = response.data?.listUserProfiles?.items || [];
-    
-    // For now, return all user UUIDs since we can't directly query Cognito groups
-    // In a production system, you'd want to maintain admin status in your user profiles
-    // or create a separate admin table
-    const adminIds = users
-      .filter((user) => user.uuid)
-      .map((user) => user.uuid as string);
-    
-    return adminIds;
-  } catch (error) {
-    console.error('Error fetching admin users:', error);
-    return [];
-  }
-};
-
-/**
- * Alternative approach: Add an 'isAdmin' field to UserProfile
- * and filter based on that field
- */
-export const getAdminUsersByRole = async (): Promise<string[]> => {
   try {
     const listAdminUsersQuery = /* GraphQL */ `
       query ListAdminUsers($filter: ModelUserProfileFilterInput) {
@@ -59,7 +21,6 @@ export const getAdminUsersByRole = async (): Promise<string[]> => {
       }
     `;
 
-    // This assumes you have an 'isAdmin' field in your UserProfile model
     const response = await client.graphql<GraphQLQuery<any>>({
       query: listAdminUsersQuery,
       variables: {
@@ -70,9 +31,117 @@ export const getAdminUsersByRole = async (): Promise<string[]> => {
       authMode: 'userPool'
     });
 
-    return response.data?.listUserProfiles?.items?.map((user: { uuid?: string }) => user.uuid) || [];
+    const users: { uuid?: string }[] = response.data?.listUserProfiles?.items || [];
+    
+    return users
+      .filter((user) => user.uuid)
+      .map((user) => user.uuid as string);
   } catch (error) {
-    console.error('Error fetching admin users by role:', error);
+    console.error('Error fetching admin users:', error);
     return [];
   }
 };
+
+/**
+ * Sync admin/developer status from Cognito groups to UserProfile
+ * Calls the admin-sync Lambda function
+ */
+export const syncAdminStatusFromCognito = async (): Promise<{ success: boolean; updated: number; errors: string[] }> => {
+  try {
+    // Get the function endpoint URL
+    // In Gen 2, functions expose HTTP endpoints automatically
+    // The endpoint URL format: https://{api-id}.execute-api.{region}.amazonaws.com/{function-name}
+    // We'll need to get this from amplify_outputs.json or construct it
+    const functionUrl = await getAdminSyncFunctionUrl();
+    
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'syncFromCognito',
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Error syncing admin status from Cognito:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update user's admin/developer status in both Cognito and UserProfile
+ * Calls the admin-sync Lambda function
+ */
+export const updateUserAdminStatus = async (
+  userId: string,
+  isAdmin: boolean,
+  isDeveloper: boolean
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const functionUrl = await getAdminSyncFunctionUrl();
+    
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'updateUserAdminStatus',
+        userId,
+        isAdmin,
+        isDeveloper,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error: any) {
+    console.error('Error updating user admin status:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get the admin-sync function URL
+ * In Gen 2, this should be available from amplify_outputs.json
+ */
+async function getAdminSyncFunctionUrl(): Promise<string> {
+  try {
+    // Import amplify_outputs.json
+    // In Gen 2, functions are exposed via custom.functions after deployment
+    const outputs = await import('../../amplify_outputs.json');
+    
+    // Check various possible locations for the function URL
+    const customFunctions = outputs.default?.custom?.functions || outputs.custom?.functions;
+    if (customFunctions?.adminSync?.endpoint) {
+      return customFunctions.adminSync.endpoint;
+    }
+    
+    // Alternative: try to get from window if available (for runtime)
+    if (typeof window !== 'undefined' && (window as any).__AMPLIFY_OUTPUTS__) {
+      const runtimeOutputs = (window as any).__AMPLIFY_OUTPUTS__;
+      if (runtimeOutputs.custom?.functions?.adminSync?.endpoint) {
+        return runtimeOutputs.custom.functions.adminSync.endpoint;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not load amplify_outputs.json:', error);
+  }
+
+  // Fallback: construct URL from environment or use a placeholder
+  // In production, this should be set via environment variables or amplify_outputs.json
+  // After deploying the function, run: npx ampx generate outputs --app-id <app-id> --branch <branch>
+  throw new Error('Admin sync function URL not configured. Please deploy the function first, then run "npx ampx generate outputs --app-id <app-id> --branch <branch>" to update amplify_outputs.json');
+}

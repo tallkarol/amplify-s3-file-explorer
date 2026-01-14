@@ -10,6 +10,7 @@ import ErrorLog from '../../components/developer/ErrorLog';
 import UserLookup from '../../components/developer/UserLookup';
 import ErrorLoggerDemo from '../../components/developer/ErrorLoggerDemo';
 import NotificationDemo from '../../components/developer/NotificationDemo';
+import AdminManagement from '../../components/developer/AdminManagement';
 // import NotificationUsageExample from '../../features/notifications/examples/NotificationUsageExample';
 
 const DebugTools = () => {
@@ -214,6 +215,25 @@ const DebugTools = () => {
                     )}
                   </button>
                 </li>
+                {/* Admin Management tab */}
+                <li className="nav-item">
+                  <button
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'admin' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('admin')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
+                  >
+                    <i className="bi bi-shield-check me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Admin Management</span>
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -246,6 +266,11 @@ const DebugTools = () => {
               {/* Notifications Demo */}
               {activeTab === 'notifications' && (
                 <NotificationDemo onNotificationCreated={handleNotificationCreated} />
+              )}
+              
+              {/* Admin Management */}
+              {activeTab === 'admin' && (
+                <AdminManagement />
               )}
             </div>
           </div>
