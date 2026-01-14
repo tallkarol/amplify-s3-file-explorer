@@ -1,6 +1,5 @@
 import { defineBackend } from '@aws-amplify/backend';
-import { PolicyStatement, Effect, ArnPrincipal } from 'aws-cdk-lib/aws-iam';
-import { FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda';
+import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { storage } from './storage/resource';
@@ -31,17 +30,8 @@ backend.adminSync.resources.lambda.addToRolePolicy(
 // Pass User Pool ID as environment variable
 backend.adminSync.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
 
-// Grant authenticated Cognito users permission to invoke the Function URL
-// Use the authenticated user IAM role from the auth resource
-// In Amplify Gen 2, authenticated users assume this role when accessing AWS resources
-const authenticatedRoleArn = backend.auth.resources.authenticatedUserIamRole.roleArn;
-
-// Add permission for authenticated users to invoke Function URL
-backend.adminSync.resources.lambda.addPermission('AllowAuthenticatedInvokeFunctionUrl', {
-  principal: new ArnPrincipal(authenticatedRoleArn),
-  action: 'lambda:InvokeFunctionUrl',
-  functionUrlAuthType: FunctionUrlAuthType.AWS_IAM,
-});
+// Note: Function URL uses NONE auth type and validates Cognito tokens in the handler
+// No IAM permissions needed since we're using token-based authentication
 
 // COMMENTED OUT: Using manually created Function URL with CORS configured in Lambda console
 // The Function URL is managed manually to avoid conflicts and URL changes

@@ -11,6 +11,7 @@ import {
   AdminListGroupsForUserCommand,
   AdminAddUserToGroupCommand,
   AdminRemoveUserFromGroupCommand,
+  GetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
 // Merge the imported env with AWS environment variables into a single flat object.
@@ -48,6 +49,113 @@ interface SyncRequest {
   userId?: string;
   isAdmin?: boolean;
   isDeveloper?: boolean;
+}
+
+/**
+ * Validate Cognito token and check if user is admin or developer
+ * Verifies JWT signature using Cognito's JWKS endpoint and checks user groups
+ * 
+ * Security measures:
+ * 1. Verifies JWT signature using Cognito's public keys (JWKS)
+ * 2. Validates token issuer matches our User Pool
+ * 3. Checks token expiration
+ * 4. Ensures only admin/developer users can access
+ */
+async function validateTokenAndCheckPermissions(authHeader: string | undefined): Promise<{ userId: string; isAdmin: boolean; isDeveloper: boolean }> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid Authorization header');
+  }
+
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  const userPoolId = getUserPoolId();
+  const region = process.env.AWS_REGION || 'us-east-1';
+
+  try {
+    // Decode JWT (without verification first to get header info)
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      throw new Error('Invalid token format');
+    }
+
+    const header = JSON.parse(
+      Buffer.from(tokenParts[0].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
+    );
+    const payload = JSON.parse(
+      Buffer.from(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
+    );
+
+    // Basic validation checks
+    const expectedIssuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`;
+    if (payload.iss !== expectedIssuer) {
+      throw new Error('Token issuer mismatch');
+    }
+
+    // Check expiration
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+      throw new Error('Token has expired');
+    }
+
+    // Verify JWT signature using Cognito's JWKS
+    // This is critical - without signature verification, tokens can be forged
+    const jwksUrl = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}/.well-known/jwks.json`;
+    const jwksResponse = await fetch(jwksUrl);
+    if (!jwksResponse.ok) {
+      throw new Error('Failed to fetch JWKS from Cognito');
+    }
+    const jwks = await jwksResponse.json();
+
+    // Find the key that matches the token's kid
+    const key = jwks.keys.find((k: any) => k.kid === header.kid);
+    if (!key) {
+      throw new Error('No matching key found in JWKS - token may be invalid');
+    }
+
+    // Verify signature using Node.js crypto
+    const crypto = await import('crypto');
+    
+    // Create public key from JWK
+    const publicKey = crypto.createPublicKey({
+      key: {
+        kty: key.kty,
+        n: key.n,
+        e: key.e,
+      },
+      format: 'jwk',
+    });
+
+    // Verify the signature
+    const signature = Buffer.from(tokenParts[2].replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    const dataToVerify = Buffer.from(`${tokenParts[0]}.${tokenParts[1]}`);
+    
+    const verified = crypto.verify(
+      'RSA-SHA256',
+      dataToVerify,
+      publicKey,
+      signature
+    );
+
+    if (!verified) {
+      throw new Error('Token signature verification failed - token may be forged');
+    }
+
+    // Extract user info from verified token
+    const userId = payload.sub as string;
+    const groups = (payload['cognito:groups'] as string[]) || [];
+    const isAdmin = groups.includes('admin');
+    const isDeveloper = groups.includes('developer');
+
+    // Authorization check: Only admins and developers can call this function
+    if (!isAdmin && !isDeveloper) {
+      throw new Error('Unauthorized: User must be admin or developer');
+    }
+
+    console.log(`Token validated successfully for user ${userId}, admin: ${isAdmin}, developer: ${isDeveloper}`);
+    return { userId, isAdmin, isDeveloper };
+  } catch (error: any) {
+    console.error('Token validation error:', error);
+    throw new Error(`Token validation failed: ${error.message}`);
+  }
 }
 
 /**
@@ -249,13 +357,13 @@ export const handler: Handler = async (event: any) => {
                    event.httpMethod ||
                    event.requestContext?.method;
     
-    if (method === 'OPTIONS') {
+      if (method === 'OPTIONS') {
       console.log('Handling OPTIONS preflight request');
       return {
         statusCode: 200,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
           'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Max-Age': '86400',
         },
@@ -265,6 +373,27 @@ export const handler: Handler = async (event: any) => {
 
     // Handle HTTP requests (Gen 2 functions expose HTTP endpoints)
     if (event.requestContext) {
+      // Validate authentication token
+      const authHeader = event.headers?.authorization || event.headers?.Authorization;
+      let callerInfo;
+      try {
+        callerInfo = await validateTokenAndCheckPermissions(authHeader);
+      } catch (error: any) {
+        return {
+          statusCode: 401,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          },
+          body: JSON.stringify({
+            success: false,
+            error: error.message || 'Unauthorized',
+          }),
+        };
+      }
+
       const body = event.body ? JSON.parse(event.body) : {};
       const { action, userId, isAdmin, isDeveloper } = body as SyncRequest;
 
@@ -275,7 +404,7 @@ export const handler: Handler = async (event: any) => {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),
@@ -303,7 +432,7 @@ export const handler: Handler = async (event: any) => {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),

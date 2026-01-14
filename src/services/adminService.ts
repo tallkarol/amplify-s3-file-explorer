@@ -2,9 +2,6 @@
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { SignatureV4 } from '@aws-sdk/signature-v4';
-import { Sha256 } from '@aws-crypto/sha256-js';
-import { HttpRequest } from '@aws-sdk/protocol-http';
 import outputs from '../../amplify_outputs.json';
 // import { UserProfile } from '@/types';
 
@@ -48,49 +45,36 @@ export const getAllAdminUserIds = async (): Promise<string[]> => {
 };
 
 /**
- * Helper function to sign and fetch requests to Lambda Function URL with IAM auth
+ * Helper function to fetch requests to Lambda Function URL with Cognito token auth
  */
-async function signedFetch(url: string, options: RequestInit): Promise<Response> {
+async function authenticatedFetch(url: string, options: RequestInit): Promise<Response> {
   const session = await fetchAuthSession();
-  const credentials = session.credentials;
+  const token = session.tokens?.idToken?.toString();
   
-  if (!credentials) {
-    throw new Error('No AWS credentials available. Please sign in.');
+  if (!token) {
+    throw new Error('No authentication token available. Please sign in.');
   }
   
-  const urlObj = new URL(url);
-  const region = urlObj.hostname.split('.')[2] || 'us-east-1';
-  
-  const signer = new SignatureV4({
-    credentials: {
-      accessKeyId: credentials.accessKeyId,
-      secretAccessKey: credentials.secretAccessKey,
-      sessionToken: credentials.sessionToken,
-    },
-    region,
-    service: 'lambda',
-    sha256: Sha256,
-  });
-  
-  const request = new HttpRequest({
-    method: options.method || 'GET',
-    hostname: urlObj.hostname,
-    path: urlObj.pathname,
+  const response = await fetch(url, {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
-      host: urlObj.hostname,
+      'Authorization': `Bearer ${token}`,
       ...(options.headers as Record<string, string>),
     },
-    body: options.body as string,
   });
   
-  const signedRequest = await signer.sign(request);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[authenticatedFetch] Request failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      error: errorText,
+      url: url,
+    });
+  }
   
-  return fetch(url, {
-    method: signedRequest.method,
-    headers: signedRequest.headers as HeadersInit,
-    body: signedRequest.body as BodyInit,
-  });
+  return response;
 }
 
 /**
@@ -119,11 +103,8 @@ export const syncAdminStatusFromCognito = async (): Promise<{ success: boolean; 
   try {
     const functionUrl = getAdminSyncFunctionUrl();
     
-    const response = await signedFetch(functionUrl, {
+    const response = await authenticatedFetch(functionUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         action: 'syncFromCognito',
       }),
@@ -157,11 +138,8 @@ export const updateUserAdminStatus = async (
   try {
     const functionUrl = getAdminSyncFunctionUrl();
     
-    const response = await signedFetch(functionUrl, {
+    const response = await authenticatedFetch(functionUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         action: 'updateUserAdminStatus',
         userId,
