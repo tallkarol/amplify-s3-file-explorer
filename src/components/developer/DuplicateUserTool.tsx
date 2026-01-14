@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile } from '@/types';
 import { fetchAllClients } from '@/features/clients/services/clientService';
 import { hardDeleteUser } from '@/services/userDeleteService';
+import { listUserFiles } from '@/features/files/services/S3Service';
+import { generateClient } from 'aws-amplify/api';
+import { GraphQLQuery } from '@aws-amplify/api';
 import AlertMessage from '../common/AlertMessage';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Card from '../common/Card';
@@ -13,6 +16,16 @@ interface DuplicateGroup {
   users: UserProfile[];
 }
 
+interface UserStats {
+  fileCount: number;
+  folderCount: number;
+  totalSize: number;
+  lastActivity?: string;
+  notificationCount?: number;
+  loading: boolean;
+  error?: string;
+}
+
 const DuplicateUserTool: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,7 +34,11 @@ const DuplicateUserTool: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
-  const [selectedKeepUser, setSelectedKeepUser] = useState<Record<string, string>>({}); // groupKey -> userId to keep
+  const [selectedDeleteUsers, setSelectedDeleteUsers] = useState<Set<string>>(new Set()); // Set of user IDs to delete
+  const [userStats, setUserStats] = useState<Map<string, UserStats>>(new Map());
+  const [fetchingStats, setFetchingStats] = useState<Set<string>>(new Set());
+
+  const client = generateClient();
 
   // Load all users (including deleted)
   const loadAllUsers = async () => {
@@ -43,13 +60,123 @@ const DuplicateUserTool: React.FC = () => {
     loadAllUsers();
   }, []);
 
+  // Fetch user statistics (file count, folder count, storage size, last activity)
+  const fetchUserStats = async (userId: string, userUuid: string): Promise<UserStats> => {
+    try {
+      setFetchingStats(prev => new Set(prev).add(userId));
+      
+      // Fetch all files for the user
+      const allFiles = await listUserFiles(userUuid, '/');
+      
+      // Separate files and folders
+      const files = allFiles.filter(item => !item.isFolder);
+      const folders = allFiles.filter(item => item.isFolder && item.name !== '..');
+      
+      // Calculate total size
+      const totalSize = files.reduce((sum, file) => sum + (file.size || 0), 0);
+      
+      // Find last activity (most recent file modification)
+      let lastActivity: string | undefined;
+      if (files.length > 0) {
+        const sortedFiles = [...files].sort((a, b) => {
+          const aTime = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+          const bTime = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+          return bTime - aTime;
+        });
+        if (sortedFiles[0].lastModified) {
+          // Convert to ISO string if it's a Date, otherwise use as-is
+          lastActivity = typeof sortedFiles[0].lastModified === 'string' 
+            ? sortedFiles[0].lastModified 
+            : sortedFiles[0].lastModified instanceof Date 
+              ? sortedFiles[0].lastModified.toISOString()
+              : String(sortedFiles[0].lastModified);
+        }
+      }
+      
+      // Fetch notification count (optional, don't fail if it errors)
+      let notificationCount: number | undefined;
+      try {
+        const notificationResponse = await client.graphql<GraphQLQuery<{ listNotifications: { items: { id: string }[] } }>>({
+          query: /* GraphQL */ `
+            query GetNotificationCount($userId: String!) {
+              listNotifications(filter: { userId: { eq: $userId } }) {
+                items {
+                  id
+                }
+              }
+            }
+          `,
+          variables: { userId: userUuid },
+          authMode: 'userPool'
+        });
+        notificationCount = notificationResponse.data?.listNotifications?.items?.length || 0;
+      } catch (err) {
+        // Notification count is optional, don't fail if it errors
+        console.warn('Could not fetch notification count:', err);
+      }
+      
+      const stats: UserStats = {
+        fileCount: files.length,
+        folderCount: folders.length,
+        totalSize,
+        lastActivity,
+        notificationCount,
+        loading: false
+      };
+      
+      setUserStats(prev => new Map(prev).set(userId, stats));
+      return stats;
+    } catch (err: any) {
+      console.error(`Error fetching stats for user ${userId}:`, err);
+      const errorStats: UserStats = {
+        fileCount: 0,
+        folderCount: 0,
+        totalSize: 0,
+        loading: false,
+        error: err.message || 'Failed to fetch stats'
+      };
+      setUserStats(prev => new Map(prev).set(userId, errorStats));
+      return errorStats;
+    } finally {
+      setFetchingStats(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    }
+  };
+
+  // Fetch stats for all users in duplicate groups
+  const fetchAllDuplicateStats = async (duplicateGroups: DuplicateGroup[]) => {
+    const allUserIds = new Set<string>();
+    duplicateGroups.forEach(group => {
+      group.users.forEach(user => {
+        if (user.id && user.uuid) {
+          allUserIds.add(user.id);
+        }
+      });
+    });
+
+    // Fetch stats in parallel for all users
+    const fetchPromises = Array.from(allUserIds).map(userId => {
+      const user = users.find(u => u.id === userId);
+      if (user && user.uuid) {
+        return fetchUserStats(userId, user.uuid);
+      }
+      return Promise.resolve();
+    });
+
+    await Promise.all(fetchPromises);
+  };
+
   // Scan for duplicates
-  const scanForDuplicates = () => {
+  const scanForDuplicates = async () => {
     setScanning(true);
     setError(null);
     setSuccess(null);
     setDuplicates([]);
-    setSelectedKeepUser({});
+    setSelectedDeleteUsers(new Set());
+    setUserStats(new Map());
 
     try {
       const duplicateGroups: DuplicateGroup[] = [];
@@ -105,27 +232,12 @@ const DuplicateUserTool: React.FC = () => {
       if (duplicateGroups.length === 0) {
         setSuccess('No duplicates found! All users are unique.');
       } else {
-        setSuccess(`Found ${duplicateGroups.length} duplicate group(s)`);
+        setSuccess(`Found ${duplicateGroups.length} duplicate group(s). Loading statistics...`);
         
-        // Auto-select the most recent non-deleted user as the one to keep for each group
-        const autoSelected: Record<string, string> = {};
-        duplicateGroups.forEach(group => {
-          // Sort by createdAt (newest first), prefer non-deleted
-          const sorted = [...group.users].sort((a, b) => {
-            // Prefer non-deleted
-            if (a.isDeleted && !b.isDeleted) return 1;
-            if (!a.isDeleted && b.isDeleted) return -1;
-            // Then by creation date (newest first)
-            const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return bDate - aDate;
-          });
-          
-          if (sorted.length > 0) {
-            autoSelected[group.key] = sorted[0].id;
-          }
-        });
-        setSelectedKeepUser(autoSelected);
+        // Fetch stats for all duplicate users
+        await fetchAllDuplicateStats(duplicateGroups);
+        
+        setSuccess(`Found ${duplicateGroups.length} duplicate group(s)`);
       }
     } catch (err: any) {
       console.error('Error scanning for duplicates:', err);
@@ -135,24 +247,19 @@ const DuplicateUserTool: React.FC = () => {
     }
   };
 
-  // Delete duplicate users (keep the selected one)
+  // Delete selected duplicate users
   const deleteDuplicates = async (group: DuplicateGroup) => {
-    const keepUserId = selectedKeepUser[group.key];
-    if (!keepUserId) {
-      setError('Please select which user to keep before deleting duplicates');
-      return;
-    }
-
-    const keepUser = group.users.find(u => u.id === keepUserId);
-    if (!keepUser || !keepUser.uuid) {
-      setError('Invalid user selected to keep');
-      return;
-    }
-
-    const usersToDelete = group.users.filter(u => u.id !== keepUserId);
+    // Get users selected for deletion in this group
+    const usersToDelete = group.users.filter(u => u.id && selectedDeleteUsers.has(u.id));
     
     if (usersToDelete.length === 0) {
-      setError('No users to delete');
+      setError('Please select at least one user to delete');
+      return;
+    }
+
+    // Ensure at least one user remains in the group
+    if (usersToDelete.length >= group.users.length) {
+      setError('Cannot delete all users in a group. At least one user must remain.');
       return;
     }
 
@@ -167,7 +274,7 @@ const DuplicateUserTool: React.FC = () => {
       setError(null);
       setSuccess(null);
 
-      // Delete each duplicate user (hard delete since these are duplicates)
+      // Delete each selected duplicate user (hard delete since these are duplicates)
       const deletePromises = usersToDelete.map(user => {
         if (!user.uuid) {
           console.warn('User missing UUID, skipping:', user);
@@ -178,7 +285,28 @@ const DuplicateUserTool: React.FC = () => {
 
       await Promise.all(deletePromises);
 
-      setSuccess(`Successfully deleted ${usersToDelete.length} duplicate user(s). Kept user: ${keepUser.email || keepUser.uuid}`);
+      const remainingUsers = group.users.filter(u => !usersToDelete.includes(u));
+      const remainingUser = remainingUsers[0];
+      
+      setSuccess(`Successfully deleted ${usersToDelete.length} duplicate user(s). Remaining user: ${remainingUser?.email || remainingUser?.uuid || 'N/A'}`);
+      
+      // Remove deleted users from selection
+      setSelectedDeleteUsers(prev => {
+        const newSet = new Set(prev);
+        usersToDelete.forEach(u => {
+          if (u.id) newSet.delete(u.id);
+        });
+        return newSet;
+      });
+      
+      // Remove stats for deleted users
+      setUserStats(prev => {
+        const newMap = new Map(prev);
+        usersToDelete.forEach(u => {
+          if (u.id) newMap.delete(u.id);
+        });
+        return newMap;
+      });
       
       // Refresh the list
       await loadAllUsers();
@@ -198,6 +326,35 @@ const DuplicateUserTool: React.FC = () => {
         return newSet;
       });
     }
+  };
+
+  // Toggle user selection for deletion
+  const toggleUserSelection = (userId: string, group: DuplicateGroup) => {
+    setSelectedDeleteUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        // Ensure at least one user remains in the group
+        const selectedInGroup = group.users.filter(u => u.id && newSet.has(u.id)).length;
+        if (selectedInGroup >= group.users.length - 1) {
+          setError('Cannot select all users for deletion. At least one user must remain.');
+          return prev;
+        }
+        newSet.add(userId);
+      }
+      setError(null);
+      return newSet;
+    });
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
 
   const getDuplicateCount = () => {
@@ -307,8 +464,18 @@ const DuplicateUserTool: React.FC = () => {
       ) : (
         <div>
           {duplicates.map((group) => {
-            const keepUserId = selectedKeepUser[group.key];
             const isDeleting = group.users.some(u => u.id && deleting.has(u.id));
+            const selectedCount = group.users.filter(u => u.id && selectedDeleteUsers.has(u.id)).length;
+            const canDelete = selectedCount > 0 && selectedCount < group.users.length;
+            
+            // Sort users by file count (most files first) to help decision making
+            const sortedUsers = [...group.users].sort((a, b) => {
+              const aStats = userStats.get(a.id || '');
+              const bStats = userStats.get(b.id || '');
+              const aFiles = aStats?.fileCount || 0;
+              const bFiles = bStats?.fileCount || 0;
+              return bFiles - aFiles; // Descending order
+            });
             
             return (
               <Card key={`${group.type}-${group.key}`} className="mb-3">
@@ -322,12 +489,18 @@ const DuplicateUserTool: React.FC = () => {
                     </h5>
                     <p className="text-muted mb-0">
                       {group.users.length} user(s) found with {group.type === 'email' ? 'this email' : 'this UUID'}
+                      {selectedCount > 0 && (
+                        <span className="ms-2">
+                          ({selectedCount} selected for deletion)
+                        </span>
+                      )}
                     </p>
                   </div>
                   <button
                     className="btn btn-sm btn-danger"
                     onClick={() => deleteDuplicates(group)}
-                    disabled={!keepUserId || isDeleting}
+                    disabled={!canDelete || isDeleting}
+                    title={!canDelete ? 'Select at least one user to delete (at least one must remain)' : 'Delete selected users'}
                   >
                     {isDeleting ? (
                       <>
@@ -337,7 +510,7 @@ const DuplicateUserTool: React.FC = () => {
                     ) : (
                       <>
                         <i className="bi bi-trash me-2"></i>
-                        Delete Duplicates
+                        Delete Selected ({selectedCount})
                       </>
                     )}
                   </button>
@@ -347,48 +520,65 @@ const DuplicateUserTool: React.FC = () => {
                   <table className="table table-sm table-hover">
                     <thead>
                       <tr>
-                        <th style={{ width: '50px' }}>Keep</th>
+                        <th style={{ width: '50px' }}>Delete</th>
                         <th>Email</th>
                         <th>UUID</th>
                         <th>Name</th>
+                        <th>Files</th>
+                        <th>Folders</th>
+                        <th>Size</th>
+                        <th>Last Activity</th>
                         <th>Status</th>
                         <th>Created</th>
                         <th>Deleted</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {group.users.map((user) => {
-                        const isSelected = keepUserId === user.id;
+                      {sortedUsers.map((user) => {
+                        const isSelected = !!(user.id && selectedDeleteUsers.has(user.id));
                         const isDeletingUser = !!(user.id && deleting.has(user.id));
+                        const stats = userStats.get(user.id || '');
+                        const isLoadingStats = !!(user.id && fetchingStats.has(user.id));
+                        
+                        // Highlight users with more data (help identify which to keep)
+                        const hasMoreData = stats && (stats.fileCount > 0 || stats.folderCount > 0);
                         
                         return (
                           <tr
                             key={user.id}
-                            className={isSelected ? 'table-success' : isDeletingUser ? 'table-danger' : ''}
+                            className={
+                              isSelected 
+                                ? 'table-danger' 
+                                : isDeletingUser 
+                                  ? 'table-secondary' 
+                                  : hasMoreData 
+                                    ? 'table-light' 
+                                    : ''
+                            }
                           >
                             <td>
                               <div className="form-check">
                                 <input
                                   className="form-check-input"
-                                  type="radio"
-                                  name={`keep-${group.key}`}
+                                  type="checkbox"
                                   checked={isSelected}
                                   onChange={() => {
                                     if (user.id) {
-                                      setSelectedKeepUser(prev => ({
-                                        ...prev,
-                                        [group.key]: user.id
-                                      }));
+                                      toggleUserSelection(user.id, group);
                                     }
                                   }}
                                   disabled={isDeletingUser}
+                                  title={isSelected ? 'Deselect to keep this user' : 'Select to delete this user'}
                                 />
                               </div>
                             </td>
                             <td>
                               {user.email || '-'}
                               {isSelected && (
-                                <span className="badge bg-success ms-2">Keep</span>
+                                <span className="badge bg-danger ms-2">Delete</span>
+                              )}
+                              {!isSelected && hasMoreData && (
+                                <span className="badge bg-info ms-2" title="Has files/folders">Data</span>
                               )}
                             </td>
                             <td>
@@ -398,6 +588,52 @@ const DuplicateUserTool: React.FC = () => {
                               {user.firstName || user.lastName
                                 ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
                                 : '-'}
+                            </td>
+                            <td>
+                              {isLoadingStats ? (
+                                <span className="spinner-border spinner-border-sm" role="status" title="Loading..."></span>
+                              ) : stats?.error ? (
+                                <span className="text-muted" title={stats.error}>N/A</span>
+                              ) : (
+                                <span title={`${stats?.fileCount || 0} files`}>
+                                  {stats?.fileCount || 0}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {isLoadingStats ? (
+                                <span className="spinner-border spinner-border-sm" role="status"></span>
+                              ) : stats?.error ? (
+                                <span className="text-muted">N/A</span>
+                              ) : (
+                                <span title={`${stats?.folderCount || 0} folders`}>
+                                  {stats?.folderCount || 0}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {isLoadingStats ? (
+                                <span className="spinner-border spinner-border-sm" role="status"></span>
+                              ) : stats?.error ? (
+                                <span className="text-muted">N/A</span>
+                              ) : (
+                                <span title={`${formatFileSize(stats?.totalSize || 0)} total storage`}>
+                                  {formatFileSize(stats?.totalSize || 0)}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {isLoadingStats ? (
+                                <span className="spinner-border spinner-border-sm" role="status"></span>
+                              ) : stats?.error ? (
+                                <span className="text-muted">N/A</span>
+                              ) : stats?.lastActivity ? (
+                                <span title={new Date(stats.lastActivity).toLocaleString()}>
+                                  {new Date(stats.lastActivity).toLocaleDateString()}
+                                </span>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
                             </td>
                             <td>
                               {user.status && (
@@ -436,7 +672,7 @@ const DuplicateUserTool: React.FC = () => {
                 <div className="alert alert-warning mt-3 mb-0">
                   <i className="bi bi-exclamation-triangle me-2"></i>
                   <strong>Warning:</strong> Deleting duplicates will permanently remove users from Cognito but preserve all data and files for compliance. 
-                  Make sure to select the correct user to keep (usually the most recent non-deleted user).
+                  Select users to delete using checkboxes. At least one user must remain in each group. Users are sorted by file count (most files first) to help identify which users have data.
                 </div>
               </Card>
             );
