@@ -5,6 +5,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-js';
 import { HttpRequest } from '@aws-sdk/protocol-http';
+import outputs from '../../amplify_outputs.json';
 // import { UserProfile } from '@/types';
 
 const client = generateClient();
@@ -58,7 +59,7 @@ async function signedFetch(url: string, options: RequestInit): Promise<Response>
   }
   
   const urlObj = new URL(url);
-  const region = urlObj.hostname.split('.')[2] || 'us-east-1'; // Extract region from URL
+  const region = urlObj.hostname.split('.')[2] || 'us-east-1';
   
   const signer = new SignatureV4({
     credentials: {
@@ -93,12 +94,30 @@ async function signedFetch(url: string, options: RequestInit): Promise<Response>
 }
 
 /**
+ * Get the admin-sync function URL from amplify_outputs.json
+ */
+function getAdminSyncFunctionUrl(): string {
+  const outputsData = outputs as any;
+  
+  // Check custom.functions.adminSync.endpoint
+  const customFunctions = outputsData?.custom?.functions;
+  if (customFunctions?.adminSync?.endpoint) {
+    return customFunctions.adminSync.endpoint;
+  }
+  
+  // Fallback: Use the manually created Function URL
+  const manualFunctionUrl = 'https://tympuctd3ozlesbz2vmbgre6fy0hhumu.lambda-url.us-east-1.on.aws/';
+  console.warn('Function URL not found in amplify_outputs.json, using manual URL');
+  return manualFunctionUrl;
+}
+
+/**
  * Sync admin/developer status from Cognito groups to UserProfile
- * Calls the admin-sync Lambda function
+ * Calls the admin-sync Lambda function via Function URL
  */
 export const syncAdminStatusFromCognito = async (): Promise<{ success: boolean; updated: number; errors: string[] }> => {
   try {
-    const functionUrl = await getAdminSyncFunctionUrl();
+    const functionUrl = getAdminSyncFunctionUrl();
     
     const response = await signedFetch(functionUrl, {
       method: 'POST',
@@ -124,8 +143,11 @@ export const syncAdminStatusFromCognito = async (): Promise<{ success: boolean; 
 };
 
 /**
- * Update user's admin/developer status in both Cognito and UserProfile
- * Calls the admin-sync Lambda function
+ * Update user's admin/developer status in both Cognito groups and UserProfile
+ * Calls the admin-sync Lambda function which handles:
+ * 1. Adding/removing user from 'admin' Cognito group
+ * 2. Adding/removing user from 'developer' Cognito group  
+ * 3. Updating UserProfile.isAdmin/isDeveloper in database
  */
 export const updateUserAdminStatus = async (
   userId: string,
@@ -133,7 +155,7 @@ export const updateUserAdminStatus = async (
   isDeveloper: boolean
 ): Promise<{ success: boolean; message: string }> => {
   try {
-    const functionUrl = await getAdminSyncFunctionUrl();
+    const functionUrl = getAdminSyncFunctionUrl();
     
     const response = await signedFetch(functionUrl, {
       method: 'POST',
@@ -160,67 +182,3 @@ export const updateUserAdminStatus = async (
     throw error;
   }
 };
-
-/**
- * Get the admin-sync function URL
- * Checks multiple sources: amplify_outputs.json, CloudFormation outputs, and environment variables
- */
-async function getAdminSyncFunctionUrl(): Promise<string> {
-  try {
-    // Import amplify_outputs.json
-    // In Gen 2, functions are exposed via custom.functions after deployment
-    // Type assertion needed because amplify_outputs.json type doesn't include custom yet
-    const outputs = (await import('../../amplify_outputs.json')) as any;
-    
-    // Check various possible locations for the function URL
-    const outputsData = outputs.default || outputs;
-    
-    // 1. Check custom.functions.adminSync.endpoint (expected location after generate outputs)
-    const customFunctions = outputsData?.custom?.functions;
-    if (customFunctions?.adminSync?.endpoint) {
-      return customFunctions.adminSync.endpoint;
-    }
-    
-    // 2. Check custom.adminSyncFunctionUrl (if added manually)
-    if (outputsData?.custom?.adminSyncFunctionUrl) {
-      return outputsData.custom.adminSyncFunctionUrl;
-    }
-    
-    // 3. Check root level functionUrl (alternative structure)
-    if (outputsData?.functionUrl) {
-      return outputsData.functionUrl;
-    }
-    
-    // Alternative: try to get from window if available (for runtime)
-    if (typeof window !== 'undefined' && (window as any).__AMPLIFY_OUTPUTS__) {
-      const runtimeOutputs = (window as any).__AMPLIFY_OUTPUTS__;
-      if (runtimeOutputs.custom?.functions?.adminSync?.endpoint) {
-        return runtimeOutputs.custom.functions.adminSync.endpoint;
-      }
-      if (runtimeOutputs.custom?.adminSyncFunctionUrl) {
-        return runtimeOutputs.custom.adminSyncFunctionUrl;
-      }
-    }
-  } catch (error) {
-    console.warn('Could not load amplify_outputs.json:', error);
-  }
-
-  // Check environment variable as fallback
-  if (typeof window !== 'undefined' && (window as any).process?.env?.REACT_APP_ADMIN_SYNC_FUNCTION_URL) {
-    return (window as any).process.env.REACT_APP_ADMIN_SYNC_FUNCTION_URL;
-  }
-
-  // Final fallback: throw error with helpful message
-  throw new Error(
-    'Admin sync function URL not configured.\n' +
-    'After deploying, add it to amplify_outputs.json under:\n' +
-    '  "custom": {\n' +
-    '    "functions": {\n' +
-    '      "adminSync": {\n' +
-    '        "endpoint": "https://your-function-url.lambda-url.region.on.aws/"\n' +
-    '      }\n' +
-    '    }\n' +
-    '  }\n' +
-    'Or check CloudFormation outputs for "AdminSyncFunctionUrlOutput"'
-  );
-}
