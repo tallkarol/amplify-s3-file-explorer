@@ -95,8 +95,10 @@ const schema = a.schema({
       expiresAt: a.datetime(),
     })
     .authorization((allow) => [
-      allow.ownerDefinedIn('userId').to(['read']), // Users can only READ their own notifications
+      allow.ownerDefinedIn('userId').to(['read']), // Users can READ their own notifications
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]), // Admins can CREATE for anyone
+      allow.groups(["user"]).to(["read", "create"]), // Users can CREATE notifications (for notifying admins when they upload)
+      allow.authenticated().to(["create"]), // Fallback: any authenticated user can create notifications
     ]),
 
   // NEW: Folder Permissions Model

@@ -34,8 +34,8 @@ const UserList = ({
   actionButtonText 
 }: UserListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<SortField>(variant === 'fileManagement' ? 'fileCount' : 'email');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortField, setSortField] = useState<SortField>('email');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [userStats, setUserStats] = useState<Record<string, UserFileStats>>({});
   const hasFetchedStats = useRef(false);

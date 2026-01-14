@@ -191,8 +191,22 @@ export const createNotification = async (notification: Omit<Notification, 'id' |
     });
     
     return response.data!.createNotification;
-  } catch (error) {
-    console.error('Error creating notification:', error);
+  } catch (error: any) {
+    console.error('Error creating notification:', {
+      error,
+      errorMessage: error?.message,
+      errorType: error?.errorType,
+      graphQLErrors: error?.errors || error?.graphQLErrors,
+      networkError: error?.networkError,
+      notificationPayload: notification
+    });
+    // Log the full error object for debugging
+    if (error?.errors) {
+      console.error('GraphQL Errors:', JSON.stringify(error.errors, null, 2));
+    }
+    if (error?.graphQLErrors) {
+      console.error('GraphQL Errors (alt):', JSON.stringify(error.graphQLErrors, null, 2));
+    }
     throw error;
   }
 };
