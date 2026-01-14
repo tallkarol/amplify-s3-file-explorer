@@ -4,6 +4,7 @@ import { UserProfile } from '@/types';
 import Card from '@/components/common/Card';
 import { useUserRole } from '@/hooks/useUserRole'; // Use the existing useUserRole instead
 import { suspendUserAccount, reactivateUserAccount } from '../services/clientService';
+import { softDeleteUser, hardDeleteUser } from '@/services/userDeleteService';
 
 interface UserActionsCardProps {
   user: UserProfile;
@@ -24,6 +25,9 @@ const UserActionsCard = ({ user, onStatusChange }: UserActionsCardProps) => {
   
   // Check if user is suspended - fix the type comparison issue
   const isSuspended = user.status === 'inactive' || user.status === 'suspended';
+  
+  // Check if user is deleted
+  const isDeleted = user.isDeleted || false;
   
   // Handle action click
   const handleActionClick = (actionType: string) => {
@@ -62,6 +66,20 @@ const UserActionsCard = ({ user, onStatusChange }: UserActionsCardProps) => {
         case 'reset-password':
           // Existing reset password logic here
           alert(`Password reset link would be sent to ${user.email}`);
+          break;
+          
+        case 'soft-delete':
+          if (!canModify) {
+            throw new Error('You do not have permission to delete this user.');
+          }
+          await softDeleteUser(user.uuid!, false);
+          break;
+          
+        case 'hard-delete':
+          if (!canModify) {
+            throw new Error('You do not have permission to hard delete this user.');
+          }
+          await hardDeleteUser(user.uuid!);
           break;
       }
       
@@ -156,6 +174,77 @@ const UserActionsCard = ({ user, onStatusChange }: UserActionsCardProps) => {
           </div>
         );
         
+      case 'soft-delete':
+        return (
+          <div className="alert alert-warning">
+            <h6 className="alert-heading">Soft Delete User Account?</h6>
+            <p>This will disable {user.email}'s access to the system. Their data and files will be preserved for compliance purposes.</p>
+            <ul className="small mb-2">
+              <li>User will be disabled in Cognito</li>
+              <li>Account marked as inactive/deleted</li>
+              <li>All data and S3 files preserved</li>
+            </ul>
+            {error && <div className="text-danger mt-2">{error}</div>}
+            <div className="d-flex justify-content-end mt-3">
+              <button 
+                className="btn btn-sm btn-outline-secondary me-2" 
+                onClick={cancelAction}
+                disabled={processing}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-sm btn-warning" 
+                onClick={executeAction}
+                disabled={processing || !canModify}
+              >
+                {processing ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Deleting...
+                  </>
+                ) : 'Soft Delete'}
+              </button>
+            </div>
+          </div>
+        );
+        
+      case 'hard-delete':
+        return (
+          <div className="alert alert-danger">
+            <h6 className="alert-heading">Hard Delete User Account?</h6>
+            <p className="fw-bold">This will permanently remove {user.email} from Cognito.</p>
+            <ul className="small mb-2">
+              <li>User will be permanently deleted from Cognito</li>
+              <li>Account marked as deleted in database</li>
+              <li><strong>All data and S3 files will be preserved for compliance</strong></li>
+              <li>This action cannot be undone</li>
+            </ul>
+            {error && <div className="text-danger mt-2">{error}</div>}
+            <div className="d-flex justify-content-end mt-3">
+              <button 
+                className="btn btn-sm btn-outline-secondary me-2" 
+                onClick={cancelAction}
+                disabled={processing}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-sm btn-danger" 
+                onClick={executeAction}
+                disabled={processing || !canModify}
+              >
+                {processing ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Deleting...
+                  </>
+                ) : 'Hard Delete'}
+              </button>
+            </div>
+          </div>
+        );
+        
       default:
         return null;
     }
@@ -217,6 +306,43 @@ const UserActionsCard = ({ user, onStatusChange }: UserActionsCardProps) => {
               <small className="text-muted">Send a password reset link to the user</small>
             </div>
           </button>
+          
+          {/* Delete buttons - show soft delete if not deleted, hard delete if already soft deleted */}
+          {!isDeleted ? (
+            <button 
+              className="list-group-item list-group-item-action d-flex align-items-center"
+              onClick={() => handleActionClick('soft-delete')}
+              disabled={!canModify || isUserDeveloper}
+              title={
+                !canModify ? "You don't have permission to delete users" :
+                isUserDeveloper ? "Developer accounts cannot be deleted" :
+                "Disable user and mark as deleted (data preserved)"
+              }
+            >
+              <div className="bg-warning bg-opacity-10 p-2 rounded me-3">
+                <i className="bi bi-x-circle text-warning"></i>
+              </div>
+              <div>
+                <div className="fw-medium">Soft Delete Account</div>
+                <small className="text-muted">Disable user access, preserve all data</small>
+              </div>
+            </button>
+          ) : (
+            <button 
+              className="list-group-item list-group-item-action d-flex align-items-center"
+              onClick={() => handleActionClick('hard-delete')}
+              disabled={!canModify}
+              title={!canModify ? "You don't have permission to hard delete users" : "Permanently delete from Cognito (data preserved)"}
+            >
+              <div className="bg-danger bg-opacity-10 p-2 rounded me-3">
+                <i className="bi bi-trash text-danger"></i>
+              </div>
+              <div>
+                <div className="fw-medium">Hard Delete Account</div>
+                <small className="text-muted">Permanently remove from Cognito (data preserved)</small>
+              </div>
+            </button>
+          )}
         </div>
       )}
       

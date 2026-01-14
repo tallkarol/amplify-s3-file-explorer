@@ -6,6 +6,7 @@ import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import AlertMessage from '../../../components/common/AlertMessage';
 import UserList from '../components/UserList';
 import ClientProfileCard from '../components/ClientProfileCard';
+import UserActionsCard from '../components/UserActionsCard';
 import FileExplorerTab from './FileExplorerTab';
 import NotificationsTab from './NotificationsTab';
 import { UserProfile } from '../../../types';
@@ -271,56 +272,10 @@ const AdminClientManagement: React.FC = () => {
                     </div>
                     
                     <div className="admin-client-content">
-                      <Card title="Account Actions">
-                        <div className="row g-3">
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-primary">
-                                <i className="bi bi-envelope me-2"></i>
-                                Send Message
-                              </button>
-                            </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-outline-primary">
-                                <i className="bi bi-key me-2"></i>
-                                Reset Password
-                              </button>
-                            </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-outline-info">
-                                <i className="bi bi-shield-check me-2"></i>
-                                Reset Permissions
-                              </button>
-                            </div>
-                          </div>
-                          <div className="col-md-6">
-                            <div className="d-grid">
-                              <button className="btn btn-outline-warning">
-                                <i className="bi bi-pause me-2"></i>
-                                Suspend Account
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <hr className="my-4" />
-                        
-                        <div className="alert alert-warning">
-                          <h6 className="alert-heading">
-                            <i className="bi bi-exclamation-triangle me-2"></i>
-                            Danger Zone
-                          </h6>
-                          <p className="mb-2">These actions cannot be undone and will permanently affect the client's account.</p>
-                          <button className="btn btn-outline-danger btn-sm">
-                            <i className="bi bi-trash me-2"></i>
-                            Delete Account
-                          </button>
-                        </div>
-                      </Card>
+                      <UserActionsCard
+                        user={selectedClient}
+                        onStatusChange={loadClients}
+                      />
                     </div>
                   </div>
                 )}

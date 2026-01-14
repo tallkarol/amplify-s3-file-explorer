@@ -7,6 +7,7 @@ import { UserProfile, AdditionalContact } from '@/types';
 import AlertMessage from '@/components/common/AlertMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { useUserRole } from '@/hooks/useUserRole';
+import DeleteAccountModal from '@/components/user/DeleteAccountModal';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [savingContact, setSavingContact] = useState(false);
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   
   // Create a client for making GraphQL requests
   const client = generateClient();
@@ -810,50 +812,74 @@ return (
             </div>
             
             <div className="modal-footer border-0 pt-2 pb-4">
-              <button 
-                type="button" 
-                className="btn btn-outline-secondary rounded-3" 
-                onClick={onClose}
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              
-              {activeTab === 'profile' && (
-                <button 
-                  type="button" 
-                  className="btn btn-success rounded-3" 
-                  onClick={handleSaveProfile}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      Saving...
-                    </>
-                  ) : 'Save Changes'}
-                </button>
-              )}
-              
-              {/* Debug buttons with improved styling */}
-              {isDeveloper && (
-                <div className="ms-auto me-3">
-                  <div className="btn-group btn-group-sm">
-                    <button type="button" className="btn btn-outline-secondary" onClick={debugUserProfile}>
-                      <i className="bi bi-bug me-1"></i> Debug
+              <div className="d-flex justify-content-between w-100 align-items-center">
+                {activeTab === 'profile' && (
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-danger btn-sm"
+                    onClick={() => setShowDeleteAccountModal(true)}
+                    disabled={loading}
+                  >
+                    <i className="bi bi-trash me-1"></i>
+                    Delete Account
+                  </button>
+                )}
+                {activeTab !== 'profile' && <div></div>}
+                
+                <div className="d-flex gap-2">
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-secondary rounded-3" 
+                    onClick={onClose}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </button>
+                  
+                  {activeTab === 'profile' && (
+                    <button 
+                      type="button" 
+                      className="btn btn-success rounded-3" 
+                      onClick={handleSaveProfile}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Saving...
+                        </>
+                      ) : 'Save Changes'}
                     </button>
-                    <button type="button" className="btn btn-outline-secondary" onClick={listAllProfiles}>
-                      <i className="bi bi-list-ul me-1"></i> List Profiles
-                    </button>
-                  </div>
+                  )}
+                  
+                  {/* Debug buttons with improved styling */}
+                  {isDeveloper && (
+                    <div className="ms-2">
+                      <div className="btn-group btn-group-sm">
+                        <button type="button" className="btn btn-outline-secondary" onClick={debugUserProfile}>
+                          <i className="bi bi-bug me-1"></i> Debug
+                        </button>
+                        <button type="button" className="btn btn-outline-secondary" onClick={listAllProfiles}>
+                          <i className="bi bi-list-ul me-1"></i> List Profiles
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+    
+    {/* Delete Account Modal */}
+    <DeleteAccountModal
+      isOpen={showDeleteAccountModal}
+      onClose={() => setShowDeleteAccountModal(false)}
+    />
   </>
-)};
+  );
+};
 
 export default UserProfileModal;

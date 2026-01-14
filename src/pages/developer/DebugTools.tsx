@@ -11,6 +11,7 @@ import UserLookup from '../../components/developer/UserLookup';
 import ErrorLoggerDemo from '../../components/developer/ErrorLoggerDemo';
 import NotificationDemo from '../../components/developer/NotificationDemo';
 import AdminManagement from '../../components/developer/AdminManagement';
+import DuplicateUserTool from '../../components/developer/DuplicateUserTool';
 // import NotificationUsageExample from '../../features/notifications/examples/NotificationUsageExample';
 
 const DebugTools = () => {
@@ -234,6 +235,25 @@ const DebugTools = () => {
                     <span style={{ whiteSpace: 'nowrap' }}>Admin Management</span>
                   </button>
                 </li>
+                {/* Duplicate User Tool tab */}
+                <li className="nav-item">
+                  <button
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'duplicates' ? 'active bg-white' : 'text-white'}`}
+                    onClick={() => setActiveTab('duplicates')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
+                  >
+                    <i className="bi bi-people me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Duplicate Users</span>
+                  </button>
+                </li>
               </ul>
             </div>
 
@@ -271,6 +291,11 @@ const DebugTools = () => {
               {/* Admin Management */}
               {activeTab === 'admin' && (
                 <AdminManagement />
+              )}
+              
+              {/* Duplicate User Tool */}
+              {activeTab === 'duplicates' && (
+                <DuplicateUserTool />
               )}
             </div>
           </div>
