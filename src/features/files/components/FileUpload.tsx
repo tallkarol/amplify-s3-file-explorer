@@ -3,7 +3,8 @@ import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { uploadData } from 'aws-amplify/storage';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import AlertMessage from '../../../components/common/AlertMessage';
-import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
+import { notifyUserOfFileUpload } from '@/features/files/services/FileNotificationService';
+import { notifyAdminsOfFileUpload } from '@/services/adminNotificationService';
 import { canUploadToPath, invalidateFileCountCache } from '../services/S3Service';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -137,33 +138,50 @@ const FileUpload = ({
           
           successCount++;
           
-          // Create notifications if admin is uploading for a user or if we want to notify admins of user uploads
-          if (isAdmin && userId !== user.userId) {
-            // Admin uploading for a user - notify the user
-            // Fix: Remove attributes access
-            const adminName = user.username;
-            await notifyUserOfFileUpload(
+          // Create notifications based on who is uploading (non-blocking - don't fail upload if notification fails)
+          try {
+            console.log('[FileUpload] Attempting to create notification for file:', file.name, {
+              isAdmin,
+              userIsAdmin,
               userId,
-              adminName,
-              file.name,
-              currentPath,
-              `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
-            );
-          } else if (!isAdmin) {
-            // Regular user uploading - could notify admins
-            // Note: In a real system, you'd query for all admin users
-            // This is a placeholder that would be replaced with actual admin IDs
-            const adminIds = ['ADMIN_USER_ID']; // Replace with real admin IDs
-            if (adminIds.length > 0) {
-              // Fix: Remove attributes access
-              const userName = user.username;
-              await notifyAdminsOfUserFileUpload(
-                adminIds,
-                userName,
+              currentUserId: user.userId,
+              currentPath
+            });
+            
+            if ((isAdmin || userIsAdmin) && userId !== user.userId) {
+              // Admin/developer uploading for a user - notify the user
+              console.log('[FileUpload] Admin uploading for user - notifying user:', userId);
+              await notifyUserOfFileUpload(
+                userId,
+                user.userId, // Admin's user ID
+                file.name,
+                currentPath,
+                `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
+              );
+              console.log('[FileUpload] Successfully notified user of admin upload');
+            } else if (!isAdmin && !userIsAdmin) {
+              // Regular user uploading - notify all admins
+              console.log('[FileUpload] User uploading - notifying admins');
+              await notifyAdminsOfFileUpload(
+                user.userId, // User's ID (will be converted to display name in the service)
                 file.name,
                 currentPath
               );
+              console.log('[FileUpload] Successfully notified admins of user upload');
+            } else {
+              console.log('[FileUpload] Skipping notification - user uploading for themselves or conditions not met');
             }
+          } catch (notificationError: any) {
+            // Log error but don't break the upload flow
+            console.error('[FileUpload] Failed to create notification (upload still succeeded):', {
+              error: notificationError,
+              errorMessage: notificationError?.message,
+              errorType: notificationError?.errorType,
+              graphQLErrors: notificationError?.errors || notificationError?.graphQLErrors,
+              fileName: file.name,
+              userId,
+              currentUserId: user.userId
+            });
           }
         } catch (err) {
           console.error('Error uploading file:', err);

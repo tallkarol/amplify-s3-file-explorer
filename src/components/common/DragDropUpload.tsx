@@ -4,6 +4,9 @@ import { uploadData } from 'aws-amplify/storage';
 import AlertMessage from './AlertMessage';
 import { canUploadToPath } from '@/features/files/services/S3Service';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAuthenticator } from '@aws-amplify/ui-react';
+import { notifyUserOfFileUpload } from '@/features/files/services/FileNotificationService';
+import { notifyAdminsOfFileUpload } from '@/services/adminNotificationService';
 
 interface DragDropUploadProps {
   currentPath: string;
@@ -20,7 +23,8 @@ const DragDropUpload = ({
   children, 
   disabled = false 
 }: DragDropUploadProps) => {
-  const { isAdmin } = useUserRole();
+  const { user } = useAuthenticator();
+  const { isAdmin, isAdmin: userIsAdmin } = useUserRole();
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -252,6 +256,52 @@ const DragDropUpload = ({
           });
           
           successCount++;
+          
+          // Create notifications based on who is uploading (non-blocking - don't fail upload if notification fails)
+          try {
+            console.log('[DragDropUpload] Attempting to create notification for file:', file.name, {
+              isAdmin,
+              userIsAdmin,
+              userId,
+              currentUserId: user.userId,
+              currentPath
+            });
+            
+            if ((isAdmin || userIsAdmin) && userId !== user.userId) {
+              // Admin/developer uploading for a user - notify the user
+              console.log('[DragDropUpload] Admin uploading for user - notifying user:', userId);
+              await notifyUserOfFileUpload(
+                userId,
+                user.userId, // Admin's user ID
+                file.name,
+                currentPath,
+                `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
+              );
+              console.log('[DragDropUpload] Successfully notified user of admin upload');
+            } else if (!isAdmin && !userIsAdmin) {
+              // Regular user uploading - notify all admins
+              console.log('[DragDropUpload] User uploading - notifying admins');
+              await notifyAdminsOfFileUpload(
+                user.userId, // User's ID (will be converted to display name in the service)
+                file.name,
+                currentPath
+              );
+              console.log('[DragDropUpload] Successfully notified admins of user upload');
+            } else {
+              console.log('[DragDropUpload] Skipping notification - user uploading for themselves or conditions not met');
+            }
+          } catch (notificationError: any) {
+            // Log error but don't break the upload flow
+            console.error('[DragDropUpload] Failed to create notification (upload still succeeded):', {
+              error: notificationError,
+              errorMessage: notificationError?.message,
+              errorType: notificationError?.errorType,
+              graphQLErrors: notificationError?.errors || notificationError?.graphQLErrors,
+              fileName: file.name,
+              userId,
+              currentUserId: user.userId
+            });
+          }
         } catch (err) {
           console.error('Error uploading file:', err);
           setError(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);

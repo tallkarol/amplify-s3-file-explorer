@@ -90,13 +90,13 @@ const schema = a.schema({
       title: a.string(),
       message: a.string(),
       isRead: a.boolean(),
-      actionLink: a.string(),
+      actionLink: a.string().optional(),
       metadata: a.json(),
-      expiresAt: a.datetime(),
+      expiresAt: a.datetime().optional(),
     })
     .authorization((allow) => [
-      allow.ownerDefinedIn('userId'),
-      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
+      allow.ownerDefinedIn('userId').to(['read']), // Users can only READ their own notifications
+      allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]), // Admins can CREATE for anyone
     ]),
 
   // NEW: Folder Permissions Model

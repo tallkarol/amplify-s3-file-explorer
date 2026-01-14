@@ -1,31 +1,35 @@
-// src/features/admin/services/adminNotificationService.ts
+// src/services/adminNotificationService.ts
 import { getAllAdminUserIds } from './adminService';
 import { notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
 
 /**
- * Notify admins with preference filtering
+ * Notify admins when a user uploads a file
+ * @param userUserId User ID who uploaded the file (will be converted to display name)
+ * @param fileName Name of the uploaded file
+ * @param folderPath Path where the file was uploaded
  */
 export const notifyAdminsOfFileUpload = async (
-  userName: string,
+  userUserId: string,
   fileName: string,
-  folderPath: string,
-  _fileType?: string
+  folderPath: string
 ) => {
   try {
     const adminIds = await getAllAdminUserIds();
     
     // Filter admins based on notification preferences (future feature)
-    const eligibleAdmins = adminIds; // For now, notify all admins
+    // For now, notify all users (which includes admins)
+    // TODO: Improve this to only notify actual admins/devs (requires Lambda or UserProfile field)
+    const eligibleAdmins = adminIds;
     
     if (eligibleAdmins.length > 0) {
       await notifyAdminsOfUserFileUpload(
         eligibleAdmins,
-        userName,
+        userUserId,
         fileName,
         folderPath
       );
       
-      console.log(`Notified ${eligibleAdmins.length} admins about file upload by ${userName}`);
+      console.log(`Notified ${eligibleAdmins.length} admins about file upload by user ${userUserId}`);
     }
   } catch (error) {
     console.error('Error notifying admins of file upload:', error);

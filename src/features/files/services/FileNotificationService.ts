@@ -1,41 +1,86 @@
-// src/services/FileNotificationService.ts
+// src/features/files/services/FileNotificationService.ts
 import { createNotification } from '../../notifications/services/NotificationService';
+import { fetchUserByUuid } from './fileService';
+
+/**
+ * Get user display name from UUID
+ */
+const getUserDisplayName = async (userId: string): Promise<string> => {
+  try {
+    const userProfile = await fetchUserByUuid(userId);
+    if (userProfile?.firstName && userProfile?.lastName) {
+      return `${userProfile.firstName} ${userProfile.lastName}`;
+    }
+    return userProfile?.email || userId;
+  } catch (error) {
+    console.error('Error fetching user display name:', error);
+    return userId;
+  }
+};
 
 /**
  * Creates a notification when an admin uploads a file for a user
  * @param userId User ID to notify
- * @param adminName Name of the admin who uploaded the file
+ * @param adminUserId Admin user ID who uploaded the file
  * @param fileName Name of the uploaded file
  * @param folderPath Path where the file was uploaded
  * @param fileLink Optional link to the file
  */
 export const notifyUserOfFileUpload = async (
   userId: string,
-  adminName: string,
+  adminUserId: string,
   fileName: string,
   folderPath: string,
   fileLink?: string
 ): Promise<void> => {
-  
   try {
-    await createNotification({
+    console.log('[notifyUserOfFileUpload] Starting notification creation', {
       userId,
-      type: 'file',
+      adminUserId,
+      fileName,
+      folderPath,
+      fileLink
+    });
+    
+    // Get admin display name
+    const adminName = await getUserDisplayName(adminUserId);
+    console.log('[notifyUserOfFileUpload] Admin display name:', adminName);
+    
+    // Ensure actionLink is never undefined
+    const actionLink = fileLink || `/user/folder/${getFolderNameFromPath(folderPath)}` || '/user';
+    
+    const notificationPayload = {
+      userId,
+      type: 'file' as const,
       title: 'New File Uploaded',
       message: `${adminName} has uploaded a new file "${fileName}" to your ${getFolderDisplayName(folderPath)} folder.`,
       isRead: false,
-      actionLink: fileLink || `/user/folder/${getFolderNameFromPath(folderPath)}`,
-      // Fix: Use object directly instead of stringifying
+      actionLink,
       metadata: {
         fileName,
         folderPath,
         uploadedBy: adminName,
+        uploadedByUserId: adminUserId,
         icon: 'file-earmark-arrow-up',
         color: 'success'
       }
+    };
+    
+    console.log('[notifyUserOfFileUpload] Notification payload:', notificationPayload);
+    
+    const result = await createNotification(notificationPayload);
+    console.log('[notifyUserOfFileUpload] Notification created successfully:', result.id);
+  } catch (error: any) {
+    console.error('[notifyUserOfFileUpload] Error creating file upload notification:', {
+      error,
+      errorMessage: error?.message,
+      errorType: error?.errorType,
+      graphQLErrors: error?.errors || error?.graphQLErrors,
+      userId,
+      adminUserId,
+      fileName,
+      folderPath
     });
-  } catch (error) {
-    console.error('Error creating file upload notification:', error);
     throw error;
   }
 };
@@ -43,39 +88,83 @@ export const notifyUserOfFileUpload = async (
 /**
  * Notifies all admins when a user uploads a file
  * @param adminIds Array of admin user IDs
- * @param userName Name of the user who uploaded the file
+ * @param userUserId User ID who uploaded the file
  * @param fileName Name of the uploaded file
  * @param folderPath Path where the file was uploaded
  */
 export const notifyAdminsOfUserFileUpload = async (
   adminIds: string[],
-  userName: string,
+  userUserId: string,
   fileName: string,
   folderPath: string
 ): Promise<void> => {
-  
   try {
+    console.log('[notifyAdminsOfUserFileUpload] Starting notification creation', {
+      adminIds,
+      userUserId,
+      fileName,
+      folderPath,
+      adminCount: adminIds.length
+    });
+    
+    // Get user display name
+    const userName = await getUserDisplayName(userUserId);
+    console.log('[notifyAdminsOfUserFileUpload] User display name:', userName);
+    
+    // Ensure actionLink is never undefined
+    const actionLink = `/admin/files?clientId=${userUserId}&path=${encodeURIComponent(folderPath)}` || '/admin';
+    
     // Create notification for each admin
-    await Promise.all(adminIds.map(adminId => 
-      createNotification({
+    const notificationPromises = adminIds.map(async (adminId, index) => {
+      const notificationPayload = {
         userId: adminId,
-        type: 'file',
+        type: 'file' as const,
         title: 'User File Upload',
         message: `${userName} has uploaded a new file "${fileName}" to their ${getFolderDisplayName(folderPath)} folder.`,
         isRead: false,
-        actionLink: `/admin/user-files/${userName}/${getFolderNameFromPath(folderPath)}`,
-        // Fix: Use object directly instead of stringifying
+        actionLink,
         metadata: {
           fileName,
           folderPath,
           uploadedBy: userName,
+          uploadedByUserId: userUserId,
           icon: 'file-earmark-arrow-up',
           color: 'info'
         }
-      })
-    ));
-  } catch (error) {
-    console.error('Error creating admin file upload notifications:', error);
+      };
+      
+      console.log(`[notifyAdminsOfUserFileUpload] Creating notification ${index + 1}/${adminIds.length} for admin:`, adminId);
+      
+      try {
+        const result = await createNotification(notificationPayload);
+        console.log(`[notifyAdminsOfUserFileUpload] Notification created successfully for admin ${adminId}:`, result.id);
+        return result;
+      } catch (err: any) {
+        console.error(`[notifyAdminsOfUserFileUpload] Failed to create notification for admin ${adminId}:`, {
+          error: err,
+          errorMessage: err?.message,
+          errorType: err?.errorType,
+          graphQLErrors: err?.errors || err?.graphQLErrors,
+          adminId,
+          notificationPayload
+        });
+        throw err;
+      }
+    });
+    
+    const results = await Promise.all(notificationPromises);
+    console.log(`[notifyAdminsOfUserFileUpload] Successfully created ${results.length} notifications`);
+  } catch (error: any) {
+    console.error('[notifyAdminsOfUserFileUpload] Error creating admin file upload notifications:', {
+      error,
+      errorMessage: error?.message,
+      errorType: error?.errorType,
+      graphQLErrors: error?.errors || error?.graphQLErrors,
+      adminIds,
+      userUserId,
+      fileName,
+      folderPath
+    });
     throw error;
   }
 };
