@@ -1,5 +1,5 @@
 import { defineBackend } from '@aws-amplify/backend';
-import { PolicyStatement, Effect, Role } from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement, Effect, ArnPrincipal } from 'aws-cdk-lib/aws-iam';
 import { FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
@@ -32,18 +32,13 @@ backend.adminSync.resources.lambda.addToRolePolicy(
 backend.adminSync.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
 
 // Grant authenticated Cognito users permission to invoke the Function URL
-// Add resource-based policy to allow authenticated users to invoke Function URL
-const accountId = backend.adminSync.resources.lambda.stack.account;
-// Cognito authenticated role ARN - this is the role that authenticated users assume
-const authenticatedRoleArn = `arn:aws:iam::${accountId}:role/Cognito_amplify-dcmp2wwnf9152Auth_Role`;
+// Use the authenticated user IAM role from the auth resource
+// In Amplify Gen 2, authenticated users assume this role when accessing AWS resources
+const authenticatedRoleArn = backend.auth.resources.authenticatedUserIamRole.roleArn;
 
 // Add permission for authenticated users to invoke Function URL
 backend.adminSync.resources.lambda.addPermission('AllowAuthenticatedInvokeFunctionUrl', {
-  principal: Role.fromRoleArn(
-    backend.adminSync.resources.lambda.stack,
-    'CognitoAuthenticatedRole',
-    authenticatedRoleArn
-  ),
+  principal: new ArnPrincipal(authenticatedRoleArn),
   action: 'lambda:InvokeFunctionUrl',
   functionUrlAuthType: FunctionUrlAuthType.AWS_IAM,
 });
