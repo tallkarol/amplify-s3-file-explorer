@@ -14,21 +14,35 @@ import {
   GetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
-// Merge the imported env with AWS environment variables into a single flat object.
-const clientEnv = {
-  ...env,
-  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID!,
-  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY!,
-  AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN!,
-  AWS_REGION: process.env.AWS_REGION!,
-  AMPLIFY_DATA_DEFAULT_NAME: process.env.AMPLIFY_DATA_DEFAULT_NAME!,
-};
+// Initialize Amplify Data client lazily to avoid initialization errors
+let dataClient: ReturnType<typeof generateClient<Schema>> | null = null;
 
-const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(clientEnv);
+async function getDataClient(): Promise<ReturnType<typeof generateClient<Schema>>> {
+  if (dataClient) {
+    return dataClient;
+  }
 
-Amplify.configure(resourceConfig, libraryOptions);
+  try {
+    // Merge the imported env with AWS environment variables into a single flat object.
+    const clientEnv = {
+      ...env,
+      AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
+      AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
+      AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN || '',
+      AWS_REGION: process.env.AWS_REGION || 'us-east-1',
+      AMPLIFY_DATA_DEFAULT_NAME: process.env.AMPLIFY_DATA_DEFAULT_NAME || 'default',
+    };
 
-const dataClient = generateClient<Schema>();
+    const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(clientEnv);
+    Amplify.configure(resourceConfig, libraryOptions);
+    dataClient = generateClient<Schema>();
+    console.log('Amplify Data client initialized successfully');
+    return dataClient;
+  } catch (error: any) {
+    console.error('Error initializing Amplify Data client:', error.message);
+    throw new Error(`Failed to initialize Amplify Data client: ${error.message}`);
+  }
+}
 
 // Initialize Cognito client
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
@@ -217,7 +231,8 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
         const isDeveloper = groups.includes('developer');
 
         // Find existing UserProfile by uuid
-        const profiles = await dataClient.models.UserProfile.list({
+        const client = await getDataClient();
+        const profiles = await client.models.UserProfile.list({
           filter: { uuid: { eq: userId } },
         });
 
@@ -226,7 +241,7 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
           
           // Only update if values have changed
           if (profile.isAdmin !== isAdmin || profile.isDeveloper !== isDeveloper) {
-            await dataClient.models.UserProfile.update({
+            await client.models.UserProfile.update({
               id: profile.id,
               isAdmin,
               isDeveloper,
@@ -319,13 +334,14 @@ async function updateUserAdminStatus(
     }
 
     // Update UserProfile
-    const profiles = await dataClient.models.UserProfile.list({
+    const client = await getDataClient();
+    const profiles = await client.models.UserProfile.list({
       filter: { uuid: { eq: userId } },
     });
 
     if (profiles.data && profiles.data.length > 0) {
       const profile = profiles.data[0];
-      await dataClient.models.UserProfile.update({
+      await client.models.UserProfile.update({
         id: profile.id,
         isAdmin,
         isDeveloper,

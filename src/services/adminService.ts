@@ -64,8 +64,10 @@ async function authenticatedFetch(url: string, options: RequestInit): Promise<Re
     },
   });
   
+  // Clone response for logging without consuming the body
   if (!response.ok) {
-    const errorText = await response.text();
+    const responseClone = response.clone();
+    const errorText = await responseClone.text().catch(() => 'Unable to read error response');
     console.error('[authenticatedFetch] Request failed:', {
       status: response.status,
       statusText: response.statusText,
