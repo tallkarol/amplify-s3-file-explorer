@@ -109,10 +109,14 @@ const schema = a.schema({
       canCreateSubfolders: a.boolean(),
       canDeleteFolder: a.boolean(),
       inheritFromParent: a.boolean(),
+      isVisible: a.boolean(),
       createdBy: a.string(),
       lastModifiedBy: a.string(),
     })
     .authorization((allow) => [
+      // Users can read their own permissions (for background checks)
+      allow.ownerDefinedIn('userId').to(['read']),
+      // Admin/dev can do everything
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
 

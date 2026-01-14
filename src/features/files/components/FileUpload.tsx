@@ -1,9 +1,11 @@
 // src/components/common/FileUpload.tsx
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { uploadData } from 'aws-amplify/storage';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import AlertMessage from '../../../components/common/AlertMessage';
 import { notifyUserOfFileUpload, notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
+import { canUploadToPath } from '../services/S3Service';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface FileUploadProps {
   currentPath: string;
@@ -19,12 +21,48 @@ const FileUpload = ({
   isAdmin = false
 }: FileUploadProps) => {
   const { user } = useAuthenticator();
+  const { isAdmin: userIsAdmin } = useUserRole();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [canUpload, setCanUpload] = useState<boolean>(true);
+  const [checkingPermissions, setCheckingPermissions] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check permissions when path or userId changes
+  useEffect(() => {
+    const checkPermissions = async () => {
+      // Admin/dev bypass permission checks
+      if (isAdmin || userIsAdmin) {
+        setCanUpload(true);
+        setCheckingPermissions(false);
+        return;
+      }
+
+      // Can't upload to root folder
+      if (currentPath === '/') {
+        setCanUpload(false);
+        setCheckingPermissions(false);
+        return;
+      }
+
+      setCheckingPermissions(true);
+      try {
+        const hasPermission = await canUploadToPath(userId, currentPath);
+        setCanUpload(hasPermission);
+      } catch (err) {
+        console.error('Error checking upload permissions:', err);
+        // Default to restrictive on error
+        setCanUpload(false);
+      } finally {
+        setCheckingPermissions(false);
+      }
+    };
+
+    checkPermissions();
+  }, [currentPath, userId, isAdmin, userIsAdmin]);
 
   // Handle file selection
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -53,6 +91,21 @@ const FileUpload = ({
   // Upload selected files
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
+    
+    // Defense in depth: Check permissions again before upload
+    if (!isAdmin && !userIsAdmin) {
+      try {
+        const hasPermission = await canUploadToPath(userId, currentPath);
+        if (!hasPermission) {
+          setError('You do not have permission to upload files to this folder.');
+          return;
+        }
+      } catch (err) {
+        console.error('Error verifying upload permissions:', err);
+        setError('Unable to verify upload permissions. Please try again.');
+        return;
+      }
+    }
     
     setIsUploading(true);
     setError(null);
@@ -155,6 +208,12 @@ const FileUpload = ({
       alert('Please navigate to a specific folder before uploading files. Uploading to the root folder is not allowed.');
       return;
     }
+
+    // Check permissions before opening dialog
+    if (!canUpload && !isAdmin && !userIsAdmin) {
+      setError('You do not have permission to upload files to this folder.');
+      return;
+    }
     
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -183,15 +242,25 @@ const FileUpload = ({
         className="d-none"
       />
       
-      {/* Upload button */}
-      <button 
-        className="btn btn-sm btn-primary"
-        onClick={openFileDialog}
-        disabled={isUploading}
-      >
-        <i className="bi bi-upload me-1"></i>
-        Upload
-      </button>
+      {/* Upload button - hidden if no permission */}
+      {checkingPermissions ? (
+        <button 
+          className="btn btn-sm btn-secondary"
+          disabled
+        >
+          <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          Checking...
+        </button>
+      ) : canUpload || isAdmin || userIsAdmin ? (
+        <button 
+          className="btn btn-sm btn-primary"
+          onClick={openFileDialog}
+          disabled={isUploading}
+        >
+          <i className="bi bi-upload me-1"></i>
+          Upload
+        </button>
+      ) : null}
       
       {/* Clean Bootstrap modal */}
       {showModal && (

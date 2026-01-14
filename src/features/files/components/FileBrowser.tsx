@@ -1,7 +1,7 @@
 // src/features/files/components/FileBrowser.tsx
 import React, { useState, useEffect } from 'react';
 import { S3Item, BreadcrumbItem } from '@/types';
-import { listUserFiles, getFileUrl } from '../services/S3Service';
+import { listUserFiles, getFileUrl, canUploadToPath, isFolderVisible } from '../services/S3Service';
 import Card from '@/components/common/Card';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
@@ -9,6 +9,7 @@ import Breadcrumb from '@/components/common/Breadcrumb';
 import FileUpload from './FileUpload';
 import DragDropUpload from '@/components/common/DragDropUpload';
 import DragDropInfo from '@/components/common/DragDropInfo';
+import { useUserRole } from '@/hooks/useUserRole';
 import '@/styles/dragdrop.css';
 import '../styles/filebrowser.css'; // We'll create this file for the document styling
 
@@ -39,11 +40,13 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
   onPathChange,
   onNavigateBack
 }) => {
+  const { isAdmin: userIsAdmin } = useUserRole();
   const [files, setFiles] = useState<S3Item[]>([]);
   const [currentPath, setCurrentPath] = useState<string>(initialPath);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
+  const [canUpload, setCanUpload] = useState<boolean>(true);
 
   // Initialize path from props
   useEffect(() => {
@@ -57,6 +60,34 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
     }
   }, [userId, currentPath]);
 
+  // Check upload permissions when path changes
+  useEffect(() => {
+    const checkUploadPermissions = async () => {
+      // Admin/dev bypass permission checks
+      if (isAdmin || userIsAdmin) {
+        setCanUpload(true);
+        return;
+      }
+
+      // Can't upload to root folder
+      if (currentPath === '/') {
+        setCanUpload(false);
+        return;
+      }
+
+      try {
+        const hasPermission = await canUploadToPath(userId, currentPath);
+        setCanUpload(hasPermission);
+      } catch (err) {
+        console.error('Error checking upload permissions:', err);
+        // Default to restrictive on error
+        setCanUpload(false);
+      }
+    };
+
+    checkUploadPermissions();
+  }, [currentPath, userId, isAdmin, userIsAdmin]);
+
   // Function to fetch files from S3
   const fetchFiles = async () => {
     setLoading(true);
@@ -64,7 +95,25 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
     
     try {
       const items = await listUserFiles(userId, currentPath);
-      setFiles(items);
+      
+      // Filter folders by visibility for regular users (admin/dev see all)
+      let filteredItems = items;
+      if (!isAdmin && !userIsAdmin) {
+        const visibilityChecks = await Promise.all(
+          items.map(async (item) => {
+            if (item.isFolder && item.name !== '..') {
+              const visible = await isFolderVisible(userId, item.key);
+              return { item, visible };
+            }
+            return { item, visible: true }; // Files are always visible
+          })
+        );
+        filteredItems = visibilityChecks
+          .filter(({ visible }) => visible)
+          .map(({ item }) => item);
+      }
+      
+      setFiles(filteredItems);
       updateBreadcrumbs(currentPath);
     } catch (err) {
       console.error('Error loading files:', err);
@@ -186,7 +235,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
   };
 
   // Determine if drag and drop should be disabled
-  const isDragDropDisabled = currentPath === '/';
+  const isDragDropDisabled = currentPath === '/' || (!canUpload && !isAdmin && !userIsAdmin);
 
   // Get file icon based on file type
   const getFileIcon = (file: S3Item) => {
@@ -301,14 +350,14 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
                 Refresh
               </button>
               
-              {currentPath !== '/' ? (
+              {currentPath !== '/' && (canUpload || isAdmin || userIsAdmin) ? (
                 <FileUpload
                   currentPath={currentPath}
                   userId={userId}
                   onUploadComplete={handleActionComplete}
-                  isAdmin={isAdmin}
+                  isAdmin={isAdmin || userIsAdmin}
                 />
-              ) : (
+              ) : currentPath === '/' ? (
                 <button 
                   className="btn btn-sm btn-secondary"
                   title="Please navigate to a specific folder to upload files"
@@ -317,7 +366,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
                   <i className="bi bi-upload me-1"></i>
                   Upload
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
           
@@ -400,14 +449,14 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
               message={currentPath === '/' 
                 ? "This is the root folder. Please navigate to a specific folder to upload files." 
                 : "This folder is empty. Upload files to get started or drag & drop files here."}
-              action={currentPath !== '/' && (
+              action={currentPath !== '/' && (canUpload || isAdmin || userIsAdmin) ? (
                 <FileUpload
                   currentPath={currentPath}
                   userId={userId}
                   onUploadComplete={handleActionComplete}
-                  isAdmin={isAdmin}
+                  isAdmin={isAdmin || userIsAdmin}
                 />
-              )}
+              ) : undefined}
             />
           )}
         </DragDropUpload>

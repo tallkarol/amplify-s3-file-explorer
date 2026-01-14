@@ -26,11 +26,13 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
     uploadRestricted: false,
     canCreateSubfolders: true,
     canDeleteFolder: true,
-    inheritFromParent: true
+    inheritFromParent: true,
+    isVisible: true
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
@@ -40,6 +42,7 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
   const loadPermissions = async () => {
     setLoading(true);
     setError(null);
+    setSuccess(null);
     
     try {
       const existingPermissions = await getFolderPermission(userId, currentPath);
@@ -55,12 +58,15 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
           uploadRestricted: false,
           canCreateSubfolders: true,
           canDeleteFolder: true,
-          inheritFromParent: true
+          inheritFromParent: true,
+          isVisible: true
         });
       }
       setHasChanges(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load permissions');
+    } catch (err: any) {
+      const errorMessage = err?.errors?.[0]?.message || err?.message || 'Failed to load permissions';
+      setError(`Error loading permissions: ${errorMessage}`);
+      console.error('Error loading folder permissions:', err);
     } finally {
       setLoading(false);
     }
@@ -77,6 +83,7 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const currentUser = await getCurrentUser();
@@ -87,12 +94,20 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
 
       setPermissions(updatedPermissions);
       setHasChanges(false);
+      setSuccess('Permissions saved successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess(null);
+      }, 3000);
       
       if (onPermissionsChange) {
         onPermissionsChange(updatedPermissions);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save permissions');
+    } catch (err: any) {
+      const errorMessage = err?.errors?.[0]?.message || err?.message || 'Failed to save permissions';
+      setError(`Error saving permissions: ${errorMessage}`);
+      console.error('Error saving folder permissions:', err);
     } finally {
       setSaving(false);
     }
@@ -136,9 +151,16 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
       </div>
 
       {error && (
-        <Alert variant="danger" className="mb-3">
+        <Alert variant="danger" className="mb-3" dismissible onClose={() => setError(null)}>
           <i className="bi bi-exclamation-triangle me-2"></i>
           {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert variant="success" className="mb-3" dismissible onClose={() => setSuccess(null)}>
+          <i className="bi bi-check-circle me-2"></i>
+          {success}
         </Alert>
       )}
 
@@ -227,23 +249,47 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
           </Col>
         </Row>
 
-        <div className="permission-group mb-3">
-          <h6 className="permission-group-title">
-            <i className="bi bi-arrow-up me-2"></i>
-            Inheritance
-          </h6>
-          <Form.Check
-            type="switch"
-            id="inherit-from-parent"
-            label="Inherit permissions from parent folder"
-            checked={permissions.inheritFromParent}
-            onChange={(e) => handlePermissionChange('inheritFromParent', e.target.checked)}
-            className="mb-2"
-          />
-          <small className="text-muted">
-            When enabled, this folder inherits permissions from its parent
-          </small>
-        </div>
+        <Row>
+          <Col md={6}>
+            <div className="permission-group mb-3">
+              <h6 className="permission-group-title">
+                <i className="bi bi-eye me-2"></i>
+                Visibility
+              </h6>
+              <Form.Check
+                type="switch"
+                id="is-visible"
+                label="Make folder visible to user"
+                checked={permissions.isVisible}
+                onChange={(e) => handlePermissionChange('isVisible', e.target.checked)}
+                className="mb-2"
+              />
+              <small className="text-muted">
+                When enabled, users can see this folder in their file browser
+              </small>
+            </div>
+          </Col>
+
+          <Col md={6}>
+            <div className="permission-group mb-3">
+              <h6 className="permission-group-title">
+                <i className="bi bi-arrow-up me-2"></i>
+                Inheritance
+              </h6>
+              <Form.Check
+                type="switch"
+                id="inherit-from-parent"
+                label="Inherit permissions from parent folder"
+                checked={permissions.inheritFromParent}
+                onChange={(e) => handlePermissionChange('inheritFromParent', e.target.checked)}
+                className="mb-2"
+              />
+              <small className="text-muted">
+                When enabled, this folder inherits permissions from its parent
+              </small>
+            </div>
+          </Col>
+        </Row>
 
         <div className="d-flex gap-2">
           <Button 

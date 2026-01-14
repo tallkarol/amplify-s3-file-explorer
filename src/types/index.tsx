@@ -168,6 +168,7 @@ export interface FolderPermissions {
   canCreateSubfolders: boolean;
   canDeleteFolder: boolean;
   inheritFromParent: boolean;
+  isVisible: boolean;
   createdBy?: string;
   lastModifiedBy?: string;
   createdAt?: string;

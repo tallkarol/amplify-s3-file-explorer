@@ -1,0 +1,13 @@
+/* Folder Row Styles */
+.folder-row {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.folder-row:hover {
+  background-color: #f8f9fa !important;
+}
+
+.folder-row:last-child {
+  border-bottom: none;
+}

@@ -8,10 +8,12 @@ import EmptyState from '../../../components/common/EmptyState';
 import DragDropUpload from '../../../components/common/DragDropUpload'; // Fixed import path
 import FolderPermissionsPanel from './FolderPermissionsPanel';
 import CreateSubfolderModal from './CreateSubfolderModal';
+import FolderRow from './FolderRow';
 import { UserProfile } from '../../../types';
 import { 
   EnhancedS3Item, 
-  listUserFilesWithPermissions, 
+  listUserFilesWithPermissions,
+  listUserFiles,
   deleteFolderWithPermissions, 
   canDownloadFromPath,
   getFileUrl,
@@ -42,6 +44,7 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
   const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [folderFileCounts, setFolderFileCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchFiles();
@@ -61,6 +64,24 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
     try {
       const items = await listUserFilesWithPermissions(selectedUser.uuid, currentPath);
       setFiles(items);
+      
+      // Get file counts for folders
+      const folderItems = items.filter(item => item.isFolder && item.name !== '..');
+      const counts: Record<string, number> = {};
+      
+      await Promise.all(
+        folderItems.map(async (folder) => {
+          try {
+            const folderFiles = await listUserFiles(selectedUser.uuid, folder.key);
+            counts[folder.key] = folderFiles.filter(item => !item.isFolder).length;
+          } catch (error) {
+            console.error(`Error getting file count for ${folder.name}:`, error);
+            counts[folder.key] = 0;
+          }
+        })
+      );
+      
+      setFolderFileCounts(counts);
     } catch (err) {
       console.error('Error fetching files:', err);
       setError(`Failed to load files: ${err instanceof Error ? err.message : String(err)}`);
@@ -171,6 +192,9 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
   };
 
   const isDragDropDisabled = currentPath === '/' || !selectedUser;
+
+  const folders = files.filter(f => f.isFolder && f.name !== '..');
+  const fileItems = files.filter(f => !f.isFolder || f.name === '..');
 
   const getTitleFromPath = () => {
     if (currentPath === '/') {
@@ -491,45 +515,54 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
             onUploadComplete={handleActionComplete}
             disabled={isDragDropDisabled}
           >
-            <div className="table-responsive">
-              <table className="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Size</th>
-                    <th>Modified</th>
-                    <th>Permissions</th>
-                    <th style={{ width: '120px' }}>Actions</th> {/* Fixed: use style instead of width prop */}
-                  </tr>
-                </thead>
+            {/* Folders in rows */}
+            {folders.length > 0 && (
+              <div className="border rounded mb-3 bg-white">
+                {folders.map((folder) => (
+                  <FolderRow
+                    key={folder.key}
+                    folder={folder}
+                    onClick={() => navigateToFolder(folder.key)}
+                    onAction={(action) => {
+                      if (action === 'manage') {
+                        setShowPermissionsPanel(true);
+                      }
+                    }}
+                    showActions={true}
+                    fileCount={folderFileCounts[folder.key]}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Files in table */}
+            {fileItems.length > 0 && (
+              <div className="table-responsive">
+                <table className="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Type</th>
+                      <th>Size</th>
+                      <th>Modified</th>
+                      <th>Permissions</th>
+                      <th style={{ width: '120px' }}>Actions</th>
+                    </tr>
+                  </thead>
                 <tbody>
-                  {files.map((file, index) => (
+                  {fileItems.map((file, index) => (
                     <tr key={index}>
                       <td>
                         <div className="d-flex align-items-center">
                           <i className={`bi bi-${getFileIcon(file)} me-2 text-${getFileColor(file)}`}></i>
-                          <span 
-                            className={file.isFolder ? 'fw-bold' : ''}
-                            style={{ cursor: file.isFolder ? 'pointer' : 'default' }}
-                            onClick={() => file.isFolder && navigateToFolder(file.key)}
-                          >
-                            {file.name}
-                          </span>
-                          {file.isProtected && (
-                            <i className="bi bi-shield-fill-check ms-2 text-danger" title="Protected folder"></i>
-                          )}
+                          <span>{file.name}</span>
                         </div>
                       </td>
                       <td>
-                        {file.isFolder ? (
-                          <span className="badge bg-primary">Folder</span>
-                        ) : (
-                          <span className="badge bg-secondary">File</span>
-                        )}
+                        <span className="badge bg-secondary">File</span>
                       </td>
                       <td>
-                        {file.isFolder ? '-' : formatFileSize(file.size)}
+                        {formatFileSize(file.size)}
                       </td>
                       <td>
                         {formatDate(file.lastModified)}
@@ -546,11 +579,6 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
                               <i className="bi bi-upload"></i>
                             </span>
                           )}
-                          {!file.permissions?.canCreateSubfolders && file.isFolder && (
-                            <span className="badge bg-secondary" title="Cannot create subfolders">
-                              <i className="bi bi-folder-x"></i>
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td>
@@ -559,7 +587,7 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
                     </tr>
                   ))}
                   
-                  {files.length === 0 && (
+                  {fileItems.length === 0 && folders.length === 0 && (
                     <tr>
                       <td colSpan={6} className="text-center py-4 text-muted">
                         <i className="bi bi-folder-x mb-2 d-block" style={{ fontSize: '2rem' }}></i>
@@ -570,6 +598,14 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
                 </tbody>
               </table>
             </div>
+            )}
+
+            {files.length === 0 && folders.length === 0 && (
+              <div className="text-center py-4 text-muted">
+                <i className="bi bi-folder-x mb-2 d-block" style={{ fontSize: '2rem' }}></i>
+                This folder is empty
+              </div>
+            )}
           </DragDropUpload>
         )}
       </Card>

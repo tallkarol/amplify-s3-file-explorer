@@ -49,6 +49,7 @@ export interface FolderPermissions {
   canCreateSubfolders: boolean;
   canDeleteFolder: boolean;
   inheritFromParent: boolean;
+  isVisible: boolean;
   createdBy?: string;
   lastModifiedBy?: string;
   createdAt?: string;
@@ -68,6 +69,7 @@ const listFolderPermissionsQuery = /* GraphQL */ `
         canCreateSubfolders
         canDeleteFolder
         inheritFromParent
+        isVisible
         createdBy
         lastModifiedBy
         createdAt
@@ -95,6 +97,7 @@ const getFolderPermissionQuery = /* GraphQL */ `
         canCreateSubfolders
         canDeleteFolder
         inheritFromParent
+        isVisible
         createdBy
         lastModifiedBy
         createdAt
@@ -134,6 +137,7 @@ const updateFolderPermissionMutation = /* GraphQL */ `
       canCreateSubfolders
       canDeleteFolder
       inheritFromParent
+      isVisible
       lastModifiedBy
       updatedAt
     }
@@ -205,6 +209,7 @@ export const setFolderPermissions = async (permissions: Omit<FolderPermissions, 
             canCreateSubfolders: permissions.canCreateSubfolders,
             canDeleteFolder: permissions.canDeleteFolder,
             inheritFromParent: permissions.inheritFromParent,
+            isVisible: permissions.isVisible,
             lastModifiedBy: permissions.lastModifiedBy
           }
         },
@@ -259,7 +264,7 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
     // If inheriting from parent or no permissions set, traverse up the path
     const pathParts = folderPath.split('/').filter(Boolean);
     
-    // Default permissions if none found
+    // Default permissions if none found (permissive defaults)
     const defaultPermissions: FolderPermissions = {
       userId,
       folderPath,
@@ -267,7 +272,8 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
       uploadRestricted: false,
       canCreateSubfolders: true,
       canDeleteFolder: true,
-      inheritFromParent: true
+      inheritFromParent: true,
+      isVisible: true
     };
 
     // Check parent folders
@@ -285,9 +291,31 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
     }
 
     return defaultPermissions;
-  } catch (error) {
+  } catch (error: any) {
+    // Check if it's an authorization error
+    const isAuthError = error?.errors?.some((e: any) => 
+      e.errorType === 'Unauthorized' || 
+      e.message?.includes('Not Authorized') ||
+      e.message?.includes('unauthorized')
+    );
+    
+    if (isAuthError) {
+      console.warn('Authorization error getting folder permissions - returning restrictive defaults:', error);
+      // Return restrictive defaults on authorization error (fail secure)
+      return {
+        userId,
+        folderPath,
+        downloadRestricted: true,
+        uploadRestricted: true,
+        canCreateSubfolders: false,
+        canDeleteFolder: false,
+        inheritFromParent: true,
+        isVisible: false
+      };
+    }
+    
     console.error('Error getting effective folder permissions:', error);
-    // Return safe defaults on error
+    // Return safe defaults on other errors (permissive to avoid breaking existing functionality)
     return {
       userId,
       folderPath,
@@ -295,7 +323,8 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
       uploadRestricted: false,
       canCreateSubfolders: true,
       canDeleteFolder: !PROTECTED_FOLDERS.some(folder => folderPath.includes(folder)),
-      inheritFromParent: true
+      inheritFromParent: true,
+      isVisible: true
     };
   }
 };
@@ -731,11 +760,16 @@ export const deleteFolderWithPermissions = async (userId: string, folderPath: st
 
 /**
  * Check if user can upload to a specific path
+ * @param userId - The user ID
+ * @param path - The folder path (e.g., '/audit-report/')
+ * @returns true if user can upload to this folder
  */
 export const canUploadToPath = async (userId: string, path: string): Promise<boolean> => {
   try {
-    const parentPath = getParentPath(path);
-    const permissions = await getEffectiveFolderPermissions(userId, parentPath);
+    // Ensure path ends with slash for folder paths
+    const folderPath = path.endsWith('/') ? path : `${path}/`;
+    // Check permissions for the folder itself (permissions are set on folders)
+    const permissions = await getEffectiveFolderPermissions(userId, folderPath);
     return !permissions.uploadRestricted;
   } catch (error) {
     console.error('Error checking upload permissions:', error);
@@ -754,6 +788,20 @@ export const canDownloadFromPath = async (userId: string, path: string): Promise
   } catch (error) {
     console.error('Error checking download permissions:', error);
     return false;
+  }
+};
+
+/**
+ * Check if a folder is visible to a user
+ */
+export const isFolderVisible = async (userId: string, folderPath: string): Promise<boolean> => {
+  try {
+    const permissions = await getEffectiveFolderPermissions(userId, folderPath);
+    return permissions.isVisible;
+  } catch (error) {
+    console.error('Error checking folder visibility:', error);
+    // Default to visible on error to avoid breaking existing functionality
+    return true;
   }
 };
 

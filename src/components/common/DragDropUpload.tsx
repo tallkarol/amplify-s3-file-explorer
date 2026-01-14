@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect, DragEvent, ReactNode } from 'react';
 import { uploadData } from 'aws-amplify/storage';
 import AlertMessage from './AlertMessage';
+import { canUploadToPath } from '@/features/files/services/S3Service';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface DragDropUploadProps {
   currentPath: string;
@@ -18,17 +20,47 @@ const DragDropUpload = ({
   children, 
   disabled = false 
 }: DragDropUploadProps) => {
+  const { isAdmin } = useUserRole();
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [canUpload, setCanUpload] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   
   // Track drag counter to handle nested elements
   const dragCounter = useRef(0);
+
+  // Check permissions when path or userId changes
+  useEffect(() => {
+    const checkPermissions = async () => {
+      // Admin/dev bypass permission checks
+      if (isAdmin) {
+        setCanUpload(true);
+        return;
+      }
+
+      // Can't upload to root folder
+      if (currentPath === '/') {
+        setCanUpload(false);
+        return;
+      }
+
+      try {
+        const hasPermission = await canUploadToPath(userId, currentPath);
+        setCanUpload(hasPermission);
+      } catch (err) {
+        console.error('Error checking upload permissions:', err);
+        // Default to restrictive on error
+        setCanUpload(false);
+      }
+    };
+
+    checkPermissions();
+  }, [currentPath, userId, isAdmin]);
 
   // Set up event listeners for the entire document
   useEffect(() => {
@@ -58,7 +90,7 @@ const DragDropUpload = ({
     e.preventDefault();
     e.stopPropagation();
     
-    if (disabled || currentPath === '/') return;
+    if (disabled || currentPath === '/' || (!canUpload && !isAdmin)) return;
     
     dragCounter.current++;
     
@@ -84,14 +116,14 @@ const DragDropUpload = ({
     e.preventDefault();
     e.stopPropagation();
     
-    if (disabled || currentPath === '/') return;
+    if (disabled || currentPath === '/' || (!canUpload && !isAdmin)) return;
     
     // Set the drop effect
     e.dataTransfer.dropEffect = 'copy';
   };
 
   // Handle drop event
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -100,6 +132,21 @@ const DragDropUpload = ({
     setIsDragging(false);
     
     if (disabled || currentPath === '/') return;
+
+    // Check permissions before allowing drop
+    if (!isAdmin) {
+      try {
+        const hasPermission = await canUploadToPath(userId, currentPath);
+        if (!hasPermission) {
+          setError('You do not have permission to upload files to this folder.');
+          return;
+        }
+      } catch (err) {
+        console.error('Error verifying upload permissions:', err);
+        setError('Unable to verify upload permissions. Please try again.');
+        return;
+      }
+    }
     
     // Check if there are files to process
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -150,6 +197,21 @@ const DragDropUpload = ({
   // Upload selected files
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
+    
+    // Defense in depth: Check permissions again before upload
+    if (!isAdmin) {
+      try {
+        const hasPermission = await canUploadToPath(userId, currentPath);
+        if (!hasPermission) {
+          setError('You do not have permission to upload files to this folder.');
+          return;
+        }
+      } catch (err) {
+        console.error('Error verifying upload permissions:', err);
+        setError('Unable to verify upload permissions. Please try again.');
+        return;
+      }
+    }
     
     setIsUploading(true);
     setError(null);
