@@ -1,17 +1,27 @@
+/* Import Roboto font */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap');
+
 /* Sidebar styles */
 .sidebar {
-  width: 250px;
+  width: auto;
+  min-width: 250px;
+  max-width: 320px;
   height: 100vh;
   position: sticky;
   top: 0;
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease;
   color: #f8f9fa;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .sidebar.collapsed {
   width: 70px;
+  min-width: 70px;
+  max-width: 70px;
 }
 
 .sidebar-nav {
@@ -20,6 +30,42 @@
 
 .transition-width {
   transition: margin-left 0.3s ease;
+}
+
+.nav-link {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.nav-link span {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  flex: 1;
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.nav-link i {
+  font-size: 1.1rem;
+  width: 24px;
+  min-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 0.75rem;
 }
 
 .nav-link.active {
@@ -74,7 +120,11 @@
 .sidebar .dropdown-item {
   color: rgba(255, 255, 255, 0.75);
   padding: 0.5rem 1.5rem;
-  font-size: 0.9rem;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .sidebar .dropdown-item:hover, 
@@ -96,7 +146,11 @@
 /* Nested navigation items */
 .sidebar .nav-item .nav .nav-item .nav-link {
   padding-left: 2.5rem;
-  font-size: 0.9rem;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   opacity: 0.8;
   transition: all 0.2s ease;
 }
@@ -136,7 +190,11 @@
 .sidebar .dropdown-item {
   color: rgba(255, 255, 255, 0.75);
   padding: 0.5rem 1.5rem;
-  font-size: 0.9rem;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .sidebar .dropdown-item:hover, 
@@ -158,7 +216,11 @@
 /* Nested navigation items */
 .sidebar .nav-item .nav .nav-item .nav-link {
   padding-left: 2.5rem;
-  font-size: 0.9rem;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   opacity: 0.8;
   transition: all 0.2s ease;
 }
@@ -214,56 +276,7 @@
   --folder-color: #ffc107;
 }
 
-/* Notification/Inbox styling */
-.sidebar-notification {
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.sidebar-notification-link {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  color: rgba(255, 255, 255, 0.85);
-  text-decoration: none;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.sidebar-notification-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-.notification-icon-container {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.sidebar-notification-link:hover .notification-icon-container {
-  background-color: rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
-}
-
-.notification-icon {
-  font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.notification-label {
-  margin-left: 12px;
-  font-weight: 500;
-  font-size: 0.95rem;
-  flex-grow: 1;
-}
-
+/* Notification/Inbox styling - now uses standard nav-link pattern */
 .notification-badge {
   min-width: 20px;
   height: 20px;
@@ -277,39 +290,29 @@
   font-weight: 600;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   transition: all 0.2s ease;
-  margin-left: 8px;
+  flex-shrink: 0;
 }
 
-/* Special animation for notification indicator */
+.notification-badge-collapsed {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.65rem;
+}
+
+.notification-icon-clickable {
+  position: relative;
+}
+
+/* Special animation for notification indicator when unread */
 @keyframes pulse-notification {
   0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
   70% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
   100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
 }
 
-.notification-has-unread .notification-icon-container {
+.nav-link:has(.notification-icon-clickable) .notification-icon-clickable {
   animation: pulse-notification 2s infinite;
-}
-
-/* Collapsed sidebar notification styles */
-.sidebar.collapsed .sidebar-notification {
-  display: flex;
-  justify-content: center;
-  padding: 0.5rem 0;
-}
-
-.sidebar.collapsed .notification-badge {
-  position: absolute;
-  top: 0;
-  right: 8px;
-  min-width: 16px;
-  height: 16px;
-  font-size: 0.65rem;
-}
-
-.sidebar.collapsed .sidebar-notification-link {
-  padding: 0.5rem;
-  width: 44px;
-  display: flex;
-  justify-content: center;
 }

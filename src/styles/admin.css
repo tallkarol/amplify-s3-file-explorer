@@ -238,6 +238,42 @@
   color: var(--brand-accent);
 }
 
+/* Admin action cards */
+.admin-action-card {
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.admin-action-card-clients {
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+  border-left: 4px solid #4a90e2;
+}
+
+.admin-action-card-clients:hover {
+  background: linear-gradient(135deg, #f0f4ff 0%, #ffffff 100%);
+  border-left-color: #357abd;
+}
+
+.admin-action-icon-clients {
+  background-color: rgba(74, 144, 226, 0.1);
+  color: #4a90e2;
+}
+
+.admin-action-card-files {
+  background: linear-gradient(135deg, #fff8f5 0%, #ffffff 100%);
+  border-left: 4px solid #e67e22;
+}
+
+.admin-action-card-files:hover {
+  background: linear-gradient(135deg, #fff0e6 0%, #ffffff 100%);
+  border-left-color: #d35400;
+}
+
+.admin-action-icon-files {
+  background-color: rgba(230, 126, 34, 0.1);
+  color: #e67e22;
+}
+
 /* Stat cards */
 .stat-card {
   padding: 1.25rem;

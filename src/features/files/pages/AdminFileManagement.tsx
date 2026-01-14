@@ -1,197 +1,229 @@
-// src/pages/admin/AdminFileManagement.tsx
-import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { generateClient } from 'aws-amplify/api';
-import { GraphQLQuery } from '@aws-amplify/api';
+// src/features/files/pages/AdminFileManagement.tsx
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import Card from '@/components/common/Card';
-import AlertMessage from '@/components/common/AlertMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
-import FolderGrid from '../components/FolderGrid';
+import AlertMessage from '@/components/common/AlertMessage';
+import UserList from '@/features/clients/components/UserList';
+import FileExplorerTab from '@/features/clients/pages/FileExplorerTab';
 import { UserProfile } from '@/types';
+import { fetchAllClients } from '@/features/clients/services/clientService';
+import { FOLDER_DISPLAY_NAMES } from '../services/S3Service';
+import '@/features/clients/styles/adminclientmanagement.css';
 
-// Import the updated components
-import AdminFileBrowser from '../components/AdminFileBrowser';
-import UserSelector from '@/components/common/UserSelector';
-import UserAllFiles from '../components/UserAllFiles';
-
-interface ListUserProfilesResponse {
-  listUserProfiles: {
-    items: UserProfile[];
-  };
-}
-
-const AdminFileManagement = () => {
-  const location = useLocation();
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [currentPath, setCurrentPath] = useState<string>('/');
-  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+const AdminFileManagement: React.FC = () => {
+  const [clients, setClients] = useState<UserProfile[]>([]);
+  const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPath, setCurrentPath] = useState<string>('/');
   
-  // Create a client for making GraphQL requests
-  const client = generateClient();
-  
-  // Parse URL query parameters for userId
+  const [searchParams, setSearchParams] = useSearchParams();
+
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const userId = urlParams.get('userId');
+    loadClients();
     
-    if (userId) {
-      console.log('URL contains userId parameter:', userId);
-      fetchUserByUuid(userId);
-    } else {
-      setInitialLoading(false);
+    const clientId = searchParams.get('clientId');
+    const path = searchParams.get('path') || '/';
+    
+    if (clientId) {
+      // Will be set after clients are loaded
+      setCurrentPath(path);
     }
-  }, [location.search]);
-  
-  // Define query to fetch a specific user by UUID
-  const getUserByUuidQuery = /* GraphQL */ `
-    query GetUserByUuid($filter: ModelUserProfileFilterInput) {
-      listUserProfiles(filter: $filter, limit: 1) {
-        items {
-          id
-          email
-          uuid
-          profileOwner
-          firstName
-          lastName
-          companyName
-          createdAt
-        }
+  }, []);
+
+  useEffect(() => {
+    const clientId = searchParams.get('clientId');
+    const path = searchParams.get('path') || '/';
+    
+    if (clientId && clients.length > 0) {
+      const client = clients.find(c => c.uuid === clientId);
+      if (client) {
+        setSelectedClient(client);
+        setCurrentPath(path);
       }
+    } else {
+      setSelectedClient(null);
+      setCurrentPath('/');
     }
-  `;
-  
-  // Fetch user by UUID
-  const fetchUserByUuid = async (uuid: string) => {
-    setInitialLoading(true);
+  }, [clients, searchParams]);
+
+  const loadClients = async () => {
+    setLoading(true);
     setError(null);
     
     try {
-      console.log('Fetching user with UUID:', uuid);
-      
-      const response = await client.graphql<GraphQLQuery<ListUserProfilesResponse>>({
-        query: getUserByUuidQuery,
-        variables: {
-          filter: {
-            uuid: {
-              eq: uuid
-            }
-          }
-        },
-        authMode: 'userPool'
-      });
-      
-      console.log('Response from getUserByUuid:', response);
-      
-      const items = response?.data?.listUserProfiles?.items || [];
-      if (items.length > 0) {
-        console.log('User found:', items[0]);
-        setSelectedUser(items[0]);
-      } else {
-        console.log('No user found with UUID:', uuid);
-        setError(`No user found with ID: ${uuid}`);
-      }
+      const users = await fetchAllClients();
+      setClients(users);
     } catch (err) {
-      console.error('Error fetching user by UUID:', err);
-      setError(`Failed to load user: ${err instanceof Error ? err.message : String(err)}`);
+      setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {
-      setInitialLoading(false);
+      setLoading(false);
     }
   };
 
-  // Handle user selection from UserSelector
-  const handleUserSelect = (user: UserProfile | null) => {
-    console.log('User selected:', user);
-    setSelectedUser(user);
-    // Reset path to root when user changes
+  const handleClientSelect = (client: UserProfile) => {
+    setSelectedClient(client);
     setCurrentPath('/');
-  };
-  
-  // Handle folder selection from FolderGrid
-  const handleFolderSelect = (folderPath: string) => {
-    console.log('Folder selected:', folderPath);
-    setCurrentPath(folderPath);
-  };
-  
-  // Handle path change from AdminFileBrowser
-  const handlePathChange = (path: string) => {
-    console.log('Path changed to:', path);
-    setCurrentPath(path);
+    setSearchParams({ clientId: client.uuid, path: '/' });
   };
 
+  const clearClientSelection = () => {
+    setSelectedClient(null);
+    setCurrentPath('/');
+    setSearchParams({});
+  };
+
+  const handlePathChange = (path: string) => {
+    setCurrentPath(path);
+    if (selectedClient) {
+      setSearchParams({ clientId: selectedClient.uuid, path });
+    }
+  };
+
+  // Build breadcrumbs
+  const buildBreadcrumbs = () => {
+    const breadcrumbs: Array<{ label: string; path: string }> = [];
+    
+    // Always show "File Management" as first breadcrumb
+    breadcrumbs.push({
+      label: 'File Management',
+      path: '/admin/files'
+    });
+    
+    // If client is selected, add client name
+    if (selectedClient) {
+      breadcrumbs.push({
+        label: selectedClient.firstName || selectedClient.lastName || selectedClient.email,
+        path: `/admin/files?clientId=${selectedClient.uuid}&path=/`
+      });
+      
+      // Add folder path segments
+      if (currentPath && currentPath !== '/') {
+        const parts = currentPath.split('/').filter(Boolean);
+        let accumulatedPath = '';
+        
+        parts.forEach((part) => {
+          accumulatedPath += `/${part}`;
+          
+          // Use FOLDER_DISPLAY_NAMES if available, otherwise format the part name
+          const displayName = FOLDER_DISPLAY_NAMES[part] || part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' ');
+          
+          breadcrumbs.push({
+            label: displayName,
+            path: `/admin/files?clientId=${selectedClient.uuid}&path=${accumulatedPath}/`
+          });
+        });
+      }
+    }
+    
+    return breadcrumbs;
+  };
+
+  const breadcrumbs = buildBreadcrumbs();
+
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
+    <div className="admin-client-dashboard">
+      {/* Header */}
+      <div className="admin-client-header">
         <div>
-          <h2 className="mb-0">File Management</h2>
-          <p className="text-muted mb-0">
-            {selectedUser 
-              ? `Managing files for ${selectedUser.firstName || selectedUser.email}` 
-              : 'Select a client to manage their files'}
+          <h2 className="admin-client-title">
+            {selectedClient 
+              ? `Managing Files for ${selectedClient.firstName || selectedClient.lastName || selectedClient.email}` 
+              : 'File Management'}
+          </h2>
+          <p className="admin-client-subtitle">
+            {selectedClient 
+              ? `Client ID: ${selectedClient.uuid} • Browse and manage client files` 
+              : 'Select a client to browse and manage their files'}
           </p>
         </div>
+        {selectedClient && (
+          <button 
+            className="admin-client-back-button"
+            onClick={clearClientSelection}
+          >
+            <i className="bi bi-arrow-left me-2"></i>
+            Back to Client List
+          </button>
+        )}
       </div>
-      
-      {initialLoading ? (
-        <Card>
-          <LoadingSpinner text="Loading..." />
-        </Card>
-      ) : error ? (
-        <AlertMessage 
-          type="danger" 
-          message={error} 
-          dismissible 
-          onDismiss={() => setError(null)} 
-        />
-      ) : (
-        <div className="row">
-          {/* Left column - User selection */}
-          <div className="col-md-4 mb-4">
-            <UserSelector 
-              onUserSelect={handleUserSelect}
-              selectedUser={selectedUser}
-            />
-            
-            {!selectedUser && (
-              <Card title="Instructions" className="mt-3">
-                <div className="alert alert-info mb-0">
-                  <i className="bi bi-info-circle me-2"></i>
-                  Select a client from the list above to browse their files and folders.
-                </div>
-              </Card>
-            )}
-          </div>
-          
-          {/* Right column - File browser */}
-          <div className="col-md-8">
-            {selectedUser && (
-              <>
-                {/* For root path, show folder grid */}
-                {currentPath === '/' ? (
-                <>
-                  <Card title={`Folders for ${selectedUser.firstName || selectedUser.email}`}>
-                    <FolderGrid 
-                      userId={selectedUser.uuid}
-                      onSelectFolder={handleFolderSelect} 
-                    />
-                  </Card>
-                  <UserAllFiles 
-                    userId={selectedUser.uuid} 
-                    userName={selectedUser.firstName || selectedUser.email}
-                  />
-                </>
-                ) : (
-                  /* For non-root paths, show file browser */
-                    <AdminFileBrowser 
-                      selectedUser={selectedUser} 
-                      initialPath={currentPath}
-                      onPathChange={handlePathChange}
-                    />
-                )}
-              </>
-            )}
-          </div>
+
+      {/* Breadcrumbs */}
+      {breadcrumbs.length > 1 && (
+        <nav aria-label="breadcrumb" className="mb-3">
+          <ol className="breadcrumb mb-0">
+            {breadcrumbs.map((crumb, index) => {
+              const isLast = index === breadcrumbs.length - 1;
+              return (
+                <li 
+                  key={index}
+                  className={`breadcrumb-item ${isLast ? 'active' : ''}`}
+                  aria-current={isLast ? 'page' : undefined}
+                >
+                  {isLast ? (
+                    crumb.label
+                  ) : (
+                    <Link to={crumb.path} className="text-primary text-decoration-none">
+                      {crumb.label}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      )}
+
+      {loading && clients.length === 0 ? (
+        <div className="admin-client-loading">
+          <LoadingSpinner text="Loading clients..." />
         </div>
+      ) : error ? (
+        <div className="admin-client-error">
+          <AlertMessage 
+            type="danger" 
+            title="Error Loading Clients"
+            message={error}
+          />
+        </div>
+      ) : (
+        <>
+          {!selectedClient ? (
+            /* List View */
+            <div className="admin-client-list-container">
+              <Card>
+                <div className="mb-3">
+                  <h5>
+                    <i className="bi bi-people me-2"></i>
+                    All Clients ({clients.length})
+                  </h5>
+                  <p className="text-muted mb-0">
+                    Select a client to browse and manage their files and folders.
+                  </p>
+                </div>
+                
+                <UserList 
+                  users={clients}
+                  loading={loading}
+                  error={error}
+                  onViewDetails={handleClientSelect}
+                  variant="fileManagement"
+                  actionButtonText="Manage Files"
+                />
+              </Card>
+            </div>
+          ) : (
+            /* Detail View - File Explorer */
+            <div className="admin-client-tab-content">
+              <FileExplorerTab 
+                client={selectedClient}
+                onPathChange={handlePathChange}
+                initialPath={currentPath}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

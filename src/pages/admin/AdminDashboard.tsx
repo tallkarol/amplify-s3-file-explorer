@@ -98,42 +98,34 @@ const AdminHome = () => {
       ) : (
         <>
           
-          {/* Quick action row */}
+          {/* Quick action row - 2 column grid */}
           <div className="row g-4 mb-4">
-            <div className="col-lg-12">
-              <div className="card h-100">
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">Quick Actions</h5>
-                  <span className="badge bg-primary">Management Tools</span>
-                </div>
-                <div className="card-body p-0">
-                  <div className="row g-0">
-                    <div className="col-md-4 p-3 border-end">
-                      <Link to="/admin/clients" className="d-block text-decoration-none">
-                        <div className="text-center py-4 px-2 rounded hover-transform">
-                          <div className="overview-card-icon mx-auto bg-light">
-                            <i className="bi bi-people text-primary"></i>
-                          </div>
-                          <h5 className="mt-3 mb-1">Client Management</h5>
-                          <p className="text-muted small mb-0">Manage clients and accounts</p>
-                        </div>
-                      </Link>
+            <div className="col-lg-6">
+              <Link to="/admin/clients" className="text-decoration-none">
+                <div className="card h-100 hover-transform admin-action-card admin-action-card-clients">
+                  <div className="card-body text-center p-4">
+                    <div className="overview-card-icon mx-auto mb-3 admin-action-icon-clients">
+                      <i className="bi bi-people"></i>
                     </div>
-                    
-                    <div className="col-md-6 p-3 border-end">
-                      <Link to="/admin/files" className="d-block text-decoration-none">
-                        <div className="text-center py-4 px-2 rounded hover-transform">
-                          <div className="overview-card-icon mx-auto bg-light">
-                            <i className="bi bi-folder text-primary"></i>
-                          </div>
-                          <h5 className="mt-3 mb-1">File Management</h5>
-                          <p className="text-muted small mb-0">Browse and manage files</p>
-                        </div>
-                      </Link>
-                    </div>
+                    <h5 className="mb-2">Client Management</h5>
+                    <p className="text-muted mb-0">Manage clients and accounts</p>
                   </div>
                 </div>
-              </div>
+              </Link>
+            </div>
+            
+            <div className="col-lg-6">
+              <Link to="/admin/files" className="text-decoration-none">
+                <div className="card h-100 hover-transform admin-action-card admin-action-card-files">
+                  <div className="card-body text-center p-4">
+                    <div className="overview-card-icon mx-auto mb-3 admin-action-icon-files">
+                      <i className="bi bi-folder"></i>
+                    </div>
+                    <h5 className="mb-2">File Management</h5>
+                    <p className="text-muted mb-0">Browse and manage files</p>
+                  </div>
+                </div>
+              </Link>
             </div>
             
             {/* <div className="col-lg-4">

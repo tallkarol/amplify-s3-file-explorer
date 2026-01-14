@@ -1,29 +1,129 @@
 // src/components/admin/UserList.tsx
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import AlertMessage from '@/components/common/AlertMessage';
 import { UserProfile } from '@/types';
 import UserStatusBadge from '@/components/common/UserStatusBadge';
-
+import { listUserFiles } from '@/features/files/services/S3Service';
 
 interface UserListProps {
   users: UserProfile[];
   loading: boolean;
   error: string | null;
   onViewDetails: (user: UserProfile) => void;
+  variant?: 'default' | 'fileManagement';
+  actionButtonText?: string;
 }
 
-type SortField = 'email' | 'createdAt' | 'lastLogin';
+interface UserFileStats {
+  fileCount: number;
+  folderCount: number;
+  loading: boolean;
+}
+
+type SortField = 'email' | 'createdAt' | 'lastLogin' | 'fileCount' | 'folderCount';
 type SortDirection = 'asc' | 'desc';
 
-const UserList = ({ users, loading, error, onViewDetails }: UserListProps) => {
+const UserList = ({ 
+  users, 
+  loading, 
+  error, 
+  onViewDetails, 
+  variant = 'default',
+  actionButtonText 
+}: UserListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<SortField>('email');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useState<SortField>(variant === 'fileManagement' ? 'fileCount' : 'email');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [userStats, setUserStats] = useState<Record<string, UserFileStats>>({});
+  const hasFetchedStats = useRef(false);
   const itemsPerPage = 10;
   
+  // Recursively count files and folders for a user
+  const countFilesAndFoldersRecursively = async (userId: string, path: string = '/'): Promise<{ fileCount: number; folderCount: number }> => {
+    try {
+      const items = await listUserFiles(userId, path);
+      
+      // Filter out parent folder navigation item
+      const filteredItems = items.filter(item => item.name !== '..');
+      
+      // Count files and folders at this level
+      let fileCount = filteredItems.filter(item => !item.isFolder).length;
+      let folderCount = filteredItems.filter(item => item.isFolder).length;
+      
+      // Recursively count files and folders in subfolders
+      const subfolders = filteredItems.filter(item => item.isFolder);
+      for (const subfolder of subfolders) {
+        // Use the key directly - it should already be in the format /folder-name/
+        // But ensure it starts with / and ends with /
+        let subfolderPath = subfolder.key;
+        
+        // If key includes the full S3 path, extract just the relative path
+        const userPrefix = `users/${userId}/`;
+        if (subfolderPath.startsWith(userPrefix)) {
+          subfolderPath = '/' + subfolderPath.substring(userPrefix.length);
+        }
+        
+        // Ensure it starts with / and ends with /
+        if (!subfolderPath.startsWith('/')) {
+          subfolderPath = '/' + subfolderPath;
+        }
+        if (!subfolderPath.endsWith('/')) {
+          subfolderPath += '/';
+        }
+        
+        const subfolderStats = await countFilesAndFoldersRecursively(userId, subfolderPath);
+        fileCount += subfolderStats.fileCount;
+        folderCount += subfolderStats.folderCount;
+      }
+      
+      return { fileCount, folderCount };
+    } catch (err) {
+      console.error(`Error counting files/folders for path ${path}:`, err);
+      return { fileCount: 0, folderCount: 0 };
+    }
+  };
+
+  // Fetch file/folder counts for file management variant (only once on page load)
+  useEffect(() => {
+    if (variant === 'fileManagement' && users.length > 0 && !hasFetchedStats.current) {
+      hasFetchedStats.current = true;
+      
+      const fetchStats = async () => {
+        const stats: Record<string, UserFileStats> = {};
+        
+        // Initialize all users with loading state
+        users.forEach(user => {
+          stats[user.uuid] = { fileCount: 0, folderCount: 0, loading: true };
+        });
+        setUserStats(stats);
+        
+        // Fetch stats for each user
+        await Promise.all(
+          users.map(async (user) => {
+            try {
+              const counts = await countFilesAndFoldersRecursively(user.uuid, '/');
+              stats[user.uuid] = { 
+                fileCount: counts.fileCount, 
+                folderCount: counts.folderCount, 
+                loading: false 
+              };
+            } catch (err) {
+              console.error(`Error fetching stats for user ${user.uuid}:`, err);
+              stats[user.uuid] = { fileCount: 0, folderCount: 0, loading: false };
+            }
+          })
+        );
+        
+        setUserStats({ ...stats });
+      };
+      
+      fetchStats();
+    }
+  }, [users, variant]);
+
   // Filter users based on search term
   const filteredUsers = users.filter(user => {
     const searchLower = searchTerm.toLowerCase();
@@ -50,6 +150,14 @@ const UserList = ({ users, loading, error, onViewDetails }: UserListProps) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0; // Using createdAt as placeholder
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+    } else if (sortField === 'fileCount') {
+      const countA = userStats[a.uuid]?.fileCount || 0;
+      const countB = userStats[b.uuid]?.fileCount || 0;
+      return sortDirection === 'asc' ? countA - countB : countB - countA;
+    } else if (sortField === 'folderCount') {
+      const countA = userStats[a.uuid]?.folderCount || 0;
+      const countB = userStats[b.uuid]?.folderCount || 0;
+      return sortDirection === 'asc' ? countA - countB : countB - countA;
     }
     return 0;
   });
@@ -165,47 +273,94 @@ const UserList = ({ users, loading, error, onViewDetails }: UserListProps) => {
                       <i className={`bi bi-sort-${sortDirection === 'asc' ? 'down' : 'up'} ms-1`}></i>
                     )}
                   </th>
-                  <th>Name</th>
-                  <th onClick={() => handleSort('createdAt')} style={{ cursor: 'pointer' }}>
-                    Joined
-                    {sortField === 'createdAt' && (
-                      <i className={`bi bi-sort-${sortDirection === 'asc' ? 'down' : 'up'} ms-1`}></i>
-                    )}
-                  </th>
-                  <th onClick={() => handleSort('lastLogin')} style={{ cursor: 'pointer' }}>
+                  {variant === 'fileManagement' ? (
+                    <>
+                      <th onClick={() => handleSort('fileCount')} style={{ cursor: 'pointer' }} className="text-center">
+                        File Count
+                        {sortField === 'fileCount' && (
+                          <i className={`bi bi-sort-${sortDirection === 'asc' ? 'down' : 'up'} ms-1`}></i>
+                        )}
+                      </th>
+                      <th onClick={() => handleSort('folderCount')} style={{ cursor: 'pointer' }} className="text-center">
+                        Folder Count
+                        {sortField === 'folderCount' && (
+                          <i className={`bi bi-sort-${sortDirection === 'asc' ? 'down' : 'up'} ms-1`}></i>
+                        )}
+                      </th>
+                    </>
+                  ) : (
+                    <>
+                      <th>Name</th>
+                      <th onClick={() => handleSort('createdAt')} style={{ cursor: 'pointer' }}>
+                        Joined
+                        {sortField === 'createdAt' && (
+                          <i className={`bi bi-sort-${sortDirection === 'asc' ? 'down' : 'up'} ms-1`}></i>
+                        )}
+                      </th>
+                    </>
+                  )}
+                  <th onClick={() => handleSort('lastLogin')} style={{ cursor: 'pointer' }} className="text-center">
                     Last Login
                     {sortField === 'lastLogin' && (
                       <i className={`bi bi-sort-${sortDirection === 'asc' ? 'down' : 'up'} ms-1`}></i>
                     )}
                   </th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th className="text-center">Status</th>
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedUsers.map(user => (
-                  <tr 
-                    key={user.id} 
-                    onContextMenu={(e) => handleContextMenu(e, user)}
-                    style={{ cursor: 'context-menu' }}
-                  >
-                    <td>{user.email}</td>
-                    <td>{[user.firstName, user.lastName].filter(Boolean).join(' ') || '-'}</td>
-                    <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</td>
-                    <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Never'}</td>
-                    <td>
-        <UserStatusBadge status={user.status} />
-      </td>
-      <td>
-        <button 
-          className="btn btn-md btn-primary"
-          onClick={() => onViewDetails(user)}
-        >
-          Manage Client
-        </button>
-      </td>
-    </tr>
-                ))}
+                {paginatedUsers.map(user => {
+                  const stats = userStats[user.uuid];
+                  return (
+                    <tr 
+                      key={user.id} 
+                      onContextMenu={(e) => handleContextMenu(e, user)}
+                      style={{ cursor: 'context-menu' }}
+                    >
+                      <td>{user.email}</td>
+                      {variant === 'fileManagement' ? (
+                        <>
+                          <td className="text-center">
+                            {stats?.loading ? (
+                              <span className="spinner-border spinner-border-sm" role="status">
+                                <span className="visually-hidden">Loading...</span>
+                              </span>
+                            ) : (
+                              <span className="badge bg-info">{stats?.fileCount || 0}</span>
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {stats?.loading ? (
+                              <span className="spinner-border spinner-border-sm" role="status">
+                                <span className="visually-hidden">Loading...</span>
+                              </span>
+                            ) : (
+                              <span className="badge bg-primary">{stats?.folderCount || 0}</span>
+                            )}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{[user.firstName, user.lastName].filter(Boolean).join(' ') || '-'}</td>
+                          <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}</td>
+                        </>
+                      )}
+                      <td className="text-center">{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Never'}</td>
+                      <td className="text-center">
+                        <UserStatusBadge status={user.status} />
+                      </td>
+                      <td className="text-end">
+                        <button 
+                          className="btn btn-md btn-primary"
+                          onClick={() => onViewDetails(user)}
+                        >
+                          {actionButtonText || (variant === 'fileManagement' ? 'Manage Files' : 'Manage Client')}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

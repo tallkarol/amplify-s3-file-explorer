@@ -23,55 +23,48 @@ const SidebarNotifications = ({ collapsed }: SidebarNotificationsProps) => {
   
   const inboxPath = getInboxPath();
   const hasUnread = unreadCount > 0;
+  const isActive = location.pathname === inboxPath || location.pathname.startsWith(`${inboxPath}/`);
 
   return (
-    <div className={`sidebar-notification ${hasUnread ? 'notification-has-unread' : ''}`}>
-      <div className="d-flex align-items-center">
-        <div className="sidebar-notification-link" role="button">
-          {/* Bell icon that toggles notifications modal */}
-          <div 
-            className="notification-icon-container"
-            onClick={showNotifications}
-            title="Show notifications"
-          >
-            <i className="bi bi-bell-fill notification-icon"></i>
-          </div>
-          
-          {!collapsed && (
-            <>
-              {/* Text part navigates to the inbox page */}
-              <Link to={inboxPath} className="notification-label text-decoration-none text-white">
-                Inbox
-              </Link>
-              
-              {/* Badge with unread count */}
-              {hasUnread && (
-                <span className="notification-badge">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </>
-          )}
-          
-          {/* Badge for collapsed sidebar */}
-          {collapsed && hasUnread && (
-            <span className="notification-badge">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </div>
-      </div>
-      
-      {/* Invisible link for the whole element in collapsed mode */}
-      {collapsed && (
-        <Link 
-          to={inboxPath} 
-          className="stretched-link" 
-          title="Go to Inbox"
-          aria-label="Go to Inbox"
-        ></Link>
-      )}
-    </div>
+    <li className="nav-item mb-2">
+      <Link 
+        to={inboxPath}
+        className={`nav-link px-3 py-2 d-flex align-items-center rounded ${
+          isActive
+            ? 'active bg-primary text-white' 
+            : 'text-light hover-highlight'
+        }`}
+        onClick={(e) => {
+          // If clicking on icon, show notifications modal instead of navigating
+          const target = e.target as HTMLElement;
+          if (target.closest('.notification-icon-clickable')) {
+            e.preventDefault();
+            showNotifications();
+          }
+        }}
+      >
+        <i 
+          className={`bi bi-bell${hasUnread ? '-fill' : ''} me-3 fs-5 notification-icon-clickable`}
+          style={{ cursor: 'pointer' }}
+          title="Show notifications"
+        ></i>
+        {!collapsed && (
+          <>
+            <span>Inbox</span>
+            {hasUnread && (
+              <span className="notification-badge ms-auto">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </>
+        )}
+        {collapsed && hasUnread && (
+          <span className="notification-badge notification-badge-collapsed">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </Link>
+    </li>
   );
 };
 

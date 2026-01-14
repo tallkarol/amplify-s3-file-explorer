@@ -94,69 +94,123 @@ const DebugTools = () => {
         <div className="col-md-12">
           <div className="card border-0 shadow-sm">
             <div className="card-header bg-dark text-white">
-              <ul className="nav nav-tabs card-header-tabs">
+              <ul className="nav nav-tabs card-header-tabs flex-wrap" style={{ borderBottom: 'none', gap: '0.25rem' }}>
                 <li className="nav-item">
                   <button
-                    className={`nav-link ${activeTab === 'health' ? 'active bg-white' : 'text-white'}`}
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'health' ? 'active bg-white' : 'text-white'}`}
                     onClick={() => setActiveTab('health')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
                   >
-                    <i className="bi bi-activity me-2"></i>
-                    Service Health
+                    <i className="bi bi-activity me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Service Health</span>
                   </button>
                 </li>
                 <li className="nav-item">
                   <button
-                    className={`nav-link ${activeTab === 'user' ? 'active bg-white' : 'text-white'}`}
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'user' ? 'active bg-white' : 'text-white'}`}
                     onClick={() => setActiveTab('user')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
                   >
-                    <i className="bi bi-person-check me-2"></i>
-                    User Validator
+                    <i className="bi bi-person-check me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>User Validator</span>
                   </button>
                 </li>
                 <li className="nav-item">
                   <button
-                    className={`nav-link ${activeTab === 'error' ? 'active bg-white' : 'text-white'}`}
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'error' ? 'active bg-white' : 'text-white'}`}
                     onClick={() => setActiveTab('error')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
                   >
-                    <i className="bi bi-bug me-2"></i>
-                    Error Generator
+                    <i className="bi bi-bug me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Error Generator</span>
                     {errorStats.count > 0 && (
-                      <span className="badge bg-danger ms-2">{errorStats.count}</span>
+                      <span className="badge bg-danger ms-2 flex-shrink-0" style={{ fontSize: '0.65rem', padding: '0.15rem 0.35rem' }}>{errorStats.count}</span>
                     )}
                   </button>
                 </li>
                 <li className="nav-item">
                   <button
-                    className={`nav-link ${activeTab === 'errorlog' ? 'active bg-white' : 'text-white'}`}
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'errorlog' ? 'active bg-white' : 'text-white'}`}
                     onClick={() => setActiveTab('errorlog')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
                   >
-                    <i className="bi bi-journal-code me-2"></i>
-                    Error Logs
+                    <i className="bi bi-journal-code me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Error Logs</span>
                     {errorStats.count > 0 && (
-                      <span className="badge bg-danger ms-2">New</span>
+                      <span className="badge bg-danger ms-2 flex-shrink-0" style={{ fontSize: '0.65rem', padding: '0.15rem 0.35rem' }}>New</span>
                     )}
                   </button>
                 </li>
                 {/* Logger Demo tab */}
                 <li className="nav-item">
                   <button
-                    className={`nav-link ${activeTab === 'logger' ? 'active bg-white' : 'text-white'}`}
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'logger' ? 'active bg-white' : 'text-white'}`}
                     onClick={() => setActiveTab('logger')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
                   >
-                    <i className="bi bi-journal-text me-2"></i>
-                    Logger Demo
+                    <i className="bi bi-journal-text me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Logger Demo</span>
                   </button>
                 </li>
                 {/* New Notifications tab */}
                 <li className="nav-item">
                   <button
-                    className={`nav-link ${activeTab === 'notifications' ? 'active bg-white' : 'text-white'}`}
+                    className={`nav-link small d-flex align-items-center ${activeTab === 'notifications' ? 'active bg-white' : 'text-white'}`}
                     onClick={() => setActiveTab('notifications')}
+                    style={{ 
+                      whiteSpace: 'normal', 
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
+                      lineHeight: '1.3',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      minWidth: 'fit-content'
+                    }}
                   >
-                    <i className="bi bi-bell me-2"></i>
-                    Notifications
+                    <i className="bi bi-bell me-2 flex-shrink-0" style={{ fontSize: '0.875rem' }}></i>
+                    <span style={{ whiteSpace: 'nowrap' }}>Notifications</span>
                     {notificationStats.count > 0 && (
-                      <span className="badge bg-primary ms-2">{notificationStats.count}</span>
+                      <span className="badge bg-primary ms-2 flex-shrink-0" style={{ fontSize: '0.65rem', padding: '0.15rem 0.35rem' }}>{notificationStats.count}</span>
                     )}
                   </button>
                 </li>

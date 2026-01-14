@@ -270,19 +270,19 @@ const Inbox = () => {
       <div className="row">
         <div className="col-12">
           {/* Tab navigation */}
-          <ul className="nav nav-tabs mb-4">
-            <li className="nav-item">
+          <ul className="nav nav-tabs mb-4 d-flex">
+            <li className="nav-item flex-fill">
               <button
-                className={`nav-link ${activeTab === 'notifications' ? 'active' : ''}`}
+                className={`nav-link small w-100 d-flex align-items-center justify-content-center ${activeTab === 'notifications' ? 'active' : ''}`}
                 onClick={() => setActiveTab('notifications')}
               >
                 <i className="bi bi-bell me-2"></i>
                 Notifications
               </button>
             </li>
-            <li className="nav-item">
+            <li className="nav-item flex-fill">
               <button
-                className={`nav-link ${activeTab === 'messages' ? 'active' : ''}`}
+                className={`nav-link small w-100 d-flex align-items-center justify-content-center ${activeTab === 'messages' ? 'active' : ''}`}
                 onClick={() => setActiveTab('messages')}
               >
                 <i className="bi bi-chat-left-text me-2"></i>

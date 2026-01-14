@@ -19,6 +19,8 @@ import './FileExplorerTab.css';
 
 interface FileExplorerTabProps {
   client: UserProfile;
+  onPathChange?: (path: string) => void;
+  initialPath?: string;
 }
 
 interface BreadcrumbItem {
@@ -26,9 +28,13 @@ interface BreadcrumbItem {
   path: string;
 }
 
-const FileExplorerTab: React.FC<FileExplorerTabProps> = ({ client }) => {
+const FileExplorerTab: React.FC<FileExplorerTabProps> = ({ 
+  client, 
+  onPathChange,
+  initialPath 
+}) => {
   const [files, setFiles] = useState<EnhancedS3Item[]>([]);
-  const [currentPath, setCurrentPath] = useState('/');
+  const [currentPath, setCurrentPath] = useState(initialPath || '/');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
@@ -40,6 +46,14 @@ const FileExplorerTab: React.FC<FileExplorerTabProps> = ({ client }) => {
   const [newFolderName, setNewFolderName] = useState('');
   const [createFolderLoading, setCreateFolderLoading] = useState(false);
   const [createFolderError, setCreateFolderError] = useState<string | null>(null);
+
+  // Update currentPath when initialPath prop changes
+  useEffect(() => {
+    if (initialPath !== undefined && initialPath !== currentPath) {
+      setCurrentPath(initialPath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPath]);
 
   useEffect(() => {
     fetchFiles();
@@ -105,6 +119,10 @@ const FileExplorerTab: React.FC<FileExplorerTabProps> = ({ client }) => {
     setCurrentPath(path);
     setCreateInlineMode(false);
     setNewFolderName('');
+    // Notify parent component of path change
+    if (onPathChange) {
+      onPathChange(path);
+    }
   };
 
   const navigateToFolder = (folderKey: string) => {

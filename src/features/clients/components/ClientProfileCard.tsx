@@ -58,6 +58,14 @@ const ClientProfileCard: React.FC<ClientProfileCardProps> = ({
           <div className="text-muted small">Client ID</div>
           <div className="text-muted small font-monospace">{client.uuid}</div>
         </div>
+        <div className="mb-2">
+          <div className="text-muted small">Last Login</div>
+          <div>
+            {client.lastLogin 
+              ? new Date(client.lastLogin).toLocaleString()
+              : <span className="text-muted">Never</span>}
+          </div>
+        </div>
       </div>
       
       <div className="mt-4">
