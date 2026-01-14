@@ -5,12 +5,14 @@ import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { storage } from './storage/resource';
 import { adminSync } from './functions/admin-sync/resource';
+import { deleteUser } from './functions/delete-user/resource';
 
 const backend = defineBackend({
   auth,
   data,
   storage,
   adminSync,
+  deleteUser,
 });
 
 // Grant adminSync function permissions to access Cognito User Pool
@@ -31,6 +33,22 @@ backend.adminSync.resources.lambda.addToRolePolicy(
 // Pass User Pool ID as environment variable
 const adminSyncCfn = backend.adminSync.resources.lambda.node.defaultChild as CfnFunction;
 adminSyncCfn.addPropertyOverride('Environment.Variables.USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
+
+// Grant deleteUser function permissions to access Cognito User Pool
+backend.deleteUser.resources.lambda.addToRolePolicy(
+  new PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: [
+      'cognito-idp:AdminDisableUser',
+      'cognito-idp:AdminDeleteUser',
+    ],
+    resources: [backend.auth.resources.userPool.userPoolArn],
+  })
+);
+
+// Pass User Pool ID as environment variable
+const deleteUserCfn = backend.deleteUser.resources.lambda.node.defaultChild as CfnFunction;
+deleteUserCfn.addPropertyOverride('Environment.Variables.USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
 
 // Note: Function URL uses NONE auth type and validates Cognito tokens in the handler
 // No IAM permissions needed since we're using token-based authentication

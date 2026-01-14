@@ -50,6 +50,9 @@ export interface UserProfile {
   status?: 'active' | 'inactive' | 'suspended';
   isAdmin?: boolean;
   isDeveloper?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 // Additional contact type

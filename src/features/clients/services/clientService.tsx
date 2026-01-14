@@ -59,8 +59,8 @@ export const enableCognitoUser = async (username: string): Promise<void> => {
 
 // Define query to fetch users
 const listUserProfilesQuery = /* GraphQL */ `
-  query ListUserProfiles {
-    listUserProfiles {
+  query ListUserProfiles($filter: ModelUserProfileFilterInput) {
+    listUserProfiles(filter: $filter) {
       items {
         id
         email
@@ -75,6 +75,9 @@ const listUserProfilesQuery = /* GraphQL */ `
         status
         isAdmin
         isDeveloper
+        isDeleted
+        deletedAt
+        deletedBy
       }
     }
   }
@@ -82,12 +85,16 @@ const listUserProfilesQuery = /* GraphQL */ `
 
 /**
  * Fetches all user profiles
+ * @param includeDeleted - If true, includes deleted users. Defaults to false (filters out deleted users)
  * @returns Promise resolving to an array of user profiles
  */
-export const fetchAllClients = async (): Promise<UserProfile[]> => {
+export const fetchAllClients = async (includeDeleted: boolean = false): Promise<UserProfile[]> => {
   try {
+    const filter = includeDeleted ? undefined : { isDeleted: { ne: true } };
+    
     const response = await client.graphql<GraphQLQuery<ListUserProfilesResponse>>({
       query: listUserProfilesQuery,
+      variables: filter ? { filter } : undefined,
       authMode: 'userPool'
     });
     
