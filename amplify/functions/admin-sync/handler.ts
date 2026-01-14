@@ -243,12 +243,19 @@ export const handler: Handler = async (event: any) => {
     console.log('Admin sync handler invoked:', JSON.stringify(event, null, 2));
 
     // Handle CORS preflight OPTIONS request
-    if (event.requestContext?.http?.method === 'OPTIONS' || event.httpMethod === 'OPTIONS') {
+    // Check multiple possible event structures for Function URL
+    const method = event.requestContext?.http?.method || 
+                   event.requestContext?.httpMethod || 
+                   event.httpMethod ||
+                   event.requestContext?.method;
+    
+    if (method === 'OPTIONS') {
+      console.log('Handling OPTIONS preflight request');
       return {
         statusCode: 200,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
           'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Max-Age': '86400',
         },
@@ -268,7 +275,7 @@ export const handler: Handler = async (event: any) => {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),
@@ -280,6 +287,8 @@ export const handler: Handler = async (event: any) => {
             headers: {
               'Content-Type': 'application/json',
               'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
+              'Access-Control-Allow-Methods': 'POST, OPTIONS',
             },
             body: JSON.stringify({
               success: false,
@@ -294,7 +303,7 @@ export const handler: Handler = async (event: any) => {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),
@@ -334,7 +343,7 @@ export const handler: Handler = async (event: any) => {
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
       },
       body: JSON.stringify({
