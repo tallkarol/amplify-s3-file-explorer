@@ -1,5 +1,6 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
+import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { storage } from './storage/resource';
@@ -28,7 +29,8 @@ backend.adminSync.resources.lambda.addToRolePolicy(
 );
 
 // Pass User Pool ID as environment variable
-backend.adminSync.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
+const adminSyncCfn = backend.adminSync.resources.lambda.node.defaultChild as CfnFunction;
+adminSyncCfn.addPropertyOverride('Environment.Variables.USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
 
 // Note: Function URL uses NONE auth type and validates Cognito tokens in the handler
 // No IAM permissions needed since we're using token-based authentication
