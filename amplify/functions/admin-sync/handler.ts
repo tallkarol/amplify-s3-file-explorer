@@ -242,6 +242,20 @@ export const handler: Handler = async (event: any) => {
   try {
     console.log('Admin sync handler invoked:', JSON.stringify(event, null, 2));
 
+    // Handle CORS preflight OPTIONS request
+    if (event.requestContext?.http?.method === 'OPTIONS' || event.httpMethod === 'OPTIONS') {
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Max-Age': '86400',
+        },
+        body: '',
+      };
+    }
+
     // Handle HTTP requests (Gen 2 functions expose HTTP endpoints)
     if (event.requestContext) {
       const body = event.body ? JSON.parse(event.body) : {};
@@ -254,7 +268,7 @@ export const handler: Handler = async (event: any) => {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),
@@ -280,7 +294,7 @@ export const handler: Handler = async (event: any) => {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),
@@ -320,6 +334,8 @@ export const handler: Handler = async (event: any) => {
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
       },
       body: JSON.stringify({
         success: false,

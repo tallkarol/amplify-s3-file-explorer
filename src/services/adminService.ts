@@ -163,7 +163,7 @@ export const updateUserAdminStatus = async (
 
 /**
  * Get the admin-sync function URL
- * In Gen 2, this should be available from amplify_outputs.json
+ * Checks multiple sources: amplify_outputs.json, CloudFormation outputs, and environment variables
  */
 async function getAdminSyncFunctionUrl(): Promise<string> {
   try {
@@ -174,9 +174,21 @@ async function getAdminSyncFunctionUrl(): Promise<string> {
     
     // Check various possible locations for the function URL
     const outputsData = outputs.default || outputs;
+    
+    // 1. Check custom.functions.adminSync.endpoint (expected location after generate outputs)
     const customFunctions = outputsData?.custom?.functions;
     if (customFunctions?.adminSync?.endpoint) {
       return customFunctions.adminSync.endpoint;
+    }
+    
+    // 2. Check custom.adminSyncFunctionUrl (if added manually)
+    if (outputsData?.custom?.adminSyncFunctionUrl) {
+      return outputsData.custom.adminSyncFunctionUrl;
+    }
+    
+    // 3. Check root level functionUrl (alternative structure)
+    if (outputsData?.functionUrl) {
+      return outputsData.functionUrl;
     }
     
     // Alternative: try to get from window if available (for runtime)
@@ -185,13 +197,30 @@ async function getAdminSyncFunctionUrl(): Promise<string> {
       if (runtimeOutputs.custom?.functions?.adminSync?.endpoint) {
         return runtimeOutputs.custom.functions.adminSync.endpoint;
       }
+      if (runtimeOutputs.custom?.adminSyncFunctionUrl) {
+        return runtimeOutputs.custom.adminSyncFunctionUrl;
+      }
     }
   } catch (error) {
     console.warn('Could not load amplify_outputs.json:', error);
   }
 
-  // Fallback: construct URL from environment or use a placeholder
-  // In production, this should be set via environment variables or amplify_outputs.json
-  // After deploying the function, run: npx ampx generate outputs --app-id <app-id> --branch <branch>
-  throw new Error('Admin sync function URL not configured. Please deploy the function first, then run "npx ampx generate outputs --app-id <app-id> --branch <branch>" to update amplify_outputs.json');
+  // Check environment variable as fallback
+  if (typeof window !== 'undefined' && (window as any).process?.env?.REACT_APP_ADMIN_SYNC_FUNCTION_URL) {
+    return (window as any).process.env.REACT_APP_ADMIN_SYNC_FUNCTION_URL;
+  }
+
+  // Final fallback: throw error with helpful message
+  throw new Error(
+    'Admin sync function URL not configured.\n' +
+    'After deploying, add it to amplify_outputs.json under:\n' +
+    '  "custom": {\n' +
+    '    "functions": {\n' +
+    '      "adminSync": {\n' +
+    '        "endpoint": "https://your-function-url.lambda-url.region.on.aws/"\n' +
+    '      }\n' +
+    '    }\n' +
+    '  }\n' +
+    'Or check CloudFormation outputs for "AdminSyncFunctionUrlOutput"'
+  );
 }
