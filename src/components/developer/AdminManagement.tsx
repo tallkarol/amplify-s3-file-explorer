@@ -1,7 +1,5 @@
 // src/components/developer/AdminManagement.tsx
 import React, { useState, useEffect } from 'react';
-import { generateClient } from 'aws-amplify/api';
-import { GraphQLQuery } from '@aws-amplify/api';
 import AlertMessage from '../common/AlertMessage';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { syncAdminStatusFromCognito, updateUserAdminStatus } from '@/services/adminService';

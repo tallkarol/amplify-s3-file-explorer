@@ -121,10 +121,12 @@ async function getAdminSyncFunctionUrl(): Promise<string> {
   try {
     // Import amplify_outputs.json
     // In Gen 2, functions are exposed via custom.functions after deployment
-    const outputs = await import('../../amplify_outputs.json');
+    // Type assertion needed because amplify_outputs.json type doesn't include custom yet
+    const outputs = (await import('../../amplify_outputs.json')) as any;
     
     // Check various possible locations for the function URL
-    const customFunctions = outputs.default?.custom?.functions || outputs.custom?.functions;
+    const outputsData = outputs.default || outputs;
+    const customFunctions = outputsData?.custom?.functions;
     if (customFunctions?.adminSync?.endpoint) {
       return customFunctions.adminSync.endpoint;
     }
