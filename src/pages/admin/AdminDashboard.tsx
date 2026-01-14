@@ -120,7 +120,7 @@ const AdminHome = () => {
                       </Link>
                     </div>
                     
-                    <div className="col-md-4 p-3 border-end">
+                    <div className="col-md-6 p-3 border-end">
                       <Link to="/admin/files" className="d-block text-decoration-none">
                         <div className="text-center py-4 px-2 rounded hover-transform">
                           <div className="overview-card-icon mx-auto bg-light">
@@ -128,18 +128,6 @@ const AdminHome = () => {
                           </div>
                           <h5 className="mt-3 mb-1">File Management</h5>
                           <p className="text-muted small mb-0">Browse and manage files</p>
-                        </div>
-                      </Link>
-                    </div>
-                    
-                    <div className="col-md-4 p-3">
-                      <Link to="/admin/workflows" className="d-block text-decoration-none">
-                        <div className="text-center py-4 px-2 rounded hover-transform">
-                          <div className="overview-card-icon mx-auto bg-light">
-                            <i className="bi bi-diagram-3 text-primary"></i>
-                          </div>
-                          <h5 className="text-muted mt-3 mb-1">Workflow Management <span className='small'>(preview)</span></h5>
-                          <p className="text-muted small mb-0">Automate business processes</p>
                         </div>
                       </Link>
                     </div>

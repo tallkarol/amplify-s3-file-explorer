@@ -42,12 +42,6 @@ const DeveloperDashboard = () => {
                       <span>Debug Tools</span>
                     </Link>
                   </div>
-                  <div className="col-md-3 mb-3 mb-md-0">
-                  <Link to="/developer/certification-form" className="btn btn-outline-primary d-flex align-items-center justify-content-center flex-column py-4 h-100 w-100">
-                    <i className="bi bi-file-earmark-text fs-1 mb-2"></i>
-                    <span>Certification Form</span>
-                  </Link>
-                  </div>
                 </div>
               </Card>
             </div>
