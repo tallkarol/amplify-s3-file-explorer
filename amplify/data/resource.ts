@@ -90,9 +90,9 @@ const schema = a.schema({
       title: a.string(),
       message: a.string(),
       isRead: a.boolean(),
-      actionLink: a.string().optional(),
+      actionLink: a.string(),
       metadata: a.json(),
-      expiresAt: a.datetime().optional(),
+      expiresAt: a.datetime(),
     })
     .authorization((allow) => [
       allow.ownerDefinedIn('userId').to(['read']), // Users can only READ their own notifications

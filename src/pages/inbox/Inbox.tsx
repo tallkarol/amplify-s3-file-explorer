@@ -7,11 +7,11 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import AlertMessage from '@/components/common/AlertMessage';
 import { useNavigate, Link } from 'react-router-dom';
+import '@/styles/inbox.css';
 
 const Inbox = () => {
   const { user } = useAuthenticator();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'notifications' | 'messages'>('notifications');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,10 +63,8 @@ const Inbox = () => {
 
   // Fetch notifications on component mount and when filter changes
   useEffect(() => {
-    if (activeTab === 'notifications') {
-      fetchNotifications();
-    }
-  }, [activeTab, filter]);
+    fetchNotifications();
+  }, [filter]);
 
   // Fetch notifications from API
   const fetchNotifications = async () => {
@@ -77,6 +75,14 @@ const Inbox = () => {
       setError(null);
       const data = await getNotifications(user.userId, filter === 'unread');
       setNotifications(data);
+      
+      // Auto-select first notification if none selected
+      if (!selectedNotification && data.length > 0) {
+        setSelectedNotification(data[0]);
+        if (!data[0].isRead) {
+          handleMarkAsRead(data[0]);
+        }
+      }
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError(`Failed to load notifications: ${err instanceof Error ? err.message : String(err)}`);
@@ -128,11 +134,16 @@ const Inbox = () => {
       await deleteNotification(id);
       
       // Update local state to remove the deleted notification
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      const updatedNotifications = notifications.filter(n => n.id !== id);
+      setNotifications(updatedNotifications);
       
-      // Clear selection if the deleted notification was selected
+      // Clear selection if the deleted notification was selected, or select next one
       if (selectedNotification?.id === id) {
-        setSelectedNotification(null);
+        if (updatedNotifications.length > 0) {
+          setSelectedNotification(updatedNotifications[0]);
+        } else {
+          setSelectedNotification(null);
+        }
       }
     } catch (err) {
       console.error('Error deleting notification:', err);
@@ -220,17 +231,23 @@ const Inbox = () => {
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
     
-    if (diffInDays === 0) {
-      // For today, show the time
-      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    if (diffInMinutes < 1) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h ago`;
     } else if (diffInDays === 1) {
       return 'Yesterday';
     } else if (diffInDays < 7) {
-      return `${diffInDays} days ago`;
+      return `${diffInDays}d ago`;
     } else {
-      return date.toLocaleDateString();
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
     }
   };
 
@@ -247,382 +264,279 @@ const Inbox = () => {
 
   // Check if there are unread notifications
   const hasUnread = notifications.some(n => !n.isRead);
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  // Check if actionLink is a meaningful link (not just dashboard)
+  const isValidActionLink = (actionLink?: string): boolean => {
+    if (!actionLink || actionLink.trim() === '') return false;
+    const trimmed = actionLink.trim();
+    // Don't show button for dashboard links (default/fallback values)
+    return trimmed !== '/user' && trimmed !== '/admin' && trimmed !== '/developer';
+  };
 
   return (
-    <div className="container-fluid py-4">
-      <div className="row">
-        <div className="col-12 mb-4">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h2>{getContextTitle()}</h2>
-              <p className="text-muted">
-                View and manage your notifications and messages in one place.
-              </p>
+    <div className="inbox-container">
+      {/* Header */}
+      <div className="bg-white border-bottom d-flex justify-content-between align-items-center px-4 py-3" style={{ flexShrink: 0 }}>
+        <div>
+          <h1 className="d-inline-block mb-0 me-3" style={{ fontSize: '1.5rem', fontWeight: 600, color: '#202124' }}>
+            {getContextTitle()}
+          </h1>
+          {unreadCount > 0 && (
+            <span className="inbox-unread-badge">{unreadCount} unread</span>
+          )}
+        </div>
+        <Link to={getBackLink()} className="d-inline-flex align-items-center gap-2 text-decoration-none px-3 py-2 rounded" style={{ color: '#5f6368', fontSize: '0.875rem' }}>
+          <i className="bi bi-arrow-left"></i>
+          Back
+        </Link>
+      </div>
+
+      {/* Main Content */}
+      <div className="inbox-content">
+        {/* Left Sidebar - Notification List */}
+        <div className="inbox-sidebar bg-white border-end">
+          {/* Toolbar */}
+          <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom gap-2">
+            <div className="inbox-filter-tabs">
+              <button
+                className={`inbox-filter-tab ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
+              >
+                All
+              </button>
+              <button
+                className={`inbox-filter-tab ${filter === 'unread' ? 'active' : ''}`}
+                onClick={() => setFilter('unread')}
+              >
+                Unread
+                {unreadCount > 0 && <span className="filter-badge">{unreadCount}</span>}
+              </button>
             </div>
-            <Link to={getBackLink()} className="btn btn-outline-primary">
-              <i className="bi bi-arrow-left me-2"></i>
-              Back to Dashboard
-            </Link>
+            
+            {hasUnread && filter === 'all' && (
+              <button
+                className="btn btn-sm p-2 border-0 bg-transparent"
+                onClick={handleMarkAllAsRead}
+                disabled={markingAllRead}
+                title="Mark all as read"
+                style={{ color: '#5f6368' }}
+              >
+                {markingAllRead ? (
+                  <span className="spinner-border spinner-border-sm"></span>
+                ) : (
+                  <i className="bi bi-check-all"></i>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Search */}
+          <div className="inbox-search px-3 py-2 border-bottom">
+            <i className="bi bi-search"></i>
+            <input
+              type="text"
+              className="inbox-search-input form-control"
+              placeholder="Search notifications..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                className="inbox-search-clear"
+                onClick={() => setSearchTerm('')}
+                type="button"
+              >
+                <i className="bi bi-x"></i>
+              </button>
+            )}
+          </div>
+
+          {/* Notification List */}
+          <div className="inbox-list">
+            {loading ? (
+              <div className="d-flex align-items-center justify-content-center p-5" style={{ minHeight: '200px' }}>
+                <LoadingSpinner text="Loading notifications..." />
+              </div>
+            ) : error ? (
+              <div className="p-3">
+                <AlertMessage
+                  type="danger"
+                  message={error}
+                  dismissible
+                  onDismiss={() => setError(null)}
+                />
+              </div>
+            ) : filteredNotifications.length === 0 ? (
+              <div className="d-flex align-items-center justify-content-center p-5" style={{ minHeight: '200px' }}>
+                <EmptyState
+                  icon={filter === 'unread' ? 'check-circle' : 'bell-slash'}
+                  title={
+                    searchTerm
+                      ? "No matching notifications"
+                      : filter === 'unread'
+                      ? "No unread notifications"
+                      : "No notifications"
+                  }
+                  message={
+                    searchTerm
+                      ? `No notifications match "${searchTerm}"`
+                      : filter === 'unread'
+                      ? "You've read all your notifications"
+                      : "You don't have any notifications yet"
+                  }
+                />
+              </div>
+            ) : (
+              filteredNotifications.map(notification => {
+                const { icon, color } = getIconAndColor(notification);
+                const isSelected = selectedNotification?.id === notification.id;
+                
+                return (
+                  <div
+                    key={notification.id}
+                    className={`inbox-item p-3 border-bottom ${isSelected ? 'selected' : ''} ${!notification.isRead ? 'unread' : ''}`}
+                    onClick={() => handleNotificationClick(notification)}
+                  >
+                    <div className="d-flex gap-3 align-items-start">
+                      <div className="inbox-item-icon position-relative flex-shrink-0">
+                        <div className={`icon-badge icon-badge-${color}`}>
+                          <i className={`bi bi-${icon}`}></i>
+                        </div>
+                        {!notification.isRead && <div className="unread-indicator"></div>}
+                      </div>
+                      <div className="flex-grow-1 min-w-0">
+                        <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
+                          <h3 className="inbox-item-title mb-0" style={{ fontSize: '0.9375rem', fontWeight: notification.isRead ? 600 : 700, color: '#202124', lineHeight: 1.4, flex: 1, minWidth: 0 }}>
+                            {notification.title}
+                          </h3>
+                          <span className="text-muted small" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                            {formatDate(notification.createdAt)}
+                          </span>
+                        </div>
+                        <p className="inbox-item-preview text-muted small mb-2" style={{ fontSize: '0.875rem', color: '#5f6368', lineHeight: 1.4 }}>
+                          {notification.message}
+                        </p>
+                        <div className="d-flex gap-2 align-items-center">
+                          <span className={`inbox-item-type type-${notification.type}`}>
+                            {notification.type}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="row">
-        <div className="col-12">
-          {/* Tab navigation */}
-          <ul className="nav nav-tabs mb-4 d-flex">
-            <li className="nav-item flex-fill">
-              <button
-                className={`nav-link small w-100 d-flex align-items-center justify-content-center ${activeTab === 'notifications' ? 'active' : ''}`}
-                onClick={() => setActiveTab('notifications')}
-              >
-                <i className="bi bi-bell me-2"></i>
-                Notifications
-              </button>
-            </li>
-            <li className="nav-item flex-fill">
-              <button
-                className={`nav-link small w-100 d-flex align-items-center justify-content-center ${activeTab === 'messages' ? 'active' : ''}`}
-                onClick={() => setActiveTab('messages')}
-              >
-                <i className="bi bi-chat-left-text me-2"></i>
-                Messages
-                <span className="badge bg-secondary ms-2">Coming Soon</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {activeTab === 'notifications' ? (
-        <div className="row">
-          {/* Left column - List of notifications */}
-          <div className="col-md-5 col-lg-4 mb-4 mb-md-0">
-            <div className="card border-0 shadow-sm h-100">
-              <div className="card-header bg-white">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">
-                    <i className="bi bi-bell me-2"></i>
-                    Notifications
-                  </h5>
-                  <div className="btn-group btn-group-sm">
-                    <button
-                      className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
-                      onClick={() => setFilter('all')}
-                    >
-                      All
-                    </button>
-                    <button
-                      className={`btn ${filter === 'unread' ? 'btn-primary' : 'btn-outline-primary'}`}
-                      onClick={() => setFilter('unread')}
-                    >
-                      Unread
-                    </button>
+        {/* Right Panel - Notification Details */}
+        <div className="inbox-detail-panel bg-white">
+          {selectedNotification ? (
+            <div className="inbox-detail">
+              {/* Detail Header */}
+              <div className="d-flex justify-content-between align-items-start gap-3 p-4 border-bottom">
+                <div className="d-flex gap-3 flex-grow-1 min-w-0">
+                  {(() => {
+                    const { icon, color } = getIconAndColor(selectedNotification);
+                    return (
+                      <div className={`inbox-detail-icon icon-badge-${color}`}>
+                        <i className={`bi bi-${icon}`}></i>
+                      </div>
+                    );
+                  })()}
+                  <div className="flex-grow-1 min-w-0">
+                    <h2 className="mb-2" style={{ fontSize: '1.25rem', fontWeight: 600, color: '#202124' }}>
+                      {selectedNotification.title}
+                    </h2>
+                    <div className="d-flex gap-3 align-items-center flex-wrap">
+                      <span className={`inbox-detail-type type-${selectedNotification.type}`}>
+                        {selectedNotification.type}
+                      </span>
+                      <span className="text-muted small">
+                        {new Date(selectedNotification.createdAt).toLocaleString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="card-header bg-white border-top-0 border-bottom-0 pb-0">
-                <div className="input-group">
-                  <span className="input-group-text bg-light border-end-0">
-                    <i className="bi bi-search"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control border-start-0 bg-light"
-                    placeholder="Search notifications..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  {searchTerm && (
+                <div className="d-flex gap-2 flex-shrink-0">
+                  {!selectedNotification.isRead && (
                     <button
-                      className="btn btn-outline-secondary border-start-0"
-                      type="button"
-                      onClick={() => setSearchTerm('')}
+                      className="inbox-action-btn"
+                      onClick={() => handleMarkAsRead(selectedNotification)}
+                      title="Mark as read"
                     >
-                      <i className="bi bi-x"></i>
+                      <i className="bi bi-check-circle"></i>
                     </button>
                   )}
+                  <button
+                    className="inbox-action-btn inbox-action-btn-danger"
+                    onClick={() => handleDeleteNotification(selectedNotification.id)}
+                    disabled={deletingId === selectedNotification.id}
+                    title="Delete"
+                  >
+                    {deletingId === selectedNotification.id ? (
+                      <span className="spinner-border spinner-border-sm"></span>
+                    ) : (
+                      <i className="bi bi-trash"></i>
+                    )}
+                  </button>
                 </div>
               </div>
-              
-              <div className="card-body p-0">
-                {loading ? (
-                  <div className="p-4 text-center">
-                    <LoadingSpinner text="Loading notifications..." />
+
+              {/* Detail Body */}
+              <div className="inbox-detail-body p-4">
+                <div className="inbox-detail-message mb-4" style={{ fontSize: '0.9375rem', lineHeight: 1.6, color: '#202124' }}>
+                  {selectedNotification.message}
+                </div>
+
+                {isValidActionLink(selectedNotification.actionLink) && (
+                  <div className="mt-4 pt-4 border-top">
+                    <button
+                      className="inbox-action-link-btn btn d-inline-flex align-items-center"
+                      onClick={() => handleActionClick(selectedNotification)}
+                    >
+                      <i className="bi bi-box-arrow-up-right me-2"></i>
+                      View Related Content
+                    </button>
                   </div>
-                ) : error ? (
-                  <div className="p-3">
-                    <AlertMessage
-                      type="danger"
-                      message={error}
-                      dismissible
-                      onDismiss={() => setError(null)}
-                    />
-                  </div>
-                ) : filteredNotifications.length === 0 ? (
-                  <EmptyState
-                    icon={filter === 'unread' ? 'check-circle' : 'bell-slash'}
-                    title={
-                      searchTerm
-                        ? "No matching notifications"
-                        : filter === 'unread'
-                        ? "No unread notifications"
-                        : "No notifications"
-                    }
-                    message={
-                      searchTerm
-                        ? `No notifications match "${searchTerm}"`
-                        : filter === 'unread'
-                        ? "You've read all your notifications"
-                        : "You don't have any notifications yet"
-                    }
-                  />
-                ) : (
-                  <div className="notification-list">
-                    {filteredNotifications.map(notification => {
-                      const { icon, color } = getIconAndColor(notification);
-                      
-                      return (
-                        <div
-                          key={notification.id}
-                          className={`p-3 border-bottom ${
-                            selectedNotification?.id === notification.id ? 'bg-light' : ''
-                          } ${!notification.isRead ? 'fw-medium' : ''}`}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => handleNotificationClick(notification)}
-                        >
-                          <div className="d-flex">
-                            <div 
-                              className={`bg-${color}-subtle text-${color} p-2 rounded me-3`}
-                              style={{ width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            >
-                              <i className={`bi bi-${icon} fs-5`}></i>
-                            </div>
-                            <div className="flex-grow-1 min-width-0">
-                              <div className="d-flex justify-content-between align-items-start mb-1">
-                                <h6 className="mb-0 text-truncate me-2" style={{ maxWidth: '85%' }}>
-                                  {notification.title}
-                                </h6>
-                                {!notification.isRead && (
-                                  <span className="badge bg-primary rounded-pill">New</span>
-                                )}
-                              </div>
-                              <p className="text-muted small mb-1 text-truncate">
-                                {notification.message}
-                              </p>
-                              <div className="d-flex align-items-center">
-                                <small className="text-muted me-2">
-                                  {formatDate(notification.createdAt)}
-                                </small>
-                                <span 
-                                  className={`badge ${notification.type === 'system' ? 'bg-info' : 
-                                                      notification.type === 'file' ? 'bg-success' : 
-                                                      notification.type === 'admin' ? 'bg-danger' : 
-                                                      'bg-primary'} bg-opacity-75`}
-                                >
-                                  {notification.type}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                )}
+
+                {selectedNotification.metadata && (
+                  <div className="mt-4 pt-4 border-top">
+                    <h4 className="small fw-semibold text-uppercase text-muted mb-3" style={{ fontSize: '0.875rem', letterSpacing: '0.5px' }}>
+                      Additional Information
+                    </h4>
+                    <pre className="bg-light border rounded p-3 mb-0" style={{ fontSize: '0.8125rem', overflowX: 'auto', color: '#202124' }}>
+                      {JSON.stringify(getMetadata(selectedNotification), null, 2)}
+                    </pre>
                   </div>
                 )}
               </div>
-              
-              {notifications.length > 0 && (
-                <div className="card-footer bg-white">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span className="text-muted small">
-                      {filteredNotifications.length} notification{filteredNotifications.length !== 1 ? 's' : ''}
-                    </span>
-                    <div>
-                      {hasUnread && (
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={handleMarkAllAsRead}
-                          disabled={markingAllRead}
-                        >
-                          {markingAllRead ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm me-1"></span>
-                              Marking...
-                            </>
-                          ) : (
-                            <>
-                              <i className="bi bi-check-all me-1"></i>
-                              Mark All Read
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
-          
-          {/* Right column - Notification details */}
-          <div className="col-md-7 col-lg-8">
-            <div className="card border-0 shadow-sm h-100">
-              {selectedNotification ? (
-                <>
-                  <div className="card-header bg-white">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">{selectedNotification.title}</h5>
-                      <div className="dropdown">
-                        <button
-                          className="btn btn-sm btn-outline-secondary"
-                          id="notificationActions"
-                          data-bs-toggle="dropdown"
-                          aria-expanded="false"
-                        >
-                          <i className="bi bi-three-dots"></i>
-                        </button>
-                        <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="notificationActions">
-                          {!selectedNotification.isRead && (
-                            <li>
-                              <button
-                                className="dropdown-item"
-                                onClick={() => handleMarkAsRead(selectedNotification)}
-                              >
-                                <i className="bi bi-check-circle me-2"></i>
-                                Mark as Read
-                              </button>
-                            </li>
-                          )}
-                          <li>
-                            <button
-                              className="dropdown-item text-danger"
-                              onClick={() => handleDeleteNotification(selectedNotification.id)}
-                              disabled={deletingId === selectedNotification.id}
-                            >
-                              {deletingId === selectedNotification.id ? (
-                                <>
-                                  <span className="spinner-border spinner-border-sm me-2"></span>
-                                  Deleting...
-                                </>
-                              ) : (
-                                <>
-                                  <i className="bi bi-trash me-2"></i>
-                                  Delete
-                                </>
-                              )}
-                            </button>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="card-body">
-                    <div className="d-flex mb-4">
-                      {(() => {
-                        const { icon, color } = getIconAndColor(selectedNotification);
-                        return (
-                          <div 
-                            className={`bg-${color}-subtle text-${color} p-3 rounded me-3`}
-                            style={{ width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            <i className={`bi bi-${icon} fs-2`}></i>
-                          </div>
-                        );
-                      })()}
-                      <div>
-                        <div className="mb-2">
-                          <span 
-                            className={`badge ${selectedNotification.type === 'system' ? 'bg-info' : 
-                                            selectedNotification.type === 'file' ? 'bg-success' : 
-                                            selectedNotification.type === 'admin' ? 'bg-danger' : 
-                                            'bg-primary'}`}
-                          >
-                            {selectedNotification.type}
-                          </span>
-                          <span className="text-muted ms-2">
-                            <i className="bi bi-clock me-1"></i>
-                            {new Date(selectedNotification.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="lead mb-0">{selectedNotification.message}</p>
-                      </div>
-                    </div>
-                    
-                    {selectedNotification.actionLink && (
-                      <div className="d-grid mt-4">
-                        <button
-                          className="btn btn-primary"
-                          onClick={() => handleActionClick(selectedNotification)}
-                        >
-                          <i className="bi bi-box-arrow-up-right me-2"></i>
-                          View Related Content
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Additional metadata if available */}
-                    {selectedNotification.metadata && (
-                      <div className="card bg-light mt-4">
-                        <div className="card-header bg-transparent">
-                          <h6 className="mb-0">Additional Information</h6>
-                        </div>
-                        <div className="card-body">
-                          <pre className="mb-0" style={{ fontSize: '0.875rem' }}>
-                            {JSON.stringify(getMetadata(selectedNotification), null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="card-body d-flex flex-column align-items-center justify-content-center p-5">
-                  <div 
-                    className="bg-light rounded-circle mb-3 d-flex align-items-center justify-content-center"
-                    style={{ width: '80px', height: '80px' }}
-                  >
-                    <i className="bi bi-envelope-open text-muted fs-1"></i>
-                  </div>
-                  <h4>Select a notification</h4>
-                  <p className="text-muted text-center mb-0">
-                    Choose a notification from the list to view its details here.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="row">
-          <div className="col-12">
-            <div className="card border-0 shadow-sm">
-              <div className="card-body p-5 text-center">
-                <div 
-                  className="bg-light rounded-circle mb-3 mx-auto d-flex align-items-center justify-content-center"
-                  style={{ width: '100px', height: '100px' }}
-                >
-                  <i className="bi bi-chat-dots text-primary fs-1"></i>
-                </div>
-                <h3>Messaging Coming Soon</h3>
-                <p className="text-muted mb-4">
-                  We're working on bringing you a powerful messaging system.<br />
-                  Stay tuned for updates!
-                </p>
-                <button 
-                  className="btn btn-outline-primary"
-                  onClick={() => setActiveTab('notifications')}
-                >
-                  <i className="bi bi-bell me-2"></i>
-                  View Notifications Instead
-                </button>
+          ) : (
+            <div className="d-flex flex-column align-items-center justify-content-center p-5 h-100 text-center">
+              <div className="inbox-detail-empty-icon bg-light rounded-circle mb-3" style={{ color: '#5f6368' }}>
+                <i className="bi bi-envelope-open"></i>
               </div>
+              <h3 className="mb-2" style={{ fontSize: '1.125rem', fontWeight: 600, color: '#202124' }}>
+                Select a notification
+              </h3>
+              <p className="text-muted mb-0" style={{ fontSize: '0.875rem' }}>
+                Choose a notification from the list to view its details
+              </p>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
