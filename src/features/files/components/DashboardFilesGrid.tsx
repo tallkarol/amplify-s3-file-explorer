@@ -21,13 +21,7 @@ const DashboardFilesGrid: React.FC<DashboardFilesGridProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<S3Item[]>([]);
 
-  useEffect(() => {
-    if (userId) {
-      fetchRecentFiles();
-    }
-  }, [userId, limit]);
-
-  const fetchRecentFiles = async () => {
+  const fetchRecentFiles = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -61,9 +55,15 @@ const DashboardFilesGrid: React.FC<DashboardFilesGridProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, limit]); // Memoize to prevent recreation
 
-  const fetchFolderContentsRecursively = async (folderPath: string): Promise<S3Item[]> => {
+  useEffect(() => {
+    if (userId) {
+      fetchRecentFiles();
+    }
+  }, [userId, fetchRecentFiles]);
+
+  const fetchFolderContentsRecursively = React.useCallback(async (folderPath: string): Promise<S3Item[]> => {
     try {
       const items = await listUserFiles(userId, folderPath);
       const filteredItems = items.filter(item => item.name !== '..');
@@ -74,7 +74,7 @@ const DashboardFilesGrid: React.FC<DashboardFilesGridProps> = ({
       console.error(`Error fetching contents of folder ${folderPath}:`, err);
       return [];
     }
-  };
+  }, [userId]); // Memoize with userId dependency
 
   const handleDownload = async (file: S3Item) => {
     try {

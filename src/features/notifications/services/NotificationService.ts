@@ -23,26 +23,19 @@ export const getNotifications = async (
   limit = 20
 ): Promise<Notification[]> => {
   try {
-    // Create a proper filter that works in both cases
-    let filterConditions = [];
-    
-    // Always add the userId filter
-    filterConditions.push({ userId: { eq: userId } });
+    // Build filter - use simpler structure that works reliably
+    const filter: any = {
+      userId: { eq: userId }
+    };
     
     // Add isRead filter if only unread requested
     if (onlyUnread) {
-      filterConditions.push({ isRead: { eq: false } });
-    }
-    
-    // Build the filter object based on conditions
-    let filter;
-    if (filterConditions.length === 1) {
-      filter = filterConditions[0]; // Just use the userId filter directly
-    } else {
-      filter = { and: filterConditions };
+      filter.isRead = { eq: false };
     }
     
     // Use an inline query that works with our filter structure
+    // Note: If isArchived field doesn't exist in deployed schema yet, this will fail
+    // Check browser console for detailed error messages
     const response = await client.graphql<GraphQLQuery<ListNotificationsResponse>>({
       query: /* GraphQL */ `
         query ListUserNotifications(
@@ -60,6 +53,7 @@ export const getNotifications = async (
               title
               message
               isRead
+              isArchived
               actionLink
               metadata
               expiresAt
@@ -76,9 +70,42 @@ export const getNotifications = async (
       authMode: 'userPool'
     });
     
-    return response.data?.listNotifications.items || [];
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
+    // Filter out archived notifications client-side (more reliable than GraphQL filter for optional fields)
+    // Treat null/undefined as "not archived" (falsy values)
+    const items = response.data?.listNotifications.items || [];
+    // Safely filter - handle case where isArchived might not exist in response yet
+    return items.filter(n => {
+      // If isArchived doesn't exist or is null/undefined/false, include it (not archived)
+      return n.isArchived !== true;
+    });
+  } catch (error: any) {
+    // Extract error message first - this is what users need to see
+    const errorMessage = error?.message || error?.errors?.[0]?.message || 'Unknown error';
+    const errorType = error?.errorType || error?.errors?.[0]?.errorType || 'Unknown';
+    
+    // Log a clean, readable error message
+    console.error(`[getNotifications] Error: ${errorMessage}`, {
+      errorType,
+      userId,
+      onlyUnread,
+      limit,
+      // Only log full error details if it's a GraphQL error
+      ...(error?.errors && {
+        graphQLErrors: error.errors.map((e: any) => ({
+          message: e.message,
+          errorType: e.errorType,
+          path: e.path,
+          locations: e.locations
+        }))
+      }),
+      ...(error?.networkError && { networkError: error.networkError })
+    });
+    
+    // Log full error object only in development for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[getNotifications] Full error object:', error);
+    }
+    
     throw error;
   }
 };
@@ -100,6 +127,7 @@ export const getNotificationById = async (id: string): Promise<Notification | nu
             title
             message
             isRead
+            isArchived
             actionLink
             metadata
             expiresAt
@@ -120,18 +148,89 @@ export const getNotificationById = async (id: string): Promise<Notification | nu
 };
 
 /**
+ * Get all notifications for a user (admin view - includes archived)
+ * @param userId User ID
+ * @param includeArchived Whether to include archived notifications
+ * @param limit Number of notifications to fetch
+ * @returns Promise resolving to an array of notifications
+ */
+export const getAllNotificationsForUser = async (
+  userId: string,
+  includeArchived = true,
+  limit = 100
+): Promise<Notification[]> => {
+  try {
+    let filterConditions = [];
+    
+    // Always add the userId filter
+    filterConditions.push({ userId: { eq: userId } });
+    
+    const filter = filterConditions.length === 1 
+      ? filterConditions[0] 
+      : { and: filterConditions };
+    
+    const response = await client.graphql<GraphQLQuery<ListNotificationsResponse>>({
+      query: /* GraphQL */ `
+        query GetAllUserNotifications(
+          $filter: ModelNotificationFilterInput!,
+          $limit: Int
+        ) {
+          listNotifications(
+            filter: $filter,
+            limit: $limit
+          ) {
+            items {
+              id
+              userId
+              type
+              title
+              message
+              isRead
+              isArchived
+              actionLink
+              metadata
+              expiresAt
+              createdAt
+              updatedAt
+            }
+          }
+        }
+      `,
+      variables: {
+        filter,
+        limit
+      },
+      authMode: 'userPool'
+    });
+    
+    const items = response.data?.listNotifications.items || [];
+    
+    // Filter out archived if not including them (treat null as not archived)
+    if (!includeArchived) {
+      return items.filter(n => n.isArchived !== true);
+    }
+    
+    return items;
+  } catch (error) {
+    console.error('Error fetching all notifications for user:', error);
+    throw error;
+  }
+};
+
+/**
  * Get the count of unread notifications
  * @param userId User ID
  * @returns Promise resolving to the count of unread notifications
  */
 export const getUnreadCount = async (userId: string): Promise<number> => {
   try {
-    const response = await client.graphql<GraphQLQuery<{ listNotifications: { items: { id: string }[] } }>>({
+    const response = await client.graphql<GraphQLQuery<{ listNotifications: { items: { id: string; isArchived: boolean | null }[] } }>>({
       query: /* GraphQL */ `
         query GetUnreadNotificationCount($filter: ModelNotificationFilterInput!) {
           listNotifications(filter: $filter) {
             items {
               id
+              isArchived
             }
           }
         }
@@ -147,7 +246,9 @@ export const getUnreadCount = async (userId: string): Promise<number> => {
       authMode: 'userPool'
     });
     
-    return response.data?.listNotifications.items.length || 0;
+    // Filter out archived notifications (treat null as not archived)
+    const items = response.data?.listNotifications.items || [];
+    return items.filter(n => n.isArchived !== true).length;
   } catch (error) {
     console.error('Error getting unread notification count:', error);
     throw error;
@@ -190,6 +291,10 @@ export const createNotification = async (notification: Omit<Notification, 'id' |
       title: notification.title,
       message: notification.message,
       isRead: notification.isRead,
+      // Only include isArchived if explicitly set (allow null/undefined to mean "not archived")
+      ...(notification.isArchived !== undefined && notification.isArchived !== null 
+        ? { isArchived: notification.isArchived } 
+        : {}),
     };
     
     // Only include optional fields if they have valid values
@@ -252,8 +357,16 @@ export const markAsRead = async (notificationId: string): Promise<{ id: string; 
     });
     
     return response.data!.updateNotification;
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
+  } catch (error: any) {
+    console.error('Error marking notification as read:', {
+      error,
+      errorMessage: error?.message,
+      graphQLErrors: error?.errors || error?.graphQLErrors,
+      notificationId
+    });
+    if (error?.errors) {
+      console.error('GraphQL Errors:', JSON.stringify(error.errors, null, 2));
+    }
     throw error;
   }
 };
@@ -278,6 +391,72 @@ export const markAllAsRead = async (userId: string): Promise<void> => {
     console.log(`Marked ${unreadNotifications.length} notifications as read for user ${userId}`);
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
+    throw error;
+  }
+};
+
+/**
+ * Archive a notification
+ * @param notificationId ID of the notification to archive
+ * @returns Promise resolving to the updated notification
+ */
+export const archiveNotification = async (notificationId: string): Promise<{ id: string; isArchived: boolean }> => {
+  try {
+    const response = await client.graphql<GraphQLQuery<{ updateNotification: { id: string; isArchived: boolean } }>>({
+      query: archiveNotificationMutation,
+      variables: { 
+        input: {
+          id: notificationId,
+          isArchived: true
+        }
+      },
+      authMode: 'userPool'
+    });
+    
+    return response.data!.updateNotification;
+  } catch (error: any) {
+    console.error('Error archiving notification:', {
+      error,
+      errorMessage: error?.message,
+      graphQLErrors: error?.errors || error?.graphQLErrors,
+      notificationId
+    });
+    if (error?.errors) {
+      console.error('GraphQL Errors:', JSON.stringify(error.errors, null, 2));
+    }
+    throw error;
+  }
+};
+
+/**
+ * Unarchive a notification
+ * @param notificationId ID of the notification to unarchive
+ * @returns Promise resolving to the updated notification
+ */
+export const unarchiveNotification = async (notificationId: string): Promise<{ id: string; isArchived: boolean }> => {
+  try {
+    const response = await client.graphql<GraphQLQuery<{ updateNotification: { id: string; isArchived: boolean } }>>({
+      query: archiveNotificationMutation,
+      variables: { 
+        input: {
+          id: notificationId,
+          isArchived: false
+        }
+      },
+      authMode: 'userPool'
+    });
+    
+    return response.data!.updateNotification;
+  } catch (error: any) {
+    console.error('Error unarchiving notification:', {
+      error,
+      errorMessage: error?.message,
+      graphQLErrors: error?.errors || error?.graphQLErrors,
+      notificationId
+    });
+    if (error?.errors) {
+      console.error('GraphQL Errors:', JSON.stringify(error.errors, null, 2));
+    }
     throw error;
   }
 };
@@ -391,6 +570,7 @@ const createNotificationMutation = /* GraphQL */ `
       title
       message
       isRead
+      isArchived
       actionLink
       metadata
       expiresAt
@@ -409,6 +589,17 @@ const markNotificationAsReadMutation = /* GraphQL */ `
     }) {
       id
       isRead
+      updatedAt
+    }
+  }
+`;
+
+// GraphQL mutation for archiving/unarchiving a notification
+const archiveNotificationMutation = /* GraphQL */ `
+  mutation ArchiveNotification($input: UpdateNotificationInput!) {
+    updateNotification(input: $input) {
+      id
+      isArchived
       updatedAt
     }
   }

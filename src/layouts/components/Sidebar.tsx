@@ -126,10 +126,10 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
       }
     };
 
-    if (user) {
+    if (user?.userId) {
       fetchUserProfile();
     }
-  }, [user, client, isProfileModalOpen]);
+  }, [user?.userId]); // Only depend on userId, not entire user object or other changing values
   
   // Toggle profile modal
   const toggleProfileModal = () => {

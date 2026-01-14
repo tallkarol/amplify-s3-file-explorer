@@ -1,21 +1,23 @@
 // src/pages/inbox/Inbox.tsx
 import { useState, useEffect } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import { getNotifications, markAsRead, markAllAsRead, deleteNotification } from '@/features/notifications/services/NotificationService';
+import { getNotifications, markAsRead, markAllAsRead, deleteNotification, archiveNotification } from '@/features/notifications/services/NotificationService';
 import { Notification } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import AlertMessage from '@/components/common/AlertMessage';
 import { useNavigate, Link } from 'react-router-dom';
+import { useUserRole } from '@/hooks/useUserRole';
 import '@/styles/inbox.css';
 
 const Inbox = () => {
   const { user } = useAuthenticator();
+  const { isAdmin } = useUserRole();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread'>('unread');
   const [markingAllRead, setMarkingAllRead] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -61,14 +63,12 @@ const Inbox = () => {
     }
   };
 
-  // Fetch notifications on component mount and when filter changes
-  useEffect(() => {
-    fetchNotifications();
-  }, [filter]);
-
   // Fetch notifications from API
   const fetchNotifications = async () => {
-    if (!user?.userId) return;
+    if (!user?.userId) {
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
@@ -79,17 +79,60 @@ const Inbox = () => {
       // Auto-select first notification if none selected
       if (!selectedNotification && data.length > 0) {
         setSelectedNotification(data[0]);
-        if (!data[0].isRead) {
-          handleMarkAsRead(data[0]);
-        }
       }
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-      setError(`Failed to load notifications: ${err instanceof Error ? err.message : String(err)}`);
+    } catch (err: any) {
+      const errorMessage = err?.message || err?.errors?.[0]?.message || 'Failed to load notifications';
+      console.error('[Inbox] Error fetching notifications:', errorMessage);
+      setError(`Failed to load notifications: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
   };
+
+  // Fetch notifications on component mount and when filter/user changes
+  useEffect(() => {
+    // Prevent duplicate calls with cancellation flag
+    let isCancelled = false;
+    
+    const doFetch = async () => {
+      if (!user?.userId || isCancelled) {
+        if (!user?.userId) setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getNotifications(user.userId, filter === 'unread');
+        
+        if (isCancelled) return;
+        
+        setNotifications(data);
+        
+        // Auto-select first notification if none selected
+        if (!selectedNotification && data.length > 0) {
+          setSelectedNotification(data[0]);
+        }
+      } catch (err: any) {
+        if (isCancelled) return;
+        
+        const errorMessage = err?.message || err?.errors?.[0]?.message || 'Failed to load notifications';
+        console.error('[Inbox] Error fetching notifications:', errorMessage);
+        setError(`Failed to load notifications: ${errorMessage}`);
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    doFetch();
+    
+    // Cleanup: cancel if component unmounts or dependencies change
+    return () => {
+      isCancelled = true;
+    };
+  }, [filter, user?.userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle mark all as read
   const handleMarkAllAsRead = async () => {
@@ -121,13 +164,41 @@ const Inbox = () => {
       if (selectedNotification?.id === notification.id) {
         setSelectedNotification({ ...selectedNotification, isRead: true });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error marking notification as read:', err);
-      setError(`Failed to mark notification as read: ${err instanceof Error ? err.message : String(err)}`);
+      const errorMessage = err?.message || err?.errors?.[0]?.message || JSON.stringify(err) || 'Unknown error';
+      setError(`Failed to mark notification as read: ${errorMessage}`);
     }
   };
 
-  // Handle delete notification
+  // Handle archive notification
+  const handleArchiveNotification = async (id: string) => {
+    try {
+      setDeletingId(id);
+      await archiveNotification(id);
+      
+      // Update local state to remove the archived notification (archived notifications are filtered out)
+      const updatedNotifications = notifications.filter(n => n.id !== id);
+      setNotifications(updatedNotifications);
+      
+      // Clear selection if the archived notification was selected, or select next one
+      if (selectedNotification?.id === id) {
+        if (updatedNotifications.length > 0) {
+          setSelectedNotification(updatedNotifications[0]);
+        } else {
+          setSelectedNotification(null);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error archiving notification:', err);
+      const errorMessage = err?.message || err?.errors?.[0]?.message || JSON.stringify(err) || 'Unknown error';
+      setError(`Failed to archive notification: ${errorMessage}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Handle delete notification (admin only)
   const handleDeleteNotification = async (id: string) => {
     try {
       setDeletingId(id);
@@ -145,9 +216,10 @@ const Inbox = () => {
           setSelectedNotification(null);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting notification:', err);
-      setError(`Failed to delete notification: ${err instanceof Error ? err.message : String(err)}`);
+      const errorMessage = err?.message || err?.errors?.[0]?.message || JSON.stringify(err) || 'Unknown error';
+      setError(`Failed to delete notification: ${errorMessage}`);
     } finally {
       setDeletingId(null);
     }
@@ -300,17 +372,17 @@ const Inbox = () => {
           <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom gap-2">
             <div className="inbox-filter-tabs">
               <button
-                className={`inbox-filter-tab ${filter === 'all' ? 'active' : ''}`}
-                onClick={() => setFilter('all')}
-              >
-                All
-              </button>
-              <button
                 className={`inbox-filter-tab ${filter === 'unread' ? 'active' : ''}`}
                 onClick={() => setFilter('unread')}
               >
                 Unread
                 {unreadCount > 0 && <span className="filter-badge">{unreadCount}</span>}
+              </button>
+              <button
+                className={`inbox-filter-tab ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
+              >
+                All
               </button>
             </div>
             
@@ -477,18 +549,34 @@ const Inbox = () => {
                       <i className="bi bi-check-circle"></i>
                     </button>
                   )}
-                  <button
-                    className="inbox-action-btn inbox-action-btn-danger"
-                    onClick={() => handleDeleteNotification(selectedNotification.id)}
-                    disabled={deletingId === selectedNotification.id}
-                    title="Delete"
-                  >
-                    {deletingId === selectedNotification.id ? (
-                      <span className="spinner-border spinner-border-sm"></span>
-                    ) : (
-                      <i className="bi bi-trash"></i>
-                    )}
-                  </button>
+                  {!isAdmin && (
+                    <button
+                      className="inbox-action-btn"
+                      onClick={() => handleArchiveNotification(selectedNotification.id)}
+                      disabled={deletingId === selectedNotification.id}
+                      title="Archive"
+                    >
+                      {deletingId === selectedNotification.id ? (
+                        <span className="spinner-border spinner-border-sm"></span>
+                      ) : (
+                        <i className="bi bi-archive"></i>
+                      )}
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button
+                      className="inbox-action-btn inbox-action-btn-danger"
+                      onClick={() => handleDeleteNotification(selectedNotification.id)}
+                      disabled={deletingId === selectedNotification.id}
+                      title="Delete"
+                    >
+                      {deletingId === selectedNotification.id ? (
+                        <span className="spinner-border spinner-border-sm"></span>
+                      ) : (
+                        <i className="bi bi-trash"></i>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 

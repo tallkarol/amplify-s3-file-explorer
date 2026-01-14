@@ -7,6 +7,7 @@ import AlertMessage from '../../../components/common/AlertMessage';
 import UserList from '../components/UserList';
 import ClientProfileCard from '../components/ClientProfileCard';
 import FileExplorerTab from './FileExplorerTab';
+import NotificationsTab from './NotificationsTab';
 import { UserProfile } from '../../../types';
 import { fetchAllClients } from '../services/clientService';
 import '../styles/adminclientmanagement.css';
@@ -14,7 +15,7 @@ import '../styles/adminclientmanagement.css';
 const AdminClientManagement: React.FC = () => {
   const [clients, setClients] = useState<UserProfile[]>([]);
   const [selectedClient, setSelectedClient] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'files' | 'actions'>('profile'); // Profile first now
+  const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'files' | 'actions'>('profile'); // Profile first now
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -144,6 +145,13 @@ const AdminClientManagement: React.FC = () => {
                   Profile
                 </button>
                 <button 
+                  className={`admin-client-tab ${activeTab === 'notifications' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('notifications')}
+                >
+                  <i className="bi bi-bell me-2"></i>
+                  Notifications
+                </button>
+                <button 
                   className={`admin-client-tab ${activeTab === 'files' ? 'active' : ''}`}
                   onClick={() => setActiveTab('files')}
                 >
@@ -242,6 +250,10 @@ const AdminClientManagement: React.FC = () => {
                       </Card>
                     </div>
                   </div>
+                )}
+
+                {activeTab === 'notifications' && (
+                  <NotificationsTab client={selectedClient} />
                 )}
 
                 {activeTab === 'files' && (

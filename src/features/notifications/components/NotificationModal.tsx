@@ -24,7 +24,7 @@ const NotificationModal = ({ isOpen, onClose }: NotificationModalProps) => {
     if (isOpen && user?.userId) {
       fetchNotifications();
     }
-  }, [isOpen, user, filter]);
+  }, [isOpen, user?.userId, filter]); // Use user?.userId instead of user object to prevent unnecessary re-fetches
 
   const fetchNotifications = async () => {
     try {

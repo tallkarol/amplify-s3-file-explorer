@@ -1,5 +1,5 @@
 // src/features/notifications/context/NotificationContext.tsx
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 // import { Notification } from '@/types';
 import { getNotifications, getUnreadCount } from '../services/NotificationService';
@@ -31,17 +31,35 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    if (user?.userId) {
-      refreshUnreadCount();
-      // Set up a refresh interval
-      const interval = setInterval(() => {
-        refreshUnreadCount();
-      }, 60000); // Check every minute
-      
-      return () => clearInterval(interval);
+  // Define refreshUnreadCount first so it can be used in useEffect
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user?.userId) return;
+    
+    try {
+      const count = await getUnreadCount(user.userId);
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Error refreshing unread count:', error);
     }
-  }, [user]);
+  }, [user?.userId]); // Memoize to prevent recreation on every render
+
+  useEffect(() => {
+    if (!user?.userId) return;
+    
+    // Initial fetch
+    refreshUnreadCount();
+    
+    // Only poll when tab is visible and user is active (reduces costs significantly)
+    // Check every 5 minutes instead of 1 minute to reduce API calls
+    const interval = setInterval(() => {
+      // Only poll if tab is visible (user is actively using the app)
+      if (document.visibilityState === 'visible') {
+        refreshUnreadCount();
+      }
+    }, 300000); // Check every 5 minutes (reduced from 1 minute)
+    
+    return () => clearInterval(interval);
+  }, [user?.userId, refreshUnreadCount]); // Include refreshUnreadCount in dependencies
 
   const fetchNotifications = async () => {
     if (!user?.userId) return;
@@ -51,17 +69,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       await refreshUnreadCount();
     } catch (error) {
       console.error('Error fetching notifications:', error);
-    }
-  };
-
-  const refreshUnreadCount = async () => {
-    if (!user?.userId) return;
-    
-    try {
-      const count = await getUnreadCount(user.userId);
-      setUnreadCount(count);
-    } catch (error) {
-      console.error('Error refreshing unread count:', error);
     }
   };
 

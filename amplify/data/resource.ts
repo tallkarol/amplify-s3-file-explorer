@@ -90,14 +90,15 @@ const schema = a.schema({
       title: a.string(),
       message: a.string(),
       isRead: a.boolean(),
+      isArchived: a.boolean(),
       actionLink: a.string(),
       metadata: a.json(),
       expiresAt: a.datetime(),
     })
     .authorization((allow) => [
-      allow.ownerDefinedIn('userId').to(['read']), // Users can READ their own notifications
+      allow.ownerDefinedIn('userId').to(['read', 'update']), // Users can READ and UPDATE their own notifications
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]), // Admins can CREATE for anyone
-      allow.groups(["user"]).to(["read", "create"]), // Users can CREATE notifications (for notifying admins when they upload)
+      allow.groups(["user"]).to(["read", "create", "update"]), // Users can CREATE and UPDATE notifications
       allow.authenticated().to(["create"]), // Fallback: any authenticated user can create notifications
     ]),
 

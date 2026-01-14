@@ -69,6 +69,7 @@ export interface Notification {
   title: string;
   message: string;
   isRead: boolean;
+  isArchived?: boolean;
   actionLink?: string;
   metadata?: Record<string, any>;
   expiresAt?: string;
