@@ -182,10 +182,37 @@ export const getNotificationPreferences = async (userId: string): Promise<Notifi
  */
 export const createNotification = async (notification: Omit<Notification, 'id' | 'createdAt' | 'updatedAt'>): Promise<Notification> => {
   try {
+    // Build input object, only including defined fields
+    // GraphQL JSON types need proper handling - omit undefined values
+    const input: any = {
+      userId: notification.userId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      isRead: notification.isRead,
+    };
+    
+    // Only include optional fields if they have valid values
+    if (notification.actionLink !== undefined && notification.actionLink !== null && notification.actionLink !== '') {
+      input.actionLink = notification.actionLink;
+    }
+    
+    // TEMPORARILY OMIT METADATA - it's causing "Variable 'metadata' has an invalid value" GraphQL errors
+    // The mutation fails before reaching the database when metadata is included
+    // Other working examples (post-confirmation handler, NotificationDemo) omit metadata
+    // TODO: Investigate correct JSON field format for Amplify Gen 2 GraphQL mutations
+    // if (notification.metadata !== undefined && notification.metadata !== null) {
+    //   input.metadata = notification.metadata;
+    // }
+    
+    if (notification.expiresAt !== undefined && notification.expiresAt !== null) {
+      input.expiresAt = notification.expiresAt;
+    }
+    
     const response = await client.graphql<GraphQLQuery<{ createNotification: Notification }>>({
       query: createNotificationMutation,
       variables: {
-        input: notification
+        input
       },
       authMode: 'userPool'
     });

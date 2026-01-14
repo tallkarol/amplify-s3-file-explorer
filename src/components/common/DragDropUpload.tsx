@@ -305,6 +305,7 @@ const DragDropUpload = ({
         } catch (err) {
           console.error('Error uploading file:', err);
           setError(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
+          setIsUploading(false); // Reset uploading state immediately on error
           break;
         }
       }

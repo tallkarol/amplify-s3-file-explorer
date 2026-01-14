@@ -46,6 +46,7 @@ export const useNotification = (): UseNotificationReturn => {
 
     try {
       // Prepare the notification data
+      // Note: metadata is temporarily omitted due to GraphQL validation issues
       const notification = {
         userId: options.userId || user.userId,
         type: options.type || 'system',
@@ -53,7 +54,7 @@ export const useNotification = (): UseNotificationReturn => {
         message: options.message,
         isRead: false,
         actionLink: options.actionLink,
-        metadata: options.metadata || {}
+        // metadata: options.metadata || {} // Temporarily disabled - causes GraphQL errors
       };
 
       // Create the notification
