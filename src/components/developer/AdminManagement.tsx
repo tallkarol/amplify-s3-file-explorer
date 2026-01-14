@@ -213,7 +213,7 @@ const AdminManagement: React.FC<AdminManagementProps> = () => {
               </tr>
             ) : (
               filteredUsers.map((user) => (
-                <tr key={user.uuid || user.id}>
+                <tr key={user.id || user.uuid || `user-${Math.random()}`}>
                   <td>{user.email || '-'}</td>
                   <td>
                     {user.firstName || user.lastName

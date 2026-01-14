@@ -1,6 +1,10 @@
 // src/services/adminService.ts
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
+import { fetchAuthSession } from 'aws-amplify/auth';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { Sha256 } from '@aws-crypto/sha256-js';
+import { HttpRequest } from '@aws-sdk/protocol-http';
 // import { UserProfile } from '@/types';
 
 const client = generateClient();
@@ -43,18 +47,60 @@ export const getAllAdminUserIds = async (): Promise<string[]> => {
 };
 
 /**
+ * Helper function to sign and fetch requests to Lambda Function URL with IAM auth
+ */
+async function signedFetch(url: string, options: RequestInit): Promise<Response> {
+  const session = await fetchAuthSession();
+  const credentials = session.credentials;
+  
+  if (!credentials) {
+    throw new Error('No AWS credentials available. Please sign in.');
+  }
+  
+  const urlObj = new URL(url);
+  const region = urlObj.hostname.split('.')[2] || 'us-east-1'; // Extract region from URL
+  
+  const signer = new SignatureV4({
+    credentials: {
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+      sessionToken: credentials.sessionToken,
+    },
+    region,
+    service: 'lambda',
+    sha256: Sha256,
+  });
+  
+  const request = new HttpRequest({
+    method: options.method || 'GET',
+    hostname: urlObj.hostname,
+    path: urlObj.pathname,
+    headers: {
+      'Content-Type': 'application/json',
+      host: urlObj.hostname,
+      ...(options.headers as Record<string, string>),
+    },
+    body: options.body as string,
+  });
+  
+  const signedRequest = await signer.sign(request);
+  
+  return fetch(url, {
+    method: signedRequest.method,
+    headers: signedRequest.headers as HeadersInit,
+    body: signedRequest.body as BodyInit,
+  });
+}
+
+/**
  * Sync admin/developer status from Cognito groups to UserProfile
  * Calls the admin-sync Lambda function
  */
 export const syncAdminStatusFromCognito = async (): Promise<{ success: boolean; updated: number; errors: string[] }> => {
   try {
-    // Get the function endpoint URL
-    // In Gen 2, functions expose HTTP endpoints automatically
-    // The endpoint URL format: https://{api-id}.execute-api.{region}.amazonaws.com/{function-name}
-    // We'll need to get this from amplify_outputs.json or construct it
     const functionUrl = await getAdminSyncFunctionUrl();
     
-    const response = await fetch(functionUrl, {
+    const response = await signedFetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,7 +111,8 @@ export const syncAdminStatusFromCognito = async (): Promise<{ success: boolean; 
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     const result = await response.json();
@@ -88,7 +135,7 @@ export const updateUserAdminStatus = async (
   try {
     const functionUrl = await getAdminSyncFunctionUrl();
     
-    const response = await fetch(functionUrl, {
+    const response = await signedFetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +149,8 @@ export const updateUserAdminStatus = async (
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     const result = await response.json();
