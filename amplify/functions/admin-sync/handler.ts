@@ -11,38 +11,23 @@ import {
   AdminListGroupsForUserCommand,
   AdminAddUserToGroupCommand,
   AdminRemoveUserFromGroupCommand,
-  GetUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
-// Initialize Amplify Data client lazily to avoid initialization errors
-let dataClient: ReturnType<typeof generateClient<Schema>> | null = null;
+// Merge the imported env with AWS environment variables into a single flat object.
+const clientEnv = {
+  ...env,
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID!,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY!,
+  AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN!,
+  AWS_REGION: process.env.AWS_REGION!,
+  AMPLIFY_DATA_DEFAULT_NAME: process.env.AMPLIFY_DATA_DEFAULT_NAME!,
+};
 
-async function getDataClient(): Promise<ReturnType<typeof generateClient<Schema>>> {
-  if (dataClient) {
-    return dataClient;
-  }
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(clientEnv);
 
-  try {
-    // Merge the imported env with AWS environment variables into a single flat object.
-    const clientEnv = {
-      ...env,
-      AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
-      AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
-      AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN || '',
-      AWS_REGION: process.env.AWS_REGION || 'us-east-1',
-      AMPLIFY_DATA_DEFAULT_NAME: process.env.AMPLIFY_DATA_DEFAULT_NAME || 'default',
-    };
+Amplify.configure(resourceConfig, libraryOptions);
 
-    const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(clientEnv);
-    Amplify.configure(resourceConfig, libraryOptions);
-    dataClient = generateClient<Schema>();
-    console.log('Amplify Data client initialized successfully');
-    return dataClient;
-  } catch (error: any) {
-    console.error('Error initializing Amplify Data client:', error.message);
-    throw new Error(`Failed to initialize Amplify Data client: ${error.message}`);
-  }
-}
+const dataClient = generateClient<Schema>();
 
 // Initialize Cognito client
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION! });
@@ -231,8 +216,7 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
         const isDeveloper = groups.includes('developer');
 
         // Find existing UserProfile by uuid
-        const client = await getDataClient();
-        const profiles = await client.models.UserProfile.list({
+        const profiles = await dataClient.models.UserProfile.list({
           filter: { uuid: { eq: userId } },
         });
 
@@ -241,7 +225,7 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
           
           // Only update if values have changed
           if (profile.isAdmin !== isAdmin || profile.isDeveloper !== isDeveloper) {
-            await client.models.UserProfile.update({
+            await dataClient.models.UserProfile.update({
               id: profile.id,
               isAdmin,
               isDeveloper,
@@ -334,14 +318,13 @@ async function updateUserAdminStatus(
     }
 
     // Update UserProfile
-    const client = await getDataClient();
-    const profiles = await client.models.UserProfile.list({
+    const profiles = await dataClient.models.UserProfile.list({
       filter: { uuid: { eq: userId } },
     });
 
     if (profiles.data && profiles.data.length > 0) {
       const profile = profiles.data[0];
-      await client.models.UserProfile.update({
+      await dataClient.models.UserProfile.update({
         id: profile.id,
         isAdmin,
         isDeveloper,
@@ -373,15 +356,13 @@ export const handler: Handler = async (event: any) => {
                    event.httpMethod ||
                    event.requestContext?.method;
     
-      if (method === 'OPTIONS') {
+    if (method === 'OPTIONS') {
       console.log('Handling OPTIONS preflight request');
+      // Function URL handles CORS, no headers needed
       return {
         statusCode: 200,
         headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Max-Age': '86400',
+          'Content-Type': 'application/json',
         },
         body: '',
       };
@@ -399,9 +380,6 @@ export const handler: Handler = async (event: any) => {
           statusCode: 401,
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify({
             success: false,
@@ -419,9 +397,6 @@ export const handler: Handler = async (event: any) => {
           statusCode: 200,
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),
         };
@@ -431,9 +406,6 @@ export const handler: Handler = async (event: any) => {
             statusCode: 400,
             headers: {
               'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
-              'Access-Control-Allow-Methods': 'POST, OPTIONS',
             },
             body: JSON.stringify({
               success: false,
@@ -447,9 +419,6 @@ export const handler: Handler = async (event: any) => {
           statusCode: 200,
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
           },
           body: JSON.stringify(result),
         };
@@ -458,7 +427,6 @@ export const handler: Handler = async (event: any) => {
           statusCode: 400,
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
           },
           body: JSON.stringify({
             success: false,
@@ -487,9 +455,6 @@ export const handler: Handler = async (event: any) => {
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-amz-date, x-amz-security-token',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
       },
       body: JSON.stringify({
         success: false,

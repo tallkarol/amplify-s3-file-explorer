@@ -1,6 +1,7 @@
 // amplify/data/resource.ts
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-confirmation/resource";
+import { adminSync } from "../functions/admin-sync/resource";
 
 const schema = a.schema({
   SupportTicket: a
@@ -125,7 +126,10 @@ const schema = a.schema({
       allow.groups(["admin", "developer"]).to(["read", "create", "update", "delete"]),
     ]),
 
-}).authorization((allow) => [allow.resource(postConfirmation)]);
+}).authorization((allow) => [
+  allow.resource(postConfirmation),
+  allow.resource(adminSync),
+]);
 
 export type Schema = ClientSchema<typeof schema>;
 
