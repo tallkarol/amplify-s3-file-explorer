@@ -1,4 +1,5 @@
 import { defineBackend } from '@aws-amplify/backend';
+import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { storage } from './storage/resource';
@@ -13,16 +14,18 @@ const backend = defineBackend({
 
 // Grant adminSync function permissions to access Cognito User Pool
 // Note: In Gen 2, functions need explicit IAM permissions for Cognito operations
-backend.adminSync.resources.lambda.addToRolePolicy({
-  effect: 'Allow',
-  actions: [
-    'cognito-idp:ListUsers',
-    'cognito-idp:AdminListGroupsForUser',
-    'cognito-idp:AdminAddUserToGroup',
-    'cognito-idp:AdminRemoveUserFromGroup',
-  ],
-  resources: [backend.auth.resources.userPool.userPoolArn],
-});
+backend.adminSync.resources.lambda.addToRolePolicy(
+  new PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: [
+      'cognito-idp:ListUsers',
+      'cognito-idp:AdminListGroupsForUser',
+      'cognito-idp:AdminAddUserToGroup',
+      'cognito-idp:AdminRemoveUserFromGroup',
+    ],
+    resources: [backend.auth.resources.userPool.userPoolArn],
+  })
+);
 
 // Pass User Pool ID as environment variable
 backend.adminSync.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
