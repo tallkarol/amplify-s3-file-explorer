@@ -11,6 +11,7 @@ import {
   AdminListGroupsForUserCommand,
   AdminAddUserToGroupCommand,
   AdminRemoveUserFromGroupCommand,
+  AdminResetUserPasswordCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
 // Merge the imported env with AWS environment variables into a single flat object.
@@ -44,7 +45,7 @@ const getUserPoolId = (): string => {
 };
 
 interface SyncRequest {
-  action: 'syncFromCognito' | 'updateUserAdminStatus';
+  action: 'syncFromCognito' | 'updateUserAdminStatus' | 'resetUserPassword';
   userId?: string;
   isAdmin?: boolean;
   isDeveloper?: boolean;
@@ -255,6 +256,46 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
 }
 
 /**
+ * Reset user password: Generate temporary password and send via email
+ */
+async function resetUserPassword(
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const userPoolId = getUserPoolId();
+    console.log(`[resetUserPassword] Resetting password for user ${userId}`);
+
+    // Use AdminResetUserPassword to generate a temporary password and send it via email
+    const command = new AdminResetUserPasswordCommand({
+      UserPoolId: userPoolId,
+      Username: userId,
+    });
+
+    await cognitoClient.send(command);
+    
+    console.log(`[resetUserPassword] Password reset email sent successfully for user ${userId}`);
+
+    return {
+      success: true,
+      message: `Password reset email has been sent to the user. They will receive a temporary password and must change it on next login.`,
+    };
+  } catch (error: any) {
+    console.error(`[resetUserPassword] Error resetting password for user ${userId}:`, error);
+    
+    // Provide more helpful error messages
+    if (error.name === 'UserNotFoundException') {
+      throw new Error(`User not found: ${userId}`);
+    } else if (error.name === 'InvalidParameterException') {
+      throw new Error(`Invalid user ID: ${userId}`);
+    } else if (error.name === 'NotAuthorizedException') {
+      throw new Error('Not authorized to reset user password');
+    }
+    
+    throw new Error(`Failed to reset user password: ${error.message || 'Unknown error'}`);
+  }
+}
+
+/**
  * Update user's admin/developer status in both Cognito and UserProfile
  */
 async function updateUserAdminStatus(
@@ -415,6 +456,28 @@ export const handler: Handler = async (event: any) => {
         }
 
         const result = await updateUserAdminStatus(userId, isAdmin, isDeveloper);
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(result),
+        };
+      } else if (action === 'resetUserPassword') {
+        if (!userId) {
+          return {
+            statusCode: 400,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              success: false,
+              error: 'Missing required parameter: userId',
+            }),
+          };
+        }
+
+        const result = await resetUserPassword(userId);
         return {
           statusCode: 200,
           headers: {

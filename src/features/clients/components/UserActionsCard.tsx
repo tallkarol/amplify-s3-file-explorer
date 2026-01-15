@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { UserProfile } from '@/types';
 import Card from '@/components/common/Card';
 import { useUserRole } from '@/hooks/useUserRole'; // Use the existing useUserRole instead
-import { suspendUserAccount, reactivateUserAccount } from '../services/clientService';
+import { suspendUserAccount, reactivateUserAccount, resetUserPassword } from '../services/clientService';
 import { softDeleteUser, hardDeleteUser } from '@/services/userDeleteService';
 
 interface UserActionsCardProps {
@@ -64,8 +64,15 @@ const UserActionsCard = ({ user, onStatusChange }: UserActionsCardProps) => {
           break;
           
         case 'reset-password':
-          // Existing reset password logic here
-          alert(`Password reset link would be sent to ${user.email}`);
+          if (!canModify) {
+            throw new Error('You do not have permission to reset user passwords.');
+          }
+          if (!user.uuid) {
+            throw new Error('User UUID is required to reset password.');
+          }
+          const resetResult = await resetUserPassword(user.uuid);
+          // Show success message - the function returns a message
+          alert(`Success: ${resetResult.message}`);
           break;
           
         case 'soft-delete':
@@ -162,14 +169,31 @@ const UserActionsCard = ({ user, onStatusChange }: UserActionsCardProps) => {
         );
         
       case 'reset-password':
-        // Existing reset password confirmation
         return (
           <div className="alert alert-warning">
             <h6 className="alert-heading">Reset User Password?</h6>
-            <p>This will send a password reset link to {user.email}.</p>
-            <div className="d-flex justify-content-end">
-              <button className="btn btn-sm btn-outline-secondary me-2" onClick={cancelAction}>Cancel</button>
-              <button className="btn btn-sm btn-warning" onClick={executeAction}>Reset Password</button>
+            <p>This will send a password reset email to {user.email}. The user will receive a temporary password and must change it on their next login.</p>
+            {error && <div className="text-danger mt-2">{error}</div>}
+            <div className="d-flex justify-content-end mt-3">
+              <button 
+                className="btn btn-sm btn-outline-secondary me-2" 
+                onClick={cancelAction}
+                disabled={processing}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-sm btn-warning" 
+                onClick={executeAction}
+                disabled={processing || !canModify}
+              >
+                {processing ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Sending...
+                  </>
+                ) : 'Reset Password'}
+              </button>
             </div>
           </div>
         );

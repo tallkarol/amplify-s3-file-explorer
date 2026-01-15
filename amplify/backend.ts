@@ -25,6 +25,7 @@ backend.adminSync.resources.lambda.addToRolePolicy(
       'cognito-idp:AdminListGroupsForUser',
       'cognito-idp:AdminAddUserToGroup',
       'cognito-idp:AdminRemoveUserFromGroup',
+      'cognito-idp:AdminResetUserPassword',
     ],
     resources: [backend.auth.resources.userPool.userPoolArn],
   })

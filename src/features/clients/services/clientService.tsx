@@ -3,6 +3,7 @@ import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import { UserProfile } from '@/types';
 import { CognitoIdentityProviderClient, AdminDisableUserCommand, AdminEnableUserCommand } from "@aws-sdk/client-cognito-identity-provider";
+import outputs from '../../../../amplify_outputs.json';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {
@@ -13,19 +14,34 @@ interface ListUserProfilesResponse {
 // Create a client for making GraphQL requests
 const client = generateClient();
 
-// Create the Cognito client - FIX: Replace process.env with import.meta.env for Vite
+// Get User Pool ID and region from amplify_outputs.json
+const getUserPoolId = (): string => {
+  const outputsData = outputs as any;
+  const userPoolId = outputsData?.auth?.user_pool_id;
+  if (!userPoolId) {
+    throw new Error('User Pool ID not found in amplify_outputs.json. Please ensure the auth resource is properly configured.');
+  }
+  return userPoolId;
+};
+
+const getAwsRegion = (): string => {
+  const outputsData = outputs as any;
+  return outputsData?.auth?.aws_region || outputsData?.data?.aws_region || 'us-east-1';
+};
+
+// Create the Cognito client
 const cognitoClient = new CognitoIdentityProviderClient({ 
-  region: import.meta.env.VITE_AWS_REGION || 'us-east-1' 
+  region: getAwsRegion()
 });
-const USER_POOL_ID = import.meta.env.VITE_USER_POOL_ID || '';
 
 /**
  * Disables a user in Cognito
  */
 export const disableCognitoUser = async (username: string): Promise<void> => {
   try {
+    const userPoolId = getUserPoolId();
     const command = new AdminDisableUserCommand({
-      UserPoolId: USER_POOL_ID,
+      UserPoolId: userPoolId,
       Username: username
     });
     
@@ -42,8 +58,9 @@ export const disableCognitoUser = async (username: string): Promise<void> => {
  */
 export const enableCognitoUser = async (username: string): Promise<void> => {
   try {
+    const userPoolId = getUserPoolId();
     const command = new AdminEnableUserCommand({
-      UserPoolId: USER_POOL_ID,
+      UserPoolId: userPoolId,
       Username: username
     });
     
@@ -106,12 +123,65 @@ export const fetchAllClients = async (includeDeleted: boolean = false): Promise<
 };
 
 /**
- * Sends a password reset request for a user
- * @param userId The ID of the user
+ * Sends a password reset email for a user via Lambda function
+ * This generates a temporary password and sends it to the user's email
+ * The user will be required to change their password on next login
+ * @param userId The UUID of the user (Cognito username)
+ * @returns Promise that resolves when the password reset email is sent
  */
-export const resetUserPassword = async (userId: string): Promise<void> => {
-  // Implementation will come later
-  console.log(`Password reset requested for user ${userId}`);
+export const resetUserPassword = async (userId: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    // Import fetchAuthSession for authentication
+    const { fetchAuthSession } = await import('aws-amplify/auth');
+    
+    console.log(`[resetUserPassword] Sending password reset email for user ${userId} via Lambda function`);
+
+    // Get function URL from amplify_outputs.json
+    const outputsData = outputs as any;
+    const customFunctions = outputsData?.custom?.functions;
+    const functionUrl = customFunctions?.adminSync?.endpoint;
+    
+    if (!functionUrl) {
+      throw new Error('Admin sync function URL not configured. Please deploy the function first, then add it to amplify_outputs.json under: "custom": { "functions": { "adminSync": { "endpoint": "https://your-function-url.lambda-url.region.on.aws/" } } }');
+    }
+    
+    // Get auth token
+    const session = await fetchAuthSession();
+    const token = session.tokens?.idToken?.toString();
+    
+    if (!token) {
+      throw new Error('No authentication token available. Please sign in.');
+    }
+
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        action: 'resetUserPassword',
+        userId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[resetUserPassword] Lambda function error:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      });
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log(`[resetUserPassword] Password reset email sent successfully for user ${userId}`);
+    return result;
+  } catch (error: any) {
+    console.error(`[resetUserPassword] Error sending password reset email for user ${userId}:`, error);
+    throw new Error(`Failed to send password reset email: ${error.message || 'Unknown error'}`);
+  }
 };
 
 /**

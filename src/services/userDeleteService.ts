@@ -6,49 +6,93 @@ import outputs from '../../amplify_outputs.json';
  * Helper function to fetch requests to Lambda Function URL with Cognito token auth
  */
 async function authenticatedFetch(url: string, options: RequestInit): Promise<Response> {
-  const session = await fetchAuthSession();
+  console.log('[userDeleteService] Starting authenticated fetch to:', url);
+  
+  let session;
+  try {
+    session = await fetchAuthSession();
+    console.log('[userDeleteService] Auth session retrieved');
+  } catch (err: any) {
+    console.error('[userDeleteService] Error fetching auth session:', err);
+    throw new Error(`Failed to get authentication session: ${err.message || 'Unknown error'}`);
+  }
+  
   const token = session.tokens?.idToken?.toString();
   
   if (!token) {
+    console.error('[userDeleteService] No ID token available in session');
     throw new Error('No authentication token available. Please sign in.');
   }
   
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...(options.headers as Record<string, string>),
-    },
-  });
+  console.log('[userDeleteService] Making fetch request with token (length:', token.length, ')');
   
-  // Clone response for logging without consuming the body
-  if (!response.ok) {
-    const responseClone = response.clone();
-    const errorText = await responseClone.text().catch(() => 'Unable to read error response');
-    console.error('[authenticatedFetch] Request failed:', {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(options.headers as Record<string, string>),
+      },
+    });
+    
+    console.log('[userDeleteService] Fetch response received:', {
       status: response.status,
       statusText: response.statusText,
-      error: errorText,
+      ok: response.ok,
       url: url,
     });
+    
+    // Clone response for logging without consuming the body
+    if (!response.ok) {
+      const responseClone = response.clone();
+      const errorText = await responseClone.text().catch(() => 'Unable to read error response');
+      console.error('[userDeleteService] Request failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+        url: url,
+      });
+    }
+    
+    return response;
+  } catch (err: any) {
+    // Network error or fetch failed entirely
+    console.error('[userDeleteService] Fetch request failed:', {
+      error: err.message || err,
+      errorType: err.name || 'Unknown',
+      url: url,
+      stack: err.stack,
+    });
+    
+    // Provide more helpful error messages
+    if (err.message?.includes('Failed to fetch') || err.name === 'TypeError') {
+      throw new Error(`Network error: Unable to reach delete user function. Please check: 1) Function URL is configured in amplify_outputs.json, 2) CORS is enabled on the Function URL, 3) Network connectivity. Original error: ${err.message}`);
+    }
+    
+    throw err;
   }
-  
-  return response;
 }
 
 /**
  * Get the delete-user function URL from amplify_outputs.json
  */
 function getDeleteUserFunctionUrl(): string {
+  console.log('[userDeleteService] Getting delete user function URL from amplify_outputs.json');
+  
   const outputsData = outputs as any;
   
   // Check custom.functions.deleteUser.endpoint
   const customFunctions = outputsData?.custom?.functions;
+  console.log('[userDeleteService] Custom functions in outputs:', customFunctions ? Object.keys(customFunctions) : 'none');
+  
   if (customFunctions?.deleteUser?.endpoint) {
-    return customFunctions.deleteUser.endpoint;
+    const url = customFunctions.deleteUser.endpoint;
+    console.log('[userDeleteService] Found delete user function URL:', url);
+    return url;
   }
   
+  console.error('[userDeleteService] Delete user function URL not found in amplify_outputs.json');
   throw new Error('Delete user function URL not configured. Please deploy the function first, then add it to amplify_outputs.json under: "custom": { "functions": { "deleteUser": { "endpoint": "https://your-function-url.lambda-url.region.on.aws/" } } }');
 }
 
@@ -60,27 +104,39 @@ export const softDeleteUser = async (
   userId: string,
   isSelfDelete: boolean = false
 ): Promise<{ success: boolean; message: string }> => {
+  console.log(`[userDeleteService] Starting soft delete for user ${userId}, isSelfDelete: ${isSelfDelete}`);
+  
   try {
     const functionUrl = getDeleteUserFunctionUrl();
+    console.log(`[userDeleteService] Function URL: ${functionUrl}`);
+    
+    const requestBody = {
+      action: 'softDeleteUser',
+      userId,
+      isSelfDelete,
+    };
+    console.log(`[userDeleteService] Request body:`, requestBody);
     
     const response = await authenticatedFetch(functionUrl, {
       method: 'POST',
-      body: JSON.stringify({
-        action: 'softDeleteUser',
-        userId,
-        isSelfDelete,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[userDeleteService] Soft delete failed with status ${response.status}:`, errorText);
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     const result = await response.json();
+    console.log(`[userDeleteService] Soft delete successful:`, result);
     return result;
   } catch (error: any) {
-    console.error('Error soft deleting user:', error);
+    console.error(`[userDeleteService] Error soft deleting user ${userId}:`, {
+      error: error.message || error,
+      errorType: error.name || 'Unknown',
+      stack: error.stack,
+    });
     throw error;
   }
 };
@@ -92,26 +148,38 @@ export const softDeleteUser = async (
 export const hardDeleteUser = async (
   userId: string
 ): Promise<{ success: boolean; message: string }> => {
+  console.log(`[userDeleteService] Starting hard delete for user ${userId}`);
+  
   try {
     const functionUrl = getDeleteUserFunctionUrl();
+    console.log(`[userDeleteService] Function URL: ${functionUrl}`);
+    
+    const requestBody = {
+      action: 'hardDeleteUser',
+      userId,
+    };
+    console.log(`[userDeleteService] Request body:`, requestBody);
     
     const response = await authenticatedFetch(functionUrl, {
       method: 'POST',
-      body: JSON.stringify({
-        action: 'hardDeleteUser',
-        userId,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`[userDeleteService] Hard delete failed with status ${response.status}:`, errorText);
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     const result = await response.json();
+    console.log(`[userDeleteService] Hard delete successful:`, result);
     return result;
   } catch (error: any) {
-    console.error('Error hard deleting user:', error);
+    console.error(`[userDeleteService] Error hard deleting user ${userId}:`, {
+      error: error.message || error,
+      errorType: error.name || 'Unknown',
+      stack: error.stack,
+    });
     throw error;
   }
 };

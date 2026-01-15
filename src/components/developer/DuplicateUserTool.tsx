@@ -333,8 +333,24 @@ const DuplicateUserTool: React.FC = () => {
             return { user, action: 'softDelete', result };
           }
         } catch (err: any) {
-          console.error(`[DuplicateUserTool] Error deleting user ${user.uuid}:`, err);
-          return { user, action: 'error', error: err.message || 'Unknown error' };
+          console.error(`[DuplicateUserTool] Error deleting user ${user.uuid}:`, {
+            error: err.message || err,
+            errorType: err.name || 'Unknown',
+            stack: err.stack,
+            user: {
+              email: user.email,
+              uuid: user.uuid,
+              id: user.id,
+            },
+          });
+          
+          // Provide more detailed error message
+          let errorMessage = err.message || 'Unknown error';
+          if (err.message?.includes('Failed to fetch') || err.message?.includes('Network error')) {
+            errorMessage = `Network error: ${err.message}. Check console for details.`;
+          }
+          
+          return { user, action: 'error', error: errorMessage };
         }
       });
 

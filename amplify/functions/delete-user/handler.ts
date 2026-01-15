@@ -279,6 +279,14 @@ export const handler: Handler = async (event: any) => {
   try {
     console.log('Delete user handler invoked:', JSON.stringify(event, null, 2));
 
+    // CORS headers for all responses
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400', // 24 hours
+    };
+
     // Handle CORS preflight OPTIONS request
     const method = event.requestContext?.http?.method || 
                    event.requestContext?.httpMethod || 
@@ -289,9 +297,7 @@ export const handler: Handler = async (event: any) => {
       console.log('Handling OPTIONS preflight request');
       return {
         statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: corsHeaders,
         body: '',
       };
     }
@@ -319,6 +325,7 @@ export const handler: Handler = async (event: any) => {
             statusCode: 403,
             headers: {
               'Content-Type': 'application/json',
+              ...corsHeaders,
             },
             body: JSON.stringify({
               success: false,
@@ -331,6 +338,7 @@ export const handler: Handler = async (event: any) => {
           statusCode: 401,
           headers: {
             'Content-Type': 'application/json',
+            ...corsHeaders,
           },
           body: JSON.stringify({
             success: false,
@@ -345,6 +353,7 @@ export const handler: Handler = async (event: any) => {
             statusCode: 400,
             headers: {
               'Content-Type': 'application/json',
+              ...corsHeaders,
             },
             body: JSON.stringify({
               success: false,
@@ -358,6 +367,7 @@ export const handler: Handler = async (event: any) => {
           statusCode: 200,
           headers: {
             'Content-Type': 'application/json',
+            ...corsHeaders,
           },
           body: JSON.stringify(result),
         };
@@ -367,6 +377,7 @@ export const handler: Handler = async (event: any) => {
             statusCode: 400,
             headers: {
               'Content-Type': 'application/json',
+              ...corsHeaders,
             },
             body: JSON.stringify({
               success: false,
@@ -381,6 +392,7 @@ export const handler: Handler = async (event: any) => {
             statusCode: 403,
             headers: {
               'Content-Type': 'application/json',
+              ...corsHeaders,
             },
             body: JSON.stringify({
               success: false,
@@ -394,6 +406,7 @@ export const handler: Handler = async (event: any) => {
           statusCode: 200,
           headers: {
             'Content-Type': 'application/json',
+            ...corsHeaders,
           },
           body: JSON.stringify(result),
         };
@@ -402,6 +415,7 @@ export const handler: Handler = async (event: any) => {
           statusCode: 400,
           headers: {
             'Content-Type': 'application/json',
+            ...corsHeaders,
           },
           body: JSON.stringify({
             success: false,
@@ -434,6 +448,9 @@ export const handler: Handler = async (event: any) => {
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
       body: JSON.stringify({
         success: false,
