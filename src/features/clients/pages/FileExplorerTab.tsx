@@ -15,6 +15,7 @@ import {
   createSubfolder,
   FOLDER_DISPLAY_NAMES 
 } from '../../files/services/S3Service';
+import { devLog, devWarn } from '../../../utils/logger';
 import './FileExplorerTab.css';
 
 interface FileExplorerTabProps {
@@ -72,7 +73,7 @@ const FileExplorerTab: React.FC<FileExplorerTabProps> = ({
       console.error('Error fetching files:', err);
       
       if (retryCount === 0 && err instanceof Error && err.message.includes('permission')) {
-        console.warn('Permissions lookup failed, falling back to basic file listing...');
+        devWarn('Permissions lookup failed, falling back to basic file listing...');
         try {
           const { listUserFiles } = await import('../../files/services/S3Service');
           const basicItems = await listUserFiles(client.uuid, currentPath);
@@ -157,7 +158,7 @@ const FileExplorerTab: React.FC<FileExplorerTabProps> = ({
         return;
       }
     } catch (permErr) {
-      console.warn('Permission check failed, allowing download:', permErr);
+      devWarn('Permission check failed, allowing download:', permErr);
     }
 
     setActionLoading(file.key);
@@ -237,7 +238,7 @@ const FileExplorerTab: React.FC<FileExplorerTabProps> = ({
           }
           
           retryCount++;
-          console.log(`Folder not found yet, retrying in ${retryDelay}ms (attempt ${retryCount}/${maxRetries})`);
+          devLog(`Folder not found yet, retrying in ${retryDelay}ms (attempt ${retryCount}/${maxRetries})`);
           
           setTimeout(checkForNewFolder, retryDelay);
         } catch (err) {

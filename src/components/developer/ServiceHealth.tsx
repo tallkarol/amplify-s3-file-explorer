@@ -4,6 +4,7 @@ import Card from '../../components/common/Card';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { list, uploadData, remove } from 'aws-amplify/storage';
 import { generateClient } from 'aws-amplify/api';
+import { devLog } from '../../utils/logger';
 
 // Define service types - we'll keep this for future use even if not used now
 type ServiceStatus = 'untested' | 'testing' | 'success' | 'failed';
@@ -95,7 +96,7 @@ const ServiceHealth = () => {
         }`
       });
 
-      console.log('API test response:', response);
+      devLog('API test response:', response);
       
       // We don't need to use the response, just checking if the request succeeds
       setApiStatus({

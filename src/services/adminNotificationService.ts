@@ -1,6 +1,7 @@
 // src/services/adminNotificationService.ts
 import { getAllAdminUserIds } from './adminService';
 import { notifyAdminsOfUserFileUpload } from '@/features/files/services/FileNotificationService';
+import { devLog } from '../utils/logger';
 
 /**
  * Notify admins when a user uploads a file
@@ -29,7 +30,7 @@ export const notifyAdminsOfFileUpload = async (
         folderPath
       );
       
-      console.log(`Notified ${eligibleAdmins.length} admins about file upload by user ${userUserId}`);
+      devLog(`Notified ${eligibleAdmins.length} admins about file upload by user ${userUserId}`);
     }
   } catch (error) {
     console.error('Error notifying admins of file upload:', error);

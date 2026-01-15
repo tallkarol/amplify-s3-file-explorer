@@ -10,6 +10,7 @@ import FileUpload from './FileUpload';
 import DragDropUpload from '@/components/common/DragDropUpload';
 import DragDropInfo from '@/components/common/DragDropInfo';
 import { useUserRole } from '@/hooks/useUserRole';
+import { devLog } from '@/utils/logger';
 import '@/styles/dragdrop.css';
 import '../styles/filebrowser.css'; // We'll create this file for the document styling
 
@@ -161,7 +162,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
         initialPath !== '/' && 
         !path.startsWith(initialPath) && 
         path !== '/') {
-      console.log('Navigation restricted to current folder.');
+      devLog('Navigation restricted to current folder.');
       return;
     }
     
@@ -462,7 +463,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           // In a real implementation, this would call a delete function
-                          console.log(`Delete ${file.name}`);
+                          devLog(`Delete ${file.name}`);
                         }}
                         title={`Delete ${file.isFolder ? 'folder' : 'file'}`}
                       >

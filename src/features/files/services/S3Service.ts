@@ -4,6 +4,7 @@ import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 // import { getCurrentUser } from 'aws-amplify/auth';
 import { S3Item } from '../../../types';
+import { devLog, devWarn, devError } from '../../../utils/logger';
 
 const client = generateClient();
 
@@ -16,6 +17,14 @@ const CACHE_TTL = 60000; // 1 minute cache
 const fileCountCache = new Map<string, Map<string, number>>();
 const fileCountCacheTimestamp = new Map<string, number>();
 const FILE_COUNT_CACHE_TTL = 30000; // 30 second cache for file counts
+
+// File listing cache: userId -> Map<path, S3Item[]>
+const fileListCache = new Map<string, Map<string, S3Item[]>>();
+const fileListCacheTimestamp = new Map<string, number>();
+const FILE_LIST_CACHE_TTL = 10000; // 10 second cache for file listings
+
+// Request deduplication: Map<key, Promise>
+const pendingRequests = new Map<string, Promise<any>>();
 
 // Protected folders that should not be deleted (UPDATED)
 const PROTECTED_FOLDERS = [
@@ -150,7 +159,7 @@ export const getUserFolderPermissions = async (userId: string): Promise<FolderPe
 
     return response.data?.listFolderPermissions?.items || [];
   } catch (error) {
-    console.error('Error fetching folder permissions:', error);
+    devError('Error fetching folder permissions:', error);
     return []; // Return empty array instead of throwing to prevent UI breaks
   }
 };
@@ -161,7 +170,7 @@ export const getUserFolderPermissions = async (userId: string): Promise<FolderPe
 export const normalizeFolderPath = (path: string | null | undefined): string => {
   // Handle null/undefined
   if (!path) {
-    console.warn('[S3Service] normalizeFolderPath received null/undefined, returning "/"');
+    devWarn('[S3Service] normalizeFolderPath received null/undefined, returning "/"');
     return '/';
   }
   
@@ -170,7 +179,7 @@ export const normalizeFolderPath = (path: string | null | undefined): string => 
   
   // Handle empty string or just whitespace
   if (!normalized || normalized === '') {
-    console.warn('[S3Service] normalizeFolderPath received empty string, returning "/"');
+    devWarn('[S3Service] normalizeFolderPath received empty string, returning "/"');
     return '/';
   }
   
@@ -223,7 +232,7 @@ const loadUserPermissionsIntoCache = async (userId: string): Promise<void> => {
       pathMap.set(normalizedPath, perm);
     }
     
-    console.log('[loadUserPermissionsIntoCache] Loaded permissions for userId:', userId, {
+    devLog('[loadUserPermissionsIntoCache] Loaded permissions for userId:', userId, {
       count: allPermissions.length,
       paths: Array.from(pathMap.keys()),
       permissions: allPermissions.map(p => ({
@@ -237,7 +246,7 @@ const loadUserPermissionsIntoCache = async (userId: string): Promise<void> => {
     permissionCache.set(userId, pathMap);
     permissionCacheTimestamp.set(userId, now);
   } catch (error) {
-    console.error('[S3Service] Error loading permissions into cache:', error);
+    devError('[S3Service] Error loading permissions into cache:', error);
     // Set empty cache to prevent repeated failures
     permissionCache.set(userId, new Map());
     permissionCacheTimestamp.set(userId, now);
@@ -269,7 +278,7 @@ export const getFolderPermission = async (userId: string, folderPath: string): P
     
     return userCache.get(normalizedPath) || null;
   } catch (error) {
-    console.error('[S3Service] Error fetching folder permission:', {
+    devError('[S3Service] Error fetching folder permission:', {
       error,
       userId,
       folderPath
@@ -344,7 +353,7 @@ export const setFolderPermissions = async (permissions: Omit<FolderPermissions, 
       return result;
     }
   } catch (error) {
-    console.error('[S3Service] Error setting folder permissions:', {
+    devError('[S3Service] Error setting folder permissions:', {
       error,
       permissions,
       fullError: JSON.stringify(error, null, 2),
@@ -365,7 +374,7 @@ export const deleteFolderPermissions = async (permissionId: string): Promise<voi
       authMode: 'userPool'
     });
   } catch (error) {
-    console.error('Error deleting folder permissions:', error);
+    devError('Error deleting folder permissions:', error);
     throw error;
   }
 };
@@ -382,7 +391,7 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
     
     const userCache = permissionCache.get(userId);
     if (!userCache) {
-      console.log('[getEffectiveFolderPermissions] No cache found, returning defaults for:', normalizedPath);
+      devLog('[getEffectiveFolderPermissions] No cache found, returning defaults for:', normalizedPath);
       // Return defaults if cache failed
       return {
         userId,
@@ -398,7 +407,7 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
     
     // Get direct permissions for this folder
     const directPermissions = userCache.get(normalizedPath);
-    console.log('[getEffectiveFolderPermissions] Checking:', {
+    devLog('[getEffectiveFolderPermissions] Checking:', {
       folderPath: normalizedPath,
       hasDirectPermissions: !!directPermissions,
       directPermissions: directPermissions ? {
@@ -458,16 +467,16 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
     if (directPermissions && directPermissions.isVisible !== undefined && directPermissions.isVisible !== null) {
       // Folder has explicit isVisible setting (not null/undefined) - use it
       finalIsVisible = directPermissions.isVisible;
-      console.log('[getEffectiveFolderPermissions] Using direct isVisible:', finalIsVisible, 'for', normalizedPath);
+      devLog('[getEffectiveFolderPermissions] Using direct isVisible:', finalIsVisible, 'for', normalizedPath);
     } else {
       // No explicit setting on folder (null/undefined) - default to visible (don't inherit parent's isVisible)
       finalIsVisible = true;
-      console.log('[getEffectiveFolderPermissions] No direct isVisible (was', directPermissions?.isVisible, '), defaulting to true for', normalizedPath);
+      devLog('[getEffectiveFolderPermissions] No direct isVisible (was', directPermissions?.isVisible, '), defaulting to true for', normalizedPath);
     }
 
     // If we found inherited permissions, merge them but override isVisible
     if (inheritedPermissions) {
-      console.log('[getEffectiveFolderPermissions] Found inherited permissions for', normalizedPath, {
+      devLog('[getEffectiveFolderPermissions] Found inherited permissions for', normalizedPath, {
         inheritedIsVisible: inheritedPermissions.isVisible,
         finalIsVisible
       });
@@ -478,7 +487,7 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
         // CRITICAL FIX: Never inherit parent's isVisible - always default to true unless folder explicitly sets it
         isVisible: finalIsVisible
       };
-      console.log('[getEffectiveFolderPermissions] Returning inherited permissions with isVisible:', result.isVisible);
+      devLog('[getEffectiveFolderPermissions] Returning inherited permissions with isVisible:', result.isVisible);
       return result;
     }
 
@@ -492,11 +501,11 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
         // Ensure isVisible is true unless explicitly set to false
         isVisible: finalIsVisible
       };
-      console.log('[getEffectiveFolderPermissions] Returning direct permissions with isVisible:', result.isVisible);
+      devLog('[getEffectiveFolderPermissions] Returning direct permissions with isVisible:', result.isVisible);
       return result;
     }
 
-    console.log('[getEffectiveFolderPermissions] Returning default permissions (isVisible: true) for', normalizedPath);
+    devLog('[getEffectiveFolderPermissions] Returning default permissions (isVisible: true) for', normalizedPath);
     return defaultPermissions;
   } catch (error: any) {
     // Check if it's an authorization error
@@ -507,7 +516,7 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
     );
     
     if (isAuthError) {
-      console.warn('Authorization error getting folder permissions - returning restrictive defaults:', error);
+      devWarn('Authorization error getting folder permissions - returning restrictive defaults:', error);
       // Return restrictive defaults on authorization error (fail secure)
       return {
         userId,
@@ -521,7 +530,7 @@ export const getEffectiveFolderPermissions = async (userId: string, folderPath: 
       };
     }
     
-    console.error('Error getting effective folder permissions:', error);
+    devError('Error getting effective folder permissions:', error);
     // Return safe defaults on other errors (permissive to avoid breaking existing functionality)
     return {
       userId,
@@ -568,7 +577,7 @@ export const getFolderFileCount = async (userId: string, folderPath: string): Pr
     
     return count;
   } catch (error) {
-    console.error(`Error getting file count for ${folderPath}:`, error);
+    devError(`Error getting file count for ${folderPath}:`, error);
     return 0;
   }
 };
@@ -612,7 +621,7 @@ export const getFolderFileCounts = async (userId: string, folderPaths: string[])
         userFileCountCache.set(path, count);
         results[path] = count;
       } catch (error) {
-        console.error(`Error getting file count for ${path}:`, error);
+        devError(`Error getting file count for ${path}:`, error);
         userFileCountCache.set(path, 0);
         results[path] = 0;
       }
@@ -634,30 +643,61 @@ export const invalidateFileCountCache = (userId: string): void => {
 };
 
 /**
+ * Invalidate file list cache for a user
+ */
+export const invalidateFileListCache = (userId: string): void => {
+  fileListCache.delete(userId);
+  fileListCacheTimestamp.delete(userId);
+};
+
+/**
  * List files and folders at a specific path for a user
+ * Uses caching and request deduplication to prevent unnecessary S3 calls
  */
 export const listUserFiles = async (userId: string, path: string = '/'): Promise<S3Item[]> => {
-  try {
-    // Ensure path ends with a slash for directory listing
-    const directoryPath = path.endsWith('/') ? path : `${path}/`;
-    
-    // Format the full path including the 'users/' prefix and user ID
-    // This matches the structure created in the post-confirmation function
-    const fullPath = directoryPath === '/' 
-      ? `users/${userId}/` 
-      : `users/${userId}${directoryPath}`;
-    
-    // Removed excessive logging
-    
-    // List objects from S3
-    const result = await list({
-      path: fullPath,
-      options: {
-        // In Amplify v6, we don't need to specify pageSize as it handles pagination differently
-      }
-    });
-    
-    console.log('List result:', result);
+  // Ensure path ends with a slash for directory listing
+  const directoryPath = path.endsWith('/') ? path : `${path}/`;
+  
+  // Create cache key
+  const cacheKey = `${userId}:${directoryPath}`;
+  
+  // Check cache first
+  const userCache = fileListCache.get(userId);
+  const cacheTime = fileListCacheTimestamp.get(userId);
+  const now = Date.now();
+  
+  if (userCache && cacheTime && (now - cacheTime) < FILE_LIST_CACHE_TTL) {
+    const cachedResult = userCache.get(directoryPath);
+    if (cachedResult) {
+      devLog('[listUserFiles] Using cached result for:', cacheKey);
+      return cachedResult;
+    }
+  }
+  
+  // Check if there's already a pending request for this key
+  if (pendingRequests.has(cacheKey)) {
+    devLog('[listUserFiles] Waiting for pending request:', cacheKey);
+    return pendingRequests.get(cacheKey)!;
+  }
+  
+  // Create new request
+  const requestPromise = (async () => {
+    try {
+      // Format the full path including the 'users/' prefix and user ID
+      // This matches the structure created in the post-confirmation function
+      const fullPath = directoryPath === '/' 
+        ? `users/${userId}/` 
+        : `users/${userId}${directoryPath}`;
+      
+      // List objects from S3
+      const result = await list({
+        path: fullPath,
+        options: {
+          // In Amplify v6, we don't need to specify pageSize as it handles pagination differently
+        }
+      });
+      
+      devLog('[listUserFiles] Fetched from S3:', cacheKey);
     
     // Process and organize the results
     const items: S3Item[] = [];
@@ -834,18 +874,36 @@ export const listUserFiles = async (userId: string, path: string = '/'): Promise
       }
     }
     
-    // Sort: folders first, then files alphabetically
-    return items.sort((a, b) => {
-      if (a.name === '..') return -1;
-      if (b.name === '..') return 1;
-      if (a.isFolder && !b.isFolder) return -1;
-      if (!a.isFolder && b.isFolder) return 1;
-      return a.name.localeCompare(b.name);
-    });
-  } catch (error) {
-    console.error('Error listing files:', error);
-    throw error;
-  }
+      // Sort: folders first, then files alphabetically
+      const sortedItems = items.sort((a, b) => {
+        if (a.name === '..') return -1;
+        if (b.name === '..') return 1;
+        if (a.isFolder && !b.isFolder) return -1;
+        if (!a.isFolder && b.isFolder) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      // Store in cache
+      if (!userCache) {
+        fileListCache.set(userId, new Map());
+      }
+      fileListCache.get(userId)!.set(directoryPath, sortedItems);
+      fileListCacheTimestamp.set(userId, now);
+      
+      return sortedItems;
+    } catch (error) {
+      devError('[listUserFiles] Error listing files:', error);
+      throw error;
+    } finally {
+      // Remove from pending requests
+      pendingRequests.delete(cacheKey);
+    }
+  })();
+  
+  // Store pending request
+  pendingRequests.set(cacheKey, requestPromise);
+  
+  return requestPromise;
 };
 
 /**
@@ -917,7 +975,7 @@ export const listUserFilesWithPermissions = async (userId: string, path: string 
     
     return enhancedItems;
   } catch (error) {
-    console.error('Error listing files with permissions:', error);
+    devError('Error listing files with permissions:', error);
     // Fallback to basic listing with default permissions
     const basicItems = await listUserFiles(userId, path);
     return basicItems.map(item => ({
@@ -971,11 +1029,14 @@ export const createSubfolder = async (userId: string, parentPath: string, folder
         contentType: 'text/plain'
       }
     });
+    
+    // Invalidate file list cache for this user
+    invalidateFileListCache(userId);
 
     // Invalidate file count cache for parent folder
     invalidateFileCountCache(userId);
   } catch (error) {
-    console.error('Error creating subfolder:', error);
+    devError('Error creating subfolder:', error);
     throw error;
   }
 };
@@ -990,7 +1051,7 @@ export const getFileUrl = async (key: string): Promise<string> => {
     });
     return result.url.toString();
   } catch (error) {
-    console.error('Error getting file URL:', error);
+    devError('Error getting file URL:', error);
     throw error;
   }
 };
@@ -1028,7 +1089,7 @@ export const deleteFile = async (key: string): Promise<void> => {
       path: key
     });
   } catch (error) {
-    console.error('Error deleting file:', error);
+    devError('Error deleting file:', error);
     throw error;
   }
 };
@@ -1048,6 +1109,7 @@ export const deleteFolder = async (key: string): Promise<void> => {
     if (match) {
       const userId = match[1];
       invalidateFileCountCache(userId);
+      invalidateFileListCache(userId);
     }
     
     // List all items in the folder
@@ -1072,7 +1134,7 @@ export const deleteFolder = async (key: string): Promise<void> => {
     // Delete the folder itself (represented by an empty object)
     await remove({ path: key });
   } catch (error) {
-    console.error('Error deleting folder:', error);
+    devError('Error deleting folder:', error);
     throw error;
   }
 };
@@ -1096,7 +1158,7 @@ export const deleteFolderWithPermissions = async (userId: string, folderPath: st
     // Proceed with deletion
     await deleteFolder(`users/${userId}${folderPath}`);
   } catch (error) {
-    console.error('Error deleting folder:', error);
+    devError('Error deleting folder:', error);
     throw error;
   }
 };
@@ -1115,7 +1177,7 @@ export const canUploadToPath = async (userId: string, path: string): Promise<boo
     const permissions = await getEffectiveFolderPermissions(userId, folderPath);
     // Treat null/undefined as false (not restricted) - only explicitly true means restricted
     const isRestricted = permissions.uploadRestricted === true;
-    console.log('[canUploadToPath] Checking upload permission:', {
+    devLog('[canUploadToPath] Checking upload permission:', {
       path: folderPath,
       uploadRestricted: permissions.uploadRestricted,
       isRestricted,
@@ -1123,7 +1185,7 @@ export const canUploadToPath = async (userId: string, path: string): Promise<boo
     });
     return !isRestricted;
   } catch (error) {
-    console.error('Error checking upload permissions:', error);
+    devError('Error checking upload permissions:', error);
     return false;
   }
 };
@@ -1137,7 +1199,7 @@ export const canDownloadFromPath = async (userId: string, path: string): Promise
     const permissions = await getEffectiveFolderPermissions(userId, parentPath);
     return !permissions.downloadRestricted;
   } catch (error) {
-    console.error('Error checking download permissions:', error);
+    devError('Error checking download permissions:', error);
     return false;
   }
 };
@@ -1150,7 +1212,7 @@ export const isFolderVisible = async (userId: string, folderPath: string): Promi
     const permissions = await getEffectiveFolderPermissions(userId, folderPath);
     return permissions.isVisible;
   } catch (error) {
-    console.error('Error checking folder visibility:', error);
+    devError('Error checking folder visibility:', error);
     // Default to visible on error to avoid breaking existing functionality
     return true;
   }

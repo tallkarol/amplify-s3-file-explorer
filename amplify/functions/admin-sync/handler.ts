@@ -150,7 +150,7 @@ async function validateTokenAndCheckPermissions(authHeader: string | undefined):
       throw new Error('Unauthorized: User must be admin or developer');
     }
 
-    console.log(`Token validated successfully for user ${userId}, admin: ${isAdmin}, developer: ${isDeveloper}`);
+    // Token validated successfully
     return { userId, isAdmin, isDeveloper };
   } catch (error: any) {
     console.error('Token validation error:', error);
@@ -199,7 +199,7 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
               groups,
             });
           } catch (error: any) {
-            console.error(`Error getting groups for user ${user.Username}:`, error);
+            console.error(`Error getting groups for user ${user.Username}:`, error); // Keep error logs
             errors.push(`Failed to get groups for user ${user.Username}: ${error.message}`);
           }
         }
@@ -208,7 +208,7 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
       paginationToken = response.PaginationToken;
     } while (paginationToken);
 
-    console.log(`Found ${allUsers.length} users to sync`);
+    // Found users to sync
 
     // Update UserProfile records
     for (const { userId, groups } of allUsers) {
@@ -232,10 +232,10 @@ async function syncFromCognito(): Promise<{ success: boolean; updated: number; e
               isDeveloper,
             });
             updatedCount++;
-            console.log(`Updated user ${userId}: admin=${isAdmin}, developer=${isDeveloper}`);
+            // Updated user admin status
           }
         } else {
-          console.warn(`UserProfile not found for user ${userId}, skipping`);
+          // UserProfile not found, skipping
           errors.push(`UserProfile not found for user ${userId}`);
         }
       } catch (error: any) {
@@ -263,7 +263,7 @@ async function resetUserPassword(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const userPoolId = getUserPoolId();
-    console.log(`[resetUserPassword] Resetting password for user ${userId}`);
+    // Resetting password for user
 
     // Use AdminResetUserPassword to generate a temporary password and send it via email
     const command = new AdminResetUserPasswordCommand({
@@ -273,7 +273,7 @@ async function resetUserPassword(
 
     await cognitoClient.send(command);
     
-    console.log(`[resetUserPassword] Password reset email sent successfully for user ${userId}`);
+    // Password reset email sent successfully
 
     return {
       success: true,
@@ -326,7 +326,7 @@ async function updateUserAdminStatus(
           GroupName: 'admin',
         })
       );
-      console.log(`Added user ${userId} to admin group`);
+      // Added user to admin group
     } else if (!isAdmin && currentlyAdmin) {
       await cognitoClient.send(
         new AdminRemoveUserFromGroupCommand({
@@ -335,7 +335,7 @@ async function updateUserAdminStatus(
           GroupName: 'admin',
         })
       );
-      console.log(`Removed user ${userId} from admin group`);
+      // Removed user from admin group
     }
 
     if (isDeveloper && !currentlyDeveloper) {
@@ -346,7 +346,7 @@ async function updateUserAdminStatus(
           GroupName: 'developer',
         })
       );
-      console.log(`Added user ${userId} to developer group`);
+      // Added user to developer group
     } else if (!isDeveloper && currentlyDeveloper) {
       await cognitoClient.send(
         new AdminRemoveUserFromGroupCommand({
@@ -355,7 +355,7 @@ async function updateUserAdminStatus(
           GroupName: 'developer',
         })
       );
-      console.log(`Removed user ${userId} from developer group`);
+      // Removed user from developer group
     }
 
     // Update UserProfile
@@ -370,7 +370,7 @@ async function updateUserAdminStatus(
         isAdmin,
         isDeveloper,
       });
-      console.log(`Updated UserProfile for ${userId}`);
+      // Updated UserProfile
     } else {
       throw new Error(`UserProfile not found for user ${userId}`);
     }
@@ -388,7 +388,7 @@ async function updateUserAdminStatus(
 // HTTP handler for Gen 2 function endpoints
 export const handler: Handler = async (event: any) => {
   try {
-    console.log('Admin sync handler invoked:', JSON.stringify(event, null, 2));
+    // Admin sync handler invoked
 
     // Handle CORS preflight OPTIONS request
     // Check multiple possible event structures for Function URL
@@ -398,7 +398,7 @@ export const handler: Handler = async (event: any) => {
                    event.requestContext?.method;
     
     if (method === 'OPTIONS') {
-      console.log('Handling OPTIONS preflight request');
+      // Handling OPTIONS preflight request
       // Function URL handles CORS, no headers needed
       return {
         statusCode: 200,

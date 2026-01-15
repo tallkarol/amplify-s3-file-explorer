@@ -5,6 +5,7 @@ import DragDropUpload from '../../../components/common/DragDropUpload';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { listUserFiles, canUploadToPath, FOLDER_DISPLAY_NAMES } from '../services/S3Service';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { devLog } from '@/utils/logger';
 
 interface FolderOption {
   value: string;
@@ -80,7 +81,7 @@ const DragDropDemo = () => {
   // Force a refresh of the file list
   const refreshFiles = () => {
     // This function is used as a callback but doesn't need state
-    console.log('Upload complete, refreshing...');
+    devLog('Upload complete, refreshing...');
     // If you need to perform actions after upload, add them here
   };
 

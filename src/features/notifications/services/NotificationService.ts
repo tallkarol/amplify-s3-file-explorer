@@ -7,6 +7,7 @@ import {
   ListNotificationsResponse,
   GetNotificationPreferenceResponse 
 } from '../../../types';
+import { devLog } from '../../../utils/logger';
 
 const client = generateClient();
 
@@ -388,7 +389,7 @@ export const markAllAsRead = async (userId: string): Promise<void> => {
       )
     );
     
-    console.log(`Marked ${unreadNotifications.length} notifications as read for user ${userId}`);
+    devLog(`Marked ${unreadNotifications.length} notifications as read for user ${userId}`);
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     throw error;

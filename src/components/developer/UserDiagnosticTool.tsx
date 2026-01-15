@@ -5,6 +5,7 @@ import { GraphQLQuery } from '@aws-amplify/api';
 import Card from '../common/Card';
 import AlertMessage from '../common/AlertMessage';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { devLog, devWarn } from '../../utils/logger';
 
 interface UserDiagnosticToolProps {
   userId?: string;
@@ -58,7 +59,7 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
       };
 
       // 1. Try to get exact user profile match
-      console.log("Trying exact UserProfile match with uuid:", userId);
+      devLog("Trying exact UserProfile match with uuid:", userId);
       try {
         const exactUserProfileQuery = /* GraphQL */ `
           query GetExactUserProfile($filter: ModelUserProfileFilterInput) {
@@ -221,7 +222,7 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
       }
 
       // 5. Try to get exact notification preferences match
-      console.log("Trying exact NotificationPreference match with userId:", userId);
+      devLog("Trying exact NotificationPreference match with userId:", userId);
       try {
         const exactPrefQuery = /* GraphQL */ `
           query GetExactNotificationPreferences($filter: ModelNotificationPreferenceFilterInput) {
@@ -249,7 +250,7 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
       // 6. Try alternate notification preferences queries - ENHANCED
       // Try with lowercase/uppercase userId and contains operator
       try {
-        console.log("Trying comprehensive NotificationPreference queries with multiple patterns...");
+        devLog("Trying comprehensive NotificationPreference queries with multiple patterns...");
         const altPrefQuery1 = /* GraphQL */ `
           query GetAltNotificationPreferences($filter: ModelNotificationPreferenceFilterInput) {
             listNotificationPreferences(filter: $filter, limit: 10) {
@@ -275,9 +276,9 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
             query: "userId: { contains: userId }",
             results: prefs3
           });
-          console.log("SUCCESS with userId contains:", prefs3);
+          devLog("SUCCESS with userId contains:", prefs3);
         } else {
-          console.log("No results with userId contains");
+          devLog("No results with userId contains");
         }
         
         // Try with ID as the field (some schemas use id instead of userId)
@@ -294,9 +295,9 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
             query: "id: { contains: userId }",
             results: prefs4
           });
-          console.log("SUCCESS with id contains:", prefs4);
+          devLog("SUCCESS with id contains:", prefs4);
         } else {
-          console.log("No results with id contains");
+          devLog("No results with id contains");
         }
         
         // Try with OR pattern for multiple field matches
@@ -319,9 +320,9 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
             query: "OR combination (userId eq/contains, id contains)",
             results: prefs5
           });
-          console.log("SUCCESS with OR combination:", prefs5);
+          devLog("SUCCESS with OR combination:", prefs5);
         } else {
-          console.log("No results with OR combination");
+          devLog("No results with OR combination");
         }
         
         // Try with combined field pattern like profileOwner
@@ -340,9 +341,9 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
               query: "userId: { beginsWith: userId.substring(0, 10) }",
               results: prefs6
             });
-            console.log("SUCCESS with userId beginsWith partial:", prefs6);
+            devLog("SUCCESS with userId beginsWith partial:", prefs6);
           } else {
-            console.log("No results with userId beginsWith partial");
+            devLog("No results with userId beginsWith partial");
           }
         }
       } catch (err) {
@@ -351,7 +352,7 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
 
       // 7. Get a sample of notification preferences to examine structure - NEW
       try {
-        console.log("Getting a sample of all NotificationPreference records to examine structure");
+        devLog("Getting a sample of all NotificationPreference records to examine structure");
         const samplePrefsQuery = /* GraphQL */ `
           query GetSamplePreferences {
             listNotificationPreferences(limit: 10) {
@@ -372,24 +373,24 @@ const UserDiagnosticTool: React.FC<UserDiagnosticToolProps> = ({ userId: initial
         const samplePrefs = samplePrefsResult.data?.listNotificationPreferences?.items || [];
         
         if (samplePrefs.length > 0) {
-          console.log("Sample NotificationPreference records:", JSON.stringify(samplePrefs, null, 2));
+          devLog("Sample NotificationPreference records:", JSON.stringify(samplePrefs, null, 2));
           
           // Check if the userId field format matches what we expect
           if (samplePrefs[0].userId) {
-            console.log("Example userId format:", samplePrefs[0].userId);
+            devLog("Example userId format:", samplePrefs[0].userId);
             
             // Check if the userId format looks like a UUID
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             const isUuid = uuidRegex.test(samplePrefs[0].userId);
             
             if (!isUuid) {
-              console.log("WARNING: userId does not appear to be a UUID format. Actual format:", samplePrefs[0].userId);
+              devWarn("WARNING: userId does not appear to be a UUID format. Actual format:", samplePrefs[0].userId);
             }
           } else {
-            console.log("WARNING: userId field not found in NotificationPreference records");
+            devWarn("WARNING: userId field not found in NotificationPreference records");
           }
         } else {
-          console.log("No NotificationPreference records found in the database");
+          devLog("No NotificationPreference records found in the database");
         }
       } catch (err) {
         console.error("Error getting NotificationPreference samples:", err);

@@ -28,23 +28,23 @@ const s3 = new AWS.S3({ region: process.env.AWS_REGION });
 
 export const handler: PostConfirmationTriggerHandler = async (event) => {
   try {
-    console.log('Post-confirmation handler started');
+    // Post-confirmation handler started
     const userId = event.request.userAttributes.sub;
     const userName = event.userName;
     const profileOwner = `${userId}::${userName}`;
     
     // Check if user profile already exists (prevents duplicates from password resets/changes)
-    console.log('Checking if user profile already exists...');
+    // Checking if user profile already exists
     const existingProfiles = await client.models.UserProfile.list({
       filter: { uuid: { eq: userId } },
     });
     
     if (existingProfiles.data && existingProfiles.data.length > 0) {
-      console.log(`User profile already exists for user ${userId}, skipping creation`);
+      // User profile already exists, skipping creation
       // Update profileOwner if it's different (in case username changed)
       const existingProfile = existingProfiles.data[0];
       if (existingProfile.profileOwner !== profileOwner) {
-        console.log(`Updating profileOwner for user ${userId}`);
+        // Updating profileOwner
         await client.models.UserProfile.update({
           id: existingProfile.id,
           profileOwner: profileOwner,
@@ -54,7 +54,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
       return event;
     }
     
-    console.log('Creating user profile...');
+    // Creating user profile
     // Create user profile only if it doesn't exist
     await client.models.UserProfile.create({
       email: event.request.userAttributes.email,
@@ -69,13 +69,13 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     });
     
     // Check if notification preferences already exist
-    console.log('Checking if notification preferences already exist...');
+    // Checking if notification preferences already exist
     const existingPreferences = await client.models.NotificationPreference.list({
       filter: { userId: { eq: userId } },
     });
     
     if (!existingPreferences.data || existingPreferences.data.length === 0) {
-      console.log('Creating notification preferences...');
+      // Creating notification preferences
       // Create default notification preferences only if they don't exist
       await client.models.NotificationPreference.create({
         userId: userId,
@@ -88,18 +88,18 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         emailDigestFrequency: 'instant'
       });
     } else {
-      console.log('Notification preferences already exist, skipping creation');
+      // Notification preferences already exist, skipping creation
     }
     
     // Only create welcome notification for new users (not password resets)
     // Check if user has any existing notifications to determine if they're new
-    console.log('Checking if user is new...');
+    // Checking if user is new
     const existingNotifications = await client.models.Notification.list({
       filter: { userId: { eq: userId } },
     });
     
     if (!existingNotifications.data || existingNotifications.data.length === 0) {
-      console.log('Creating welcome notification...');
+      // Creating welcome notification
       // Create welcome notification only for new users
       await client.models.Notification.create({
         userId: userId,
@@ -110,22 +110,22 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         actionLink: '/user'
       });
     } else {
-      console.log('User already has notifications, skipping welcome notification');
+      // User already has notifications, skipping welcome notification
     }
 
     // Only create S3 folders if they don't already exist (check user folder)
-    console.log('Checking if S3 folders already exist...');
+    // Checking if S3 folders already exist
     const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";
     const userFolderKey = `users/${userId}/`;
     
     try {
       // Check if user folder exists
       await s3.headObject({ Bucket: bucketName, Key: userFolderKey }).promise();
-      console.log('S3 folders already exist, skipping creation');
+      // S3 folders already exist, skipping creation
     } catch (error: any) {
       // If folder doesn't exist (404 error), create all folders
       if (error.code === 'NotFound' || error.statusCode === 404) {
-        console.log('Creating S3 folders...');
+        // Creating S3 folders
         const certificateFolderKey = `users/${userId}/certificate/`;
         const auditReportFolderKey = `users/${userId}/audit-report/`;
         const auditorResumeFolderKey = `users/${userId}/auditor-resume/`;
@@ -155,15 +155,15 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     }
 
     // Only create folder permissions if they don't already exist
-    console.log('Checking if folder permissions already exist...');
+    // Checking if folder permissions already exist
     const existingPermissions = await client.models.FolderPermission.list({
       filter: { userId: { eq: userId } },
     });
     
     if (existingPermissions.data && existingPermissions.data.length > 0) {
-      console.log('Folder permissions already exist, skipping creation');
+      // Folder permissions already exist, skipping creation
     } else {
-      console.log('Creating default folder permissions...');
+      // Creating default folder permissions
       // Create default folder permissions for protected folders
       const currentUser = event.request.userAttributes.email; // Use email as fallback for createdBy
       
@@ -262,7 +262,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
       await Promise.all(permissionRequests);
     }
     
-    console.log('Post-confirmation handler completed successfully');
+    // Post-confirmation handler completed successfully
     return event;
   } catch (error) {
     console.error('Error in post-confirmation handler:', error);

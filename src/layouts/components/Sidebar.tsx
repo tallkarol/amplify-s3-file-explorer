@@ -7,6 +7,7 @@ import { GraphQLQuery } from '@aws-amplify/api';
 import UserProfileModal from '../../features/clients/components/UserProfileModal';
 import SidebarNotifications from './SidebarNotifications';
 // import { useNotifications } from '@/features/notifications/context/NotificationContext';
+import { devLog } from '../../utils/logger';
 import '@/styles/sidebar.css';
 import '@/styles/adminsidebar.css';
 
@@ -35,7 +36,7 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
   useEffect(() => {
     if (user && user.username) {
       // If we have a full name, use that for initials
-      console.log('User:', user);
+      devLog('User:', user);
       if (fullName) {
         const nameParts = fullName.split(' ');
         if (nameParts.length > 1) {
@@ -61,7 +62,7 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
       if (!user) return;
       
       try {
-        console.log("Fetching profile data for user:", user);
+        devLog("Fetching profile data for user:", user);
         
         // Use userId directly like in UserProfileModal
         const userId = user.userId;
@@ -91,12 +92,12 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
           authMode: 'userPool'
         });
         
-        console.log('Sidebar - Profile query response:', response);
+        devLog('Sidebar - Profile query response:', response);
         
         const items = response?.data?.listUserProfiles?.items;
         if (items && items.length > 0) {
           const userProfile = items[0];
-          console.log("Profile data found:", userProfile);
+          devLog("Profile data found:", userProfile);
           
           // Set email
           setUserEmail(userProfile.email || user.username);
@@ -107,17 +108,17 @@ const Sidebar = ({ isAdmin, collapsed, onToggle }: SidebarProps) => {
           
           if (firstName || lastName) {
             const name = `${firstName} ${lastName}`.trim();
-            console.log("Setting full name:", name);
+            devLog("Setting full name:", name);
             setFullName(name);
           }
           
           // Set company name if available
           if (userProfile.companyName) {
-            console.log("Setting company name:", userProfile.companyName);
+            devLog("Setting company name:", userProfile.companyName);
             setCompanyName(userProfile.companyName);
           }
         } else {
-          console.log("No profile data found, using username");
+          devLog("No profile data found, using username");
           setUserEmail(user.username);
         }
       } catch (err) {

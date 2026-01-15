@@ -5,6 +5,7 @@ import Card from '../../../components/common/Card';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import { FolderPermissions, getFolderPermission, setFolderPermissions } from '../services/S3Service';
 import { getCurrentUser } from 'aws-amplify/auth';
+import { devWarn } from '../../../utils/logger';
 
 interface FolderPermissionsPanelProps {
   userId: string;
@@ -66,7 +67,7 @@ const FolderPermissionsPanel: React.FC<FolderPermissionsPanelProps> = ({
     
     // Validate inputs
     if (!userId || !currentPath) {
-      console.warn('[FolderPermissionsPanel] Missing userId or currentPath:', { userId, currentPath });
+      devWarn('[FolderPermissionsPanel] Missing userId or currentPath:', { userId, currentPath });
       return;
     }
     

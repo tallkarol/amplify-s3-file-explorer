@@ -9,6 +9,7 @@ import { GraphQLQuery } from '@aws-amplify/api';
 import AlertMessage from '../common/AlertMessage';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Card from '../common/Card';
+import { devLog, devWarn, devError } from '@/utils/logger';
 
 interface DuplicateGroup {
   key: string; // email or uuid
@@ -42,16 +43,16 @@ const DuplicateUserTool: React.FC = () => {
 
   // Load all users (including deleted)
   const loadAllUsers = async () => {
-    console.log('[DuplicateUserTool] Loading all users (including deleted)...');
+    devLog('[DuplicateUserTool] Loading all users (including deleted)...');
     try {
       setLoading(true);
       setError(null);
       // Fetch including deleted users
       const allUsers = await fetchAllClients(true);
-      console.log(`[DuplicateUserTool] Loaded ${allUsers.length} users total`);
+      devLog(`[DuplicateUserTool] Loaded ${allUsers.length} users total`);
       setUsers(allUsers);
     } catch (err: any) {
-      console.error('[DuplicateUserTool] Error loading users:', err);
+      devError('[DuplicateUserTool] Error loading users:', err);
       setError(`Failed to load users: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -64,23 +65,23 @@ const DuplicateUserTool: React.FC = () => {
 
   // Fetch user statistics (file count, folder count, storage size, last activity)
   const fetchUserStats = async (userId: string, userUuid: string): Promise<UserStats> => {
-    console.log(`[DuplicateUserTool] Fetching stats for user ${userId} (UUID: ${userUuid})`);
+    devLog(`[DuplicateUserTool] Fetching stats for user ${userId} (UUID: ${userUuid})`);
     try {
       setFetchingStats(prev => new Set(prev).add(userId));
       
       // Fetch all files for the user
-      console.log(`[DuplicateUserTool] Listing files for user ${userUuid}...`);
+      devLog(`[DuplicateUserTool] Listing files for user ${userUuid}...`);
       const allFiles = await listUserFiles(userUuid, '/');
-      console.log(`[DuplicateUserTool] Found ${allFiles.length} items for user ${userUuid}`);
+      devLog(`[DuplicateUserTool] Found ${allFiles.length} items for user ${userUuid}`);
       
       // Separate files and folders
       const files = allFiles.filter(item => !item.isFolder);
       const folders = allFiles.filter(item => item.isFolder && item.name !== '..');
-      console.log(`[DuplicateUserTool] User ${userUuid}: ${files.length} files, ${folders.length} folders`);
+      devLog(`[DuplicateUserTool] User ${userUuid}: ${files.length} files, ${folders.length} folders`);
       
       // Calculate total size
       const totalSize = files.reduce((sum, file) => sum + (file.size || 0), 0);
-      console.log(`[DuplicateUserTool] User ${userUuid}: Total size ${totalSize} bytes`);
+      devLog(`[DuplicateUserTool] User ${userUuid}: Total size ${totalSize} bytes`);
       
       // Find last activity (most recent file modification)
       let lastActivity: string | undefined;
@@ -97,14 +98,14 @@ const DuplicateUserTool: React.FC = () => {
             : sortedFiles[0].lastModified instanceof Date 
               ? sortedFiles[0].lastModified.toISOString()
               : String(sortedFiles[0].lastModified);
-          console.log(`[DuplicateUserTool] User ${userUuid}: Last activity ${lastActivity}`);
+          devLog(`[DuplicateUserTool] User ${userUuid}: Last activity ${lastActivity}`);
         }
       }
       
       // Fetch notification count (optional, don't fail if it errors)
       let notificationCount: number | undefined;
       try {
-        console.log(`[DuplicateUserTool] Fetching notification count for user ${userUuid}...`);
+        devLog(`[DuplicateUserTool] Fetching notification count for user ${userUuid}...`);
         const notificationResponse = await client.graphql<GraphQLQuery<{ listNotifications: { items: { id: string }[] } }>>({
           query: /* GraphQL */ `
             query GetNotificationCount($userId: String!) {
@@ -119,10 +120,10 @@ const DuplicateUserTool: React.FC = () => {
           authMode: 'userPool'
         });
         notificationCount = notificationResponse.data?.listNotifications?.items?.length || 0;
-        console.log(`[DuplicateUserTool] User ${userUuid}: ${notificationCount} notifications`);
+        devLog(`[DuplicateUserTool] User ${userUuid}: ${notificationCount} notifications`);
       } catch (err) {
         // Notification count is optional, don't fail if it errors
-        console.warn(`[DuplicateUserTool] Could not fetch notification count for user ${userUuid}:`, err);
+        devWarn(`[DuplicateUserTool] Could not fetch notification count for user ${userUuid}:`, err);
       }
       
       const stats: UserStats = {
@@ -134,11 +135,11 @@ const DuplicateUserTool: React.FC = () => {
         loading: false
       };
       
-      console.log(`[DuplicateUserTool] Stats for user ${userId}:`, stats);
+      devLog(`[DuplicateUserTool] Stats for user ${userId}:`, stats);
       setUserStats(prev => new Map(prev).set(userId, stats));
       return stats;
     } catch (err: any) {
-      console.error(`[DuplicateUserTool] Error fetching stats for user ${userId}:`, err);
+      devError(`[DuplicateUserTool] Error fetching stats for user ${userId}:`, err);
       const errorStats: UserStats = {
         fileCount: 0,
         folderCount: 0,
@@ -159,7 +160,7 @@ const DuplicateUserTool: React.FC = () => {
 
   // Fetch stats for all users in duplicate groups
   const fetchAllDuplicateStats = async (duplicateGroups: DuplicateGroup[]) => {
-    console.log(`[DuplicateUserTool] Fetching stats for ${duplicateGroups.length} duplicate groups...`);
+    devLog(`[DuplicateUserTool] Fetching stats for ${duplicateGroups.length} duplicate groups...`);
     const allUserIds = new Set<string>();
     duplicateGroups.forEach(group => {
       group.users.forEach(user => {
@@ -169,7 +170,7 @@ const DuplicateUserTool: React.FC = () => {
       });
     });
 
-    console.log(`[DuplicateUserTool] Found ${allUserIds.size} unique users across duplicate groups`);
+    devLog(`[DuplicateUserTool] Found ${allUserIds.size} unique users across duplicate groups`);
 
     // Fetch stats in parallel for all users
     const fetchPromises = Array.from(allUserIds).map(userId => {
@@ -177,18 +178,18 @@ const DuplicateUserTool: React.FC = () => {
       if (user && user.uuid) {
         return fetchUserStats(userId, user.uuid);
       }
-      console.warn(`[DuplicateUserTool] User ${userId} not found in users list`);
+      devWarn(`[DuplicateUserTool] User ${userId} not found in users list`);
       return Promise.resolve();
     });
 
-    console.log(`[DuplicateUserTool] Starting parallel fetch of stats for ${fetchPromises.length} users...`);
+    devLog(`[DuplicateUserTool] Starting parallel fetch of stats for ${fetchPromises.length} users...`);
     await Promise.all(fetchPromises);
-    console.log(`[DuplicateUserTool] Completed fetching stats for all duplicate users`);
+    devLog(`[DuplicateUserTool] Completed fetching stats for all duplicate users`);
   };
 
   // Scan for duplicates
   const scanForDuplicates = async () => {
-    console.log('[DuplicateUserTool] Starting duplicate scan...');
+    devLog('[DuplicateUserTool] Starting duplicate scan...');
     setScanning(true);
     setError(null);
     setSuccess(null);
@@ -197,7 +198,7 @@ const DuplicateUserTool: React.FC = () => {
     setUserStats(new Map());
 
     try {
-      console.log(`[DuplicateUserTool] Scanning ${users.length} users for duplicates...`);
+      devLog(`[DuplicateUserTool] Scanning ${users.length} users for duplicates...`);
       const duplicateGroups: DuplicateGroup[] = [];
       
       // Group by email (case-insensitive)
@@ -212,12 +213,12 @@ const DuplicateUserTool: React.FC = () => {
         }
       });
 
-      console.log(`[DuplicateUserTool] Found ${emailMap.size} unique emails`);
+      devLog(`[DuplicateUserTool] Found ${emailMap.size} unique emails`);
 
       // Find email duplicates (more than one user with same email)
       emailMap.forEach((userList, email) => {
         if (userList.length > 1) {
-          console.log(`[DuplicateUserTool] Found ${userList.length} users with email: ${email}`);
+          devLog(`[DuplicateUserTool] Found ${userList.length} users with email: ${email}`);
           duplicateGroups.push({
             key: email,
             type: 'email',
@@ -238,12 +239,12 @@ const DuplicateUserTool: React.FC = () => {
         }
       });
 
-      console.log(`[DuplicateUserTool] Found ${uuidMap.size} unique UUIDs`);
+      devLog(`[DuplicateUserTool] Found ${uuidMap.size} unique UUIDs`);
 
       // Find UUID duplicates (more than one profile with same UUID)
       uuidMap.forEach((userList, uuid) => {
         if (userList.length > 1) {
-          console.log(`[DuplicateUserTool] Found ${userList.length} profiles with UUID: ${uuid}`);
+          devLog(`[DuplicateUserTool] Found ${userList.length} profiles with UUID: ${uuid}`);
           duplicateGroups.push({
             key: uuid,
             type: 'uuid',
@@ -252,11 +253,11 @@ const DuplicateUserTool: React.FC = () => {
         }
       });
 
-      console.log(`[DuplicateUserTool] Found ${duplicateGroups.length} duplicate groups`);
+      devLog(`[DuplicateUserTool] Found ${duplicateGroups.length} duplicate groups`);
       setDuplicates(duplicateGroups);
       
       if (duplicateGroups.length === 0) {
-        console.log('[DuplicateUserTool] No duplicates found');
+        devLog('[DuplicateUserTool] No duplicates found');
         setSuccess('No duplicates found! All users are unique.');
       } else {
         setSuccess(`Found ${duplicateGroups.length} duplicate group(s). Loading statistics...`);
@@ -276,21 +277,21 @@ const DuplicateUserTool: React.FC = () => {
 
   // Delete selected duplicate users (two-stage: soft delete first, then hard delete)
   const deleteDuplicates = async (group: DuplicateGroup) => {
-    console.log(`[DuplicateUserTool] Starting deletion for group: ${group.key} (${group.type})`);
+    devLog(`[DuplicateUserTool] Starting deletion for group: ${group.key} (${group.type})`);
     
     // Get users selected for deletion in this group
     const usersToDelete = group.users.filter(u => u.id && selectedDeleteUsers.has(u.id));
-    console.log(`[DuplicateUserTool] ${usersToDelete.length} users selected for deletion in group ${group.key}`);
+    devLog(`[DuplicateUserTool] ${usersToDelete.length} users selected for deletion in group ${group.key}`);
     
     if (usersToDelete.length === 0) {
-      console.warn('[DuplicateUserTool] No users selected for deletion');
+      devWarn('[DuplicateUserTool] No users selected for deletion');
       setError('Please select at least one user to delete');
       return;
     }
 
     // Ensure at least one user remains in the group
     if (usersToDelete.length >= group.users.length) {
-      console.warn('[DuplicateUserTool] Cannot delete all users in group');
+      devWarn('[DuplicateUserTool] Cannot delete all users in group');
       setError('Cannot delete all users in a group. At least one user must remain.');
       return;
     }
@@ -311,25 +312,25 @@ const DuplicateUserTool: React.FC = () => {
       // Second delete: hard delete (if already soft deleted)
       const deletePromises = usersToDelete.map(async (user) => {
         if (!user.uuid) {
-          console.warn(`[DuplicateUserTool] User missing UUID, skipping:`, user);
+          devWarn(`[DuplicateUserTool] User missing UUID, skipping:`, user);
           return { user, action: 'skipped', reason: 'missing UUID' };
         }
 
-        console.log(`[DuplicateUserTool] Processing deletion for user ${user.email || user.uuid} (UUID: ${user.uuid})`);
-        console.log(`[DuplicateUserTool] User status - isDeleted: ${user.isDeleted}, status: ${user.status}`);
+        devLog(`[DuplicateUserTool] Processing deletion for user ${user.email || user.uuid} (UUID: ${user.uuid})`);
+        devLog(`[DuplicateUserTool] User status - isDeleted: ${user.isDeleted}, status: ${user.status}`);
 
         try {
           // If user is already soft deleted (isDeleted = true), hard delete them
           if (user.isDeleted) {
-            console.log(`[DuplicateUserTool] User ${user.uuid} is already soft deleted, performing hard delete...`);
+            devLog(`[DuplicateUserTool] User ${user.uuid} is already soft deleted, performing hard delete...`);
             const result = await hardDeleteUser(user.uuid);
-            console.log(`[DuplicateUserTool] Hard delete result for ${user.uuid}:`, result);
+            devLog(`[DuplicateUserTool] Hard delete result for ${user.uuid}:`, result);
             return { user, action: 'hardDelete', result };
           } else {
             // User is active, soft delete them first
-            console.log(`[DuplicateUserTool] User ${user.uuid} is active, performing soft delete...`);
+            devLog(`[DuplicateUserTool] User ${user.uuid} is active, performing soft delete...`);
             const result = await softDeleteUser(user.uuid, false);
-            console.log(`[DuplicateUserTool] Soft delete result for ${user.uuid}:`, result);
+            devLog(`[DuplicateUserTool] Soft delete result for ${user.uuid}:`, result);
             return { user, action: 'softDelete', result };
           }
         } catch (err: any) {
@@ -355,7 +356,7 @@ const DuplicateUserTool: React.FC = () => {
       });
 
       const results = await Promise.all(deletePromises);
-      console.log(`[DuplicateUserTool] Deletion results:`, results);
+      devLog(`[DuplicateUserTool] Deletion results:`, results);
 
       // Count successes and failures
       const softDeleted = results.filter(r => r.action === 'softDelete').length;
@@ -363,7 +364,7 @@ const DuplicateUserTool: React.FC = () => {
       const errors = results.filter(r => r.action === 'error');
       const skipped = results.filter(r => r.action === 'skipped').length;
 
-      console.log(`[DuplicateUserTool] Deletion summary: ${softDeleted} soft deleted, ${hardDeleted} hard deleted, ${errors.length} errors, ${skipped} skipped`);
+      devLog(`[DuplicateUserTool] Deletion summary: ${softDeleted} soft deleted, ${hardDeleted} hard deleted, ${errors.length} errors, ${skipped} skipped`);
 
       if (errors.length > 0) {
         const errorMessages = errors.map(e => `${e.user.email || e.user.uuid}: ${e.error}`).join(', ');
@@ -404,11 +405,11 @@ const DuplicateUserTool: React.FC = () => {
       });
       
       // Refresh the list
-      console.log('[DuplicateUserTool] Refreshing user list...');
+      devLog('[DuplicateUserTool] Refreshing user list...');
       await loadAllUsers();
       // Re-scan for duplicates
       setTimeout(() => {
-        console.log('[DuplicateUserTool] Re-scanning for duplicates...');
+        devLog('[DuplicateUserTool] Re-scanning for duplicates...');
         scanForDuplicates();
       }, 1000);
     } catch (err: any) {
@@ -427,25 +428,25 @@ const DuplicateUserTool: React.FC = () => {
 
   // Toggle user selection for deletion
   const toggleUserSelection = (userId: string, group: DuplicateGroup) => {
-    console.log(`[DuplicateUserTool] Toggling selection for user ${userId} in group ${group.key}`);
+    devLog(`[DuplicateUserTool] Toggling selection for user ${userId} in group ${group.key}`);
     setSelectedDeleteUsers(prev => {
       const newSet = new Set(prev);
       if (newSet.has(userId)) {
-        console.log(`[DuplicateUserTool] Deselecting user ${userId}`);
+        devLog(`[DuplicateUserTool] Deselecting user ${userId}`);
         newSet.delete(userId);
       } else {
         // Ensure at least one user remains in the group
         const selectedInGroup = group.users.filter(u => u.id && newSet.has(u.id)).length;
         if (selectedInGroup >= group.users.length - 1) {
-          console.warn(`[DuplicateUserTool] Cannot select all users in group ${group.key}`);
+          devWarn(`[DuplicateUserTool] Cannot select all users in group ${group.key}`);
           setError('Cannot select all users for deletion. At least one user must remain.');
           return prev;
         }
-        console.log(`[DuplicateUserTool] Selecting user ${userId} for deletion`);
+        devLog(`[DuplicateUserTool] Selecting user ${userId} for deletion`);
         newSet.add(userId);
       }
       setError(null);
-      console.log(`[DuplicateUserTool] Selected users: ${Array.from(newSet).join(', ')}`);
+      devLog(`[DuplicateUserTool] Selected users: ${Array.from(newSet).join(', ')}`);
       return newSet;
     });
   };

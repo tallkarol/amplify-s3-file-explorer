@@ -145,7 +145,7 @@ async function validateTokenAndCheckPermissions(
       throw new Error('Unauthorized: User must be admin or developer');
     }
 
-    console.log(`Token validated successfully for user ${userId}, admin: ${isAdmin}, developer: ${isDeveloper}`);
+    // Token validated successfully
     return { userId, isAdmin, isDeveloper };
   } catch (error: any) {
     console.error('Token validation error:', error);
@@ -176,7 +176,7 @@ async function softDeleteUser(
         Username: userId,
       })
     );
-    console.log(`Disabled user ${userId} in Cognito`);
+    // Disabled user in Cognito
 
     // Update UserProfile
     const profiles = await dataClient.models.UserProfile.list({
@@ -194,7 +194,7 @@ async function softDeleteUser(
         deletedAt: now,
         deletedBy: callerId,
       });
-      console.log(`Updated UserProfile for ${userId} - soft deleted`);
+      // Updated UserProfile - soft deleted
     } else {
       throw new Error(`UserProfile not found for user ${userId}`);
     }
@@ -231,7 +231,7 @@ async function hardDeleteUser(
         Username: userId,
       })
     );
-    console.log(`Deleted user ${userId} from Cognito`);
+    // Deleted user from Cognito
 
     // Update UserProfile (if not already updated)
     const profiles = await dataClient.models.UserProfile.list({
@@ -250,7 +250,7 @@ async function hardDeleteUser(
           deletedAt: now,
           deletedBy: callerId,
         });
-        console.log(`Updated UserProfile for ${userId} - hard deleted`);
+        // Updated UserProfile - hard deleted
       } else {
         // Update deletedBy if it wasn't set
         if (!profile.deletedBy) {
@@ -277,7 +277,7 @@ async function hardDeleteUser(
 // HTTP handler for Gen 2 function endpoints
 export const handler: Handler = async (event: any) => {
   try {
-    console.log('Delete user handler invoked:', JSON.stringify(event, null, 2));
+    // Delete user handler invoked
 
     // CORS headers for all responses
     const corsHeaders = {
@@ -294,7 +294,7 @@ export const handler: Handler = async (event: any) => {
                    event.requestContext?.method;
     
     if (method === 'OPTIONS') {
-      console.log('Handling OPTIONS preflight request');
+      // Handling OPTIONS preflight request
       return {
         statusCode: 200,
         headers: corsHeaders,

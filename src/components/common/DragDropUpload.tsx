@@ -7,6 +7,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { notifyUserOfFileUpload } from '@/features/files/services/FileNotificationService';
 import { notifyAdminsOfFileUpload } from '@/services/adminNotificationService';
+import { devLog, devError } from '@/utils/logger';
 
 interface DragDropUploadProps {
   currentPath: string;
@@ -58,7 +59,7 @@ const DragDropUpload = ({
         const hasPermission = await canUploadToPath(userId, currentPath);
         setCanUpload(hasPermission);
       } catch (err) {
-        console.error('Error checking upload permissions:', err);
+        devError('Error checking upload permissions:', err);
         // Default to restrictive on error
         setCanUpload(false);
       }
@@ -152,7 +153,7 @@ const DragDropUpload = ({
           return;
         }
       } catch (err) {
-        console.error('Error verifying upload permissions:', err);
+        devError('Error verifying upload permissions:', err);
         setError('Unable to verify upload permissions. Please try again.');
         return;
       }
@@ -218,7 +219,7 @@ const DragDropUpload = ({
           return;
         }
       } catch (err) {
-        console.error('Error verifying upload permissions:', err);
+        devError('Error verifying upload permissions:', err);
         setError('Unable to verify upload permissions. Please try again.');
         return;
       }
@@ -244,7 +245,7 @@ const DragDropUpload = ({
             ? `users/${userId}/${file.name}`
             : `users/${userId}${currentPath}${file.name}`;
           
-          console.log(`Uploading file to: ${uploadPath}`);
+          devLog(`Uploading file to: ${uploadPath}`);
           
           // Upload the file
           await uploadData({
@@ -259,7 +260,7 @@ const DragDropUpload = ({
           
           // Create notifications based on who is uploading (non-blocking - don't fail upload if notification fails)
           try {
-            console.log('[DragDropUpload] Attempting to create notification for file:', file.name, {
+            devLog('[DragDropUpload] Attempting to create notification for file:', file.name, {
               isAdmin,
               userIsAdmin,
               userId,
@@ -275,7 +276,7 @@ const DragDropUpload = ({
             
             if (isAdminUploadingForUser) {
               // Admin uploading for a user - notify the user only
-              console.log('[DragDropUpload] Admin uploading for user - notifying user:', userId);
+              devLog('[DragDropUpload] Admin uploading for user - notifying user:', userId);
               await notifyUserOfFileUpload(
                 userId,
                 user.userId, // Admin's user ID
@@ -283,23 +284,23 @@ const DragDropUpload = ({
                 currentPath,
                 `/user/folder/${currentPath.split('/').filter(Boolean)[0]}`
               );
-              console.log('[DragDropUpload] Successfully notified user of admin upload');
+              devLog('[DragDropUpload] Successfully notified user of admin upload');
             } else if (isUserUploadingOwnFile) {
               // User uploading their own file - notify admins only, NOT the user
-              console.log('[DragDropUpload] User uploading their own file - notifying admins only');
+              devLog('[DragDropUpload] User uploading their own file - notifying admins only');
               await notifyAdminsOfFileUpload(
                 user.userId, // User's ID (will be converted to display name in the service)
                 file.name,
                 currentPath
               );
-              console.log('[DragDropUpload] Successfully notified admins of user upload');
+              devLog('[DragDropUpload] Successfully notified admins of user upload');
             } else {
               // Admin uploading their own file, or other edge cases - skip notifications
-              console.log('[DragDropUpload] Skipping notification - uploader is same as target user or other edge case');
+              devLog('[DragDropUpload] Skipping notification - uploader is same as target user or other edge case');
             }
           } catch (notificationError: any) {
             // Log error but don't break the upload flow
-            console.error('[DragDropUpload] Failed to create notification (upload still succeeded):', {
+            devError('[DragDropUpload] Failed to create notification (upload still succeeded):', {
               error: notificationError,
               errorMessage: notificationError?.message,
               errorType: notificationError?.errorType,
@@ -310,7 +311,7 @@ const DragDropUpload = ({
             });
           }
         } catch (err) {
-          console.error('Error uploading file:', err);
+          devError('Error uploading file:', err);
           setError(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
           setIsUploading(false); // Reset uploading state immediately on error
           break;
@@ -322,9 +323,9 @@ const DragDropUpload = ({
       
       // Show success or partial success message
       if (successCount === selectedFiles.length) {
-        console.log('All files uploaded successfully');
+        devLog('All files uploaded successfully');
       } else {
-        console.log(`Uploaded ${successCount} of ${selectedFiles.length} files`);
+        devLog(`Uploaded ${successCount} of ${selectedFiles.length} files`);
       }
       
       // Reset and close modal first, then refresh the file list
@@ -339,7 +340,7 @@ const DragDropUpload = ({
         }, 100);
       }, 500);
     } catch (err) {
-      console.error('General upload error:', err);
+      devError('General upload error:', err);
       setError(`Upload failed: ${err instanceof Error ? err.message : String(err)}`);
       setIsUploading(false);
     }

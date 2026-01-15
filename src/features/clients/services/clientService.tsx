@@ -4,6 +4,7 @@ import { GraphQLQuery } from '@aws-amplify/api';
 import { UserProfile } from '@/types';
 import { CognitoIdentityProviderClient, AdminDisableUserCommand, AdminEnableUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 import outputs from '../../../../amplify_outputs.json';
+import { devLog, devError } from '../../../utils/logger';
 
 interface ListUserProfilesResponse {
   listUserProfiles: {
@@ -46,9 +47,9 @@ export const disableCognitoUser = async (username: string): Promise<void> => {
     });
     
     await cognitoClient.send(command);
-    console.log(`Cognito user ${username} disabled successfully`);
+    devLog(`Cognito user ${username} disabled successfully`);
   } catch (error) {
-    console.error('Error disabling Cognito user:', error);
+    devError('Error disabling Cognito user:', error);
     throw error;
   }
 };
@@ -65,9 +66,9 @@ export const enableCognitoUser = async (username: string): Promise<void> => {
     });
     
     await cognitoClient.send(command);
-    console.log(`Cognito user ${username} enabled successfully`);
+    devLog(`Cognito user ${username} enabled successfully`);
   } catch (error) {
-    console.error('Error enabling Cognito user:', error);
+    devError('Error enabling Cognito user:', error);
     throw error;
   }
 };
@@ -117,7 +118,7 @@ export const fetchAllClients = async (includeDeleted: boolean = false): Promise<
     
     return response?.data?.listUserProfiles?.items || [];
   } catch (error) {
-    console.error('Error fetching users:', error);
+    devError('Error fetching users:', error);
     throw error;
   }
 };
@@ -134,7 +135,7 @@ export const resetUserPassword = async (userId: string): Promise<{ success: bool
     // Import fetchAuthSession for authentication
     const { fetchAuthSession } = await import('aws-amplify/auth');
     
-    console.log(`[resetUserPassword] Sending password reset email for user ${userId} via Lambda function`);
+    devLog(`[resetUserPassword] Sending password reset email for user ${userId} via Lambda function`);
 
     // Get function URL from amplify_outputs.json
     const outputsData = outputs as any;
@@ -167,7 +168,7 @@ export const resetUserPassword = async (userId: string): Promise<{ success: bool
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[resetUserPassword] Lambda function error:`, {
+      devError(`[resetUserPassword] Lambda function error:`, {
         status: response.status,
         statusText: response.statusText,
         error: errorText,
@@ -176,10 +177,10 @@ export const resetUserPassword = async (userId: string): Promise<{ success: bool
     }
 
     const result = await response.json();
-    console.log(`[resetUserPassword] Password reset email sent successfully for user ${userId}`);
+    devLog(`[resetUserPassword] Password reset email sent successfully for user ${userId}`);
     return result;
   } catch (error: any) {
-    console.error(`[resetUserPassword] Error sending password reset email for user ${userId}:`, error);
+    devError(`[resetUserPassword] Error sending password reset email for user ${userId}:`, error);
     throw new Error(`Failed to send password reset email: ${error.message || 'Unknown error'}`);
   }
 };
@@ -233,9 +234,9 @@ export const updateUserStatus = async (userId: string, status: 'active' | 'inact
       authMode: 'userPool'
     });
     
-    console.log(`User profile ${profileId} status updated to: ${status}`);
+    devLog(`User profile ${profileId} status updated to: ${status}`);
   } catch (error) {
-    console.error('Error updating user profile status:', error);
+    devError('Error updating user profile status:', error);
     throw error;
   }
 };
@@ -263,7 +264,7 @@ export const getUserStatus = async (userId: string): Promise<string | null> => {
 
     return response.data?.listUserProfiles?.items[0]?.status || null;
   } catch (error) {
-    console.error('Error getting user status:', error);
+    devError('Error getting user status:', error);
     throw error;
   }
 };
@@ -318,11 +319,11 @@ export const suspendUserAccount = async (userId: string): Promise<void> => {
       performedBy: 'current-user-id', // Replace with actual current user ID
       timestamp: new Date().toISOString()
     };
-    console.log('Audit log:', logEntry);
+    devLog('Audit log:', logEntry);
     
     // TODO: Add proper audit logging to database
   } catch (error) {
-    console.error('Error suspending user account:', error);
+    devError('Error suspending user account:', error);
     throw error;
   }
 };
@@ -376,11 +377,11 @@ export const reactivateUserAccount = async (userId: string): Promise<void> => {
       performedBy: 'current-user-id', // Replace with actual current user ID
       timestamp: new Date().toISOString()
     };
-    console.log('Audit log:', logEntry);
+    devLog('Audit log:', logEntry);
     
     // TODO: Add proper audit logging to database
   } catch (error) {
-    console.error('Error reactivating user account:', error);
+    devError('Error reactivating user account:', error);
     throw error;
   }
 };

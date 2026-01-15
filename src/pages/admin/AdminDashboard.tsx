@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { devLog } from '../../utils/logger';
 
 interface DashboardMetrics {
   totalUsers: number;
@@ -29,7 +30,7 @@ const AdminHome = () => {
     storageTotal: 1000
   });
   
-  console.log('metrics:', metrics);
+  devLog('metrics:', metrics);
 
   // Create a client for making GraphQL requests
   const client = generateClient();

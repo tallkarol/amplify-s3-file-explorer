@@ -6,6 +6,7 @@ import FolderGrid from '@/features/files/components/FolderGrid';
 import UserAllFiles from '@/features/files/components/UserAllFiles';
 import Card from '@/components/common/Card'; 
 import DragDropDemo from '@/features/files/components/DragDropDemo';
+import { devLog } from '@/utils/logger';
 
 const UserDashboard = () => {
   const { user } = useAuthenticator();
@@ -80,7 +81,7 @@ const UserDashboard = () => {
   // Handler for refreshing files
   const handleRefreshFiles = () => {
     // This will be passed to both components to allow them to trigger refresh on each other
-    console.log("Refreshing all files view");
+    devLog("Refreshing all files view");
   };
 
   return (

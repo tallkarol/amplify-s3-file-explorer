@@ -8,6 +8,7 @@ import AlertMessage from '@/components/common/AlertMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { useUserRole } from '@/hooks/useUserRole';
 import DeleteAccountModal from '@/components/user/DeleteAccountModal';
+import { devLog } from '@/utils/logger';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -55,16 +56,16 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
   // Debug function to help troubleshoot profile issues
   const debugUserProfile = async () => {
     try {
-      console.log('Starting profile debugging...');
+      devLog('Starting profile debugging...');
       const userId = user.userId;
       const username = user.username;
       
-      console.log('User ID:', userId);
-      console.log('Username:', username);
+      devLog('User ID:', userId);
+      devLog('Username:', username);
       
       // Try different profile query patterns
       const profileOwner = `${userId}::${username}`;
-      console.log('Trying profileOwner format:', profileOwner);
+      devLog('Trying profileOwner format:', profileOwner);
       
       // Query 1: By profileOwner
       const queryByOwner = /* GraphQL */ `
@@ -86,7 +87,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
         authMode: 'userPool'
       });
       
-      console.log('Query by owner result:', ownerResponse?.data?.listUserProfiles?.items);
+      devLog('Query by owner result:', ownerResponse?.data?.listUserProfiles?.items);
       
       // Query 2: By UUID
       const queryByUuid = /* GraphQL */ `
@@ -108,7 +109,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
         authMode: 'userPool'
       });
       
-      console.log('Query by UUID result:', uuidResponse?.data?.listUserProfiles?.items);
+      devLog('Query by UUID result:', uuidResponse?.data?.listUserProfiles?.items);
       
       // Query 3: List all profiles (limit 10)
       const listAllQuery = /* GraphQL */ `
@@ -129,7 +130,7 @@ const UserProfileModal = ({ isOpen, onClose }: UserProfileModalProps) => {
         authMode: 'userPool'
       });
       
-      console.log('List all profiles result (limit 10):', listResponse?.data?.listUserProfiles?.items);
+      devLog('List all profiles result (limit 10):', listResponse?.data?.listUserProfiles?.items);
       
     } catch (err) {
       console.error('Debug error:', err);
@@ -171,7 +172,7 @@ const fetchUserProfileWithContacts = async () => {
       authMode: 'userPool'
     });
     
-    console.log('Query response:', response);
+    devLog('Query response:', response);
     
     const items = response?.data?.listUserProfiles?.items;
     if (items && items.length > 0) {
@@ -243,7 +244,7 @@ const fetchUserProfileWithContacts = async () => {
 // Add this debugging function to your component
 const listAllProfiles = async () => {
   try {
-    console.log('Listing all profiles to debug...');
+    devLog('Listing all profiles to debug...');
     
     const listAllQuery = /* GraphQL */ `
       query ListAllProfiles {
@@ -263,15 +264,15 @@ const listAllProfiles = async () => {
       authMode: 'userPool'
     });
     
-    console.log('All profiles:', response?.data?.listUserProfiles?.items);
-    console.log('Looking for UUID:', user.userId);
+    devLog('All profiles:', response?.data?.listUserProfiles?.items);
+    devLog('Looking for UUID:', user.userId);
     
     // Check if any profile has this UUID
     const matchingProfiles = response?.data?.listUserProfiles?.items.filter(
       (profile: any) => profile.uuid === user.userId
     );
     
-    console.log('Matching profiles:', matchingProfiles);
+    devLog('Matching profiles:', matchingProfiles);
   } catch (err) {
     console.error('Error listing profiles:', err);
   }

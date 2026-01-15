@@ -5,6 +5,7 @@ import { UserProfile, ListUserProfilesResponse } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import AlertMessage from '@/components/common/AlertMessage';
 import Card from '@/components/common/Card';
+import { devLog } from '@/utils/logger';
 import '@/styles/userselector.css';
 
 interface UserSelectorProps {
@@ -41,7 +42,7 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching users...');
+      devLog('Fetching users...');
       
       // Create a client for making GraphQL requests
       const client = generateClient();
@@ -66,7 +67,7 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
         authMode: 'userPool'
       });
       
-      console.log('GraphQL response received:', response);
+      devLog('GraphQL response received:', response);
       
       // Check if we got valid data
       if (!response.data || !response.data.listUserProfiles) {
@@ -74,7 +75,7 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
       }
       
       const items = response.data.listUserProfiles.items || [];
-      console.log(`Fetched ${items.length} users`);
+      devLog(`Fetched ${items.length} users`);
       
       setUsers(items);
     } catch (err) {
@@ -87,7 +88,7 @@ const UserSelector = ({ onUserSelect, selectedUser }: UserSelectorProps) => {
 
   // Handle user selection
   const handleSelectUser = (user: UserProfile) => {
-    console.log('Selected user:', user);
+    devLog('Selected user:', user);
     onUserSelect(user);
   };
 

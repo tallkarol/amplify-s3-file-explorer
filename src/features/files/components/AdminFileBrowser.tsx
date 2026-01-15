@@ -10,6 +10,7 @@ import FolderPermissionsPanel from './FolderPermissionsPanel';
 import CreateSubfolderModal from './CreateSubfolderModal';
 import FolderRow from './FolderRow';
 import { UserProfile } from '../../../types';
+import { devLog } from '../../../utils/logger';
 import { 
   EnhancedS3Item, 
   listUserFilesWithPermissions,
@@ -146,14 +147,14 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
   };
 
   const navigateToFolder = (folderKey: string) => {
-    console.log('Original folder key:', folderKey);
+    devLog('Original folder key:', folderKey);
     
     // Check if this is a parent folder navigation (..)
     if (folderKey.endsWith('/..')) {
       const parts = currentPath.split('/').filter(Boolean);
       parts.pop();
       const parentPath = parts.length > 0 ? '/' + parts.join('/') + '/' : '/';
-      console.log('Navigating to parent folder:', parentPath);
+      devLog('Navigating to parent folder:', parentPath);
       updatePath(parentPath);
       return;
     }
@@ -174,7 +175,7 @@ const AdminFileBrowser: React.FC<AdminFileBrowserProps> = ({
       }
     }
     
-    console.log('Navigating to folder path:', cleanPath);
+    devLog('Navigating to folder path:', cleanPath);
     updatePath(cleanPath);
   };
 

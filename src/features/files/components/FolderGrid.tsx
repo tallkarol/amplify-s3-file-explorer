@@ -7,6 +7,7 @@ import { S3Item } from '@/types';
 import useFolderStats from '../hooks/useFolderStats';
 import FolderRow from './FolderRow';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { devLog } from '@/utils/logger';
 import '@/styles/foldergrid.css';
 
 interface FolderWithCount extends EnhancedS3Item {
@@ -75,7 +76,7 @@ const FolderGrid: React.FC<FolderGridProps> = ({ userId, onSelectFolder }) => {
             }
             const normalizedPath = normalizeFolderPath(folderPath);
             const permissions = await getEffectiveFolderPermissions(userId, normalizedPath);
-            console.log('[FolderGrid] Visibility check:', {
+            devLog('[FolderGrid] Visibility check:', {
               folderName: folder.name,
               folderPath: normalizedPath,
               isVisible: permissions.isVisible,

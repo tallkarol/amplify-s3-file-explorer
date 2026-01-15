@@ -1,6 +1,7 @@
 // src/features/files/services/FileNotificationService.ts
 import { createNotification } from '../../notifications/services/NotificationService';
 import { fetchUserByUuid } from './fileService';
+import { devLog, devWarn, devError } from '../../../utils/logger';
 
 /**
  * Get user display name from UUID
@@ -13,7 +14,7 @@ const getUserDisplayName = async (userId: string): Promise<string> => {
     }
     return userProfile?.email || userId;
   } catch (error) {
-    console.error('Error fetching user display name:', error);
+    devError('Error fetching user display name:', error);
     return userId;
   }
 };
@@ -26,13 +27,13 @@ const getUserEmail = async (userId: string): Promise<string> => {
   try {
     const userProfile = await fetchUserByUuid(userId);
     if (userProfile?.email) {
-      console.log('[getUserEmail] Found email for user:', userId, 'email:', userProfile.email);
+      devLog('[getUserEmail] Found email for user:', userId, 'email:', userProfile.email);
       return userProfile.email;
     }
-    console.warn('[getUserEmail] No email found for user:', userId, 'profile:', userProfile);
+    devWarn('[getUserEmail] No email found for user:', userId, 'profile:', userProfile);
     return userId;
   } catch (error) {
-    console.error('[getUserEmail] Error fetching user email:', error);
+    devError('[getUserEmail] Error fetching user email:', error);
     return userId;
   }
 };
@@ -53,7 +54,7 @@ export const notifyUserOfFileUpload = async (
   fileLink?: string
 ): Promise<void> => {
   try {
-    console.log('[notifyUserOfFileUpload] Starting notification creation', {
+    devLog('[notifyUserOfFileUpload] Starting notification creation', {
       userId,
       adminUserId,
       fileName,
@@ -63,7 +64,7 @@ export const notifyUserOfFileUpload = async (
     
     // Get admin display name
     const adminName = await getUserDisplayName(adminUserId);
-    console.log('[notifyUserOfFileUpload] Admin display name:', adminName);
+    devLog('[notifyUserOfFileUpload] Admin display name:', adminName);
     
     // Ensure actionLink is never undefined
     const actionLink = fileLink || `/user/folder/${getFolderNameFromPath(folderPath)}` || '/user';
@@ -85,12 +86,12 @@ export const notifyUserOfFileUpload = async (
       }
     };
     
-    console.log('[notifyUserOfFileUpload] Notification payload:', notificationPayload);
+    devLog('[notifyUserOfFileUpload] Notification payload:', notificationPayload);
     
     const result = await createNotification(notificationPayload);
-    console.log('[notifyUserOfFileUpload] Notification created successfully:', result.id);
+    devLog('[notifyUserOfFileUpload] Notification created successfully:', result.id);
   } catch (error: any) {
-    console.error('[notifyUserOfFileUpload] Error creating file upload notification:', {
+    devError('[notifyUserOfFileUpload] Error creating file upload notification:', {
       error,
       errorMessage: error?.message,
       errorType: error?.errorType,
@@ -118,7 +119,7 @@ export const notifyAdminsOfUserFileUpload = async (
   folderPath: string
 ): Promise<void> => {
   try {
-    console.log('[notifyAdminsOfUserFileUpload] Starting notification creation', {
+    devLog('[notifyAdminsOfUserFileUpload] Starting notification creation', {
       adminIds,
       userUserId,
       fileName,
@@ -130,11 +131,11 @@ export const notifyAdminsOfUserFileUpload = async (
     const eligibleAdminIds = adminIds.filter(adminId => adminId !== userUserId);
     
     if (eligibleAdminIds.length === 0) {
-      console.log('[notifyAdminsOfUserFileUpload] No eligible admins to notify (all admins are the uploader)');
+      devLog('[notifyAdminsOfUserFileUpload] No eligible admins to notify (all admins are the uploader)');
       return;
     }
     
-    console.log('[notifyAdminsOfUserFileUpload] Filtered admin list:', {
+    devLog('[notifyAdminsOfUserFileUpload] Filtered admin list:', {
       originalCount: adminIds.length,
       filteredCount: eligibleAdminIds.length,
       excludedUploader: userUserId
@@ -142,7 +143,7 @@ export const notifyAdminsOfUserFileUpload = async (
     
     // Get user email (preferred over display name for user upload notifications)
     const userEmail = await getUserEmail(userUserId);
-    console.log('[notifyAdminsOfUserFileUpload] User email:', userEmail);
+    devLog('[notifyAdminsOfUserFileUpload] User email:', userEmail);
     
     // Ensure actionLink is never undefined
     const actionLink = `/admin/files?clientId=${userUserId}&path=${encodeURIComponent(folderPath)}` || '/admin';
@@ -166,14 +167,14 @@ export const notifyAdminsOfUserFileUpload = async (
         }
       };
       
-      console.log(`[notifyAdminsOfUserFileUpload] Creating notification ${index + 1}/${eligibleAdminIds.length} for admin:`, adminId);
+        devLog(`[notifyAdminsOfUserFileUpload] Creating notification ${index + 1}/${eligibleAdminIds.length} for admin:`, adminId);
       
       try {
         const result = await createNotification(notificationPayload);
-        console.log(`[notifyAdminsOfUserFileUpload] Notification created successfully for admin ${adminId}:`, result.id);
+        devLog(`[notifyAdminsOfUserFileUpload] Notification created successfully for admin ${adminId}:`, result.id);
         return result;
       } catch (err: any) {
-        console.error(`[notifyAdminsOfUserFileUpload] Failed to create notification for admin ${adminId}:`, {
+        devError(`[notifyAdminsOfUserFileUpload] Failed to create notification for admin ${adminId}:`, {
           error: err,
           errorMessage: err?.message,
           errorType: err?.errorType,
@@ -186,9 +187,9 @@ export const notifyAdminsOfUserFileUpload = async (
     });
     
     const results = await Promise.all(notificationPromises);
-    console.log(`[notifyAdminsOfUserFileUpload] Successfully created ${results.length} notifications`);
+    devLog(`[notifyAdminsOfUserFileUpload] Successfully created ${results.length} notifications`);
   } catch (error: any) {
-    console.error('[notifyAdminsOfUserFileUpload] Error creating admin file upload notifications:', {
+    devError('[notifyAdminsOfUserFileUpload] Error creating admin file upload notifications:', {
       error,
       errorMessage: error?.message,
       errorType: error?.errorType,

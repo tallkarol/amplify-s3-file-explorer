@@ -3,6 +3,7 @@ import { generateClient } from 'aws-amplify/api';
 import { GraphQLQuery } from '@aws-amplify/api';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import outputs from '../../amplify_outputs.json';
+import { devWarn, devError } from '../utils/logger';
 // import { UserProfile } from '@/types';
 
 const client = generateClient();
@@ -39,7 +40,7 @@ export const getAllAdminUserIds = async (): Promise<string[]> => {
       .filter((user) => user.uuid)
       .map((user) => user.uuid as string);
   } catch (error) {
-    console.error('Error fetching admin users:', error);
+    devError('Error fetching admin users:', error);
     return [];
   }
 };
@@ -68,7 +69,7 @@ async function authenticatedFetch(url: string, options: RequestInit): Promise<Re
   if (!response.ok) {
     const responseClone = response.clone();
     const errorText = await responseClone.text().catch(() => 'Unable to read error response');
-    console.error('[authenticatedFetch] Request failed:', {
+    devError('[authenticatedFetch] Request failed:', {
       status: response.status,
       statusText: response.statusText,
       error: errorText,
@@ -93,7 +94,7 @@ function getAdminSyncFunctionUrl(): string {
   
   // Fallback: Use the manually created Function URL
   const manualFunctionUrl = 'https://tympuctd3ozlesbz2vmbgre6fy0hhumu.lambda-url.us-east-1.on.aws/';
-  console.warn('Function URL not found in amplify_outputs.json, using manual URL');
+  devWarn('Function URL not found in amplify_outputs.json, using manual URL');
   return manualFunctionUrl;
 }
 
@@ -120,7 +121,7 @@ export const syncAdminStatusFromCognito = async (): Promise<{ success: boolean; 
     const result = await response.json();
     return result;
   } catch (error: any) {
-    console.error('Error syncing admin status from Cognito:', error);
+    devError('Error syncing admin status from Cognito:', error);
     throw error;
   }
 };
@@ -158,7 +159,7 @@ export const updateUserAdminStatus = async (
     const result = await response.json();
     return result;
   } catch (error: any) {
-    console.error('Error updating user admin status:', error);
+    devError('Error updating user admin status:', error);
     throw error;
   }
 };

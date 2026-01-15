@@ -2,6 +2,7 @@
 import { generateClient, GraphQLResult } from 'aws-amplify/api';
 // import { GraphQLQuery } from '@aws-amplify/api';
 // import { v4 as uuidv4 } from 'uuid';
+import { devLog } from '../utils/logger';
 
 // Create client
 const client = generateClient();
@@ -61,7 +62,7 @@ export const logError = async (
       authMode: 'userPool'
     }) as GraphQLResult<any>;
 
-    console.log('Error successfully logged to DynamoDB:', response);
+    devLog('Error successfully logged to DynamoDB:', response);
   } catch (e: any) {
     // Log detailed error information
     console.error('Failed to log error to DynamoDB:', e);
