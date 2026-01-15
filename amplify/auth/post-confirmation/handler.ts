@@ -33,8 +33,29 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
     const userName = event.userName;
     const profileOwner = `${userId}::${userName}`;
     
+    // Check if user profile already exists (prevents duplicates from password resets/changes)
+    console.log('Checking if user profile already exists...');
+    const existingProfiles = await client.models.UserProfile.list({
+      filter: { uuid: { eq: userId } },
+    });
+    
+    if (existingProfiles.data && existingProfiles.data.length > 0) {
+      console.log(`User profile already exists for user ${userId}, skipping creation`);
+      // Update profileOwner if it's different (in case username changed)
+      const existingProfile = existingProfiles.data[0];
+      if (existingProfile.profileOwner !== profileOwner) {
+        console.log(`Updating profileOwner for user ${userId}`);
+        await client.models.UserProfile.update({
+          id: existingProfile.id,
+          profileOwner: profileOwner,
+        });
+      }
+      // Return early - don't create duplicate profile or other resources
+      return event;
+    }
+    
     console.log('Creating user profile...');
-    // Create user profile
+    // Create user profile only if it doesn't exist
     await client.models.UserProfile.create({
       email: event.request.userAttributes.email,
       uuid: userId,
@@ -47,64 +68,106 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
       status: 'active'
     });
     
-    console.log('Creating notification preferences...');
-    // Create default notification preferences
-    await client.models.NotificationPreference.create({
-      userId: userId,
-      receiveSystemNotifications: true,
-      receiveFileNotifications: true,
-      receiveAdminNotifications: true,
-      receiveUserNotifications: true,
-      emailNotifications: true,
-      inAppNotifications: true,
-      emailDigestFrequency: 'instant'
+    // Check if notification preferences already exist
+    console.log('Checking if notification preferences already exist...');
+    const existingPreferences = await client.models.NotificationPreference.list({
+      filter: { userId: { eq: userId } },
     });
     
-    console.log('Creating welcome notification...');
-    // Create welcome notification
-    await client.models.Notification.create({
-      userId: userId,
-      type: 'system',
-      title: 'Welcome to S3 Secure File Share',
-      message: 'Your account has been successfully created.',
-      isRead: false,
-      actionLink: '/user'
+    if (!existingPreferences.data || existingPreferences.data.length === 0) {
+      console.log('Creating notification preferences...');
+      // Create default notification preferences only if they don't exist
+      await client.models.NotificationPreference.create({
+        userId: userId,
+        receiveSystemNotifications: true,
+        receiveFileNotifications: true,
+        receiveAdminNotifications: true,
+        receiveUserNotifications: true,
+        emailNotifications: true,
+        inAppNotifications: true,
+        emailDigestFrequency: 'instant'
+      });
+    } else {
+      console.log('Notification preferences already exist, skipping creation');
+    }
+    
+    // Only create welcome notification for new users (not password resets)
+    // Check if user has any existing notifications to determine if they're new
+    console.log('Checking if user is new...');
+    const existingNotifications = await client.models.Notification.list({
+      filter: { userId: { eq: userId } },
     });
+    
+    if (!existingNotifications.data || existingNotifications.data.length === 0) {
+      console.log('Creating welcome notification...');
+      // Create welcome notification only for new users
+      await client.models.Notification.create({
+        userId: userId,
+        type: 'system',
+        title: 'Welcome to S3 Secure File Share',
+        message: 'Your account has been successfully created.',
+        isRead: false,
+        actionLink: '/user'
+      });
+    } else {
+      console.log('User already has notifications, skipping welcome notification');
+    }
 
-    console.log('Creating S3 folders...');
-    // Create S3 folders in parallel
-    const userFolderKey = `users/${userId}/`;
-    const certificateFolderKey = `users/${userId}/certificate/`;
-    const auditReportFolderKey = `users/${userId}/audit-report/`;
-    const auditorResumeFolderKey = `users/${userId}/auditor-resume/`;
-    const statisticsFolderKey = `users/${userId}/statistics/`;
-    const privateFolderKey = `users/${userId}/private/`;
-    const confirmationNoticesFolderKey = `users/${userId}/confirmation-notices/`;
-    const otherFolderKey = `users/${userId}/other/`;
-
-    // Retrieve the bucket name from the environment variable set by Amplify Storage.
+    // Only create S3 folders if they don't already exist (check user folder)
+    console.log('Checking if S3 folders already exist...');
     const bucketName = "amplify-dcmp2wwnf9152-mai-amplifys3fileexplorersto-vmzmd3lja8iu";
+    const userFolderKey = `users/${userId}/`;
     
-    // Prepare folder creation requests
-    const folderRequests = [
-      s3.putObject({Bucket: bucketName, Key: userFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: certificateFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: auditReportFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: auditorResumeFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: statisticsFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: privateFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: confirmationNoticesFolderKey, Body: "", ContentType: "text/plain"}).promise(),
-      s3.putObject({Bucket: bucketName, Key: otherFolderKey, Body: "", ContentType: "text/plain"}).promise()
-    ];
-    
-    // Execute all folder creations in parallel
-    await Promise.all(folderRequests);
+    try {
+      // Check if user folder exists
+      await s3.headObject({ Bucket: bucketName, Key: userFolderKey }).promise();
+      console.log('S3 folders already exist, skipping creation');
+    } catch (error: any) {
+      // If folder doesn't exist (404 error), create all folders
+      if (error.code === 'NotFound' || error.statusCode === 404) {
+        console.log('Creating S3 folders...');
+        const certificateFolderKey = `users/${userId}/certificate/`;
+        const auditReportFolderKey = `users/${userId}/audit-report/`;
+        const auditorResumeFolderKey = `users/${userId}/auditor-resume/`;
+        const statisticsFolderKey = `users/${userId}/statistics/`;
+        const privateFolderKey = `users/${userId}/private/`;
+        const confirmationNoticesFolderKey = `users/${userId}/confirmation-notices/`;
+        const otherFolderKey = `users/${userId}/other/`;
+        
+        // Prepare folder creation requests
+        const folderRequests = [
+          s3.putObject({Bucket: bucketName, Key: userFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+          s3.putObject({Bucket: bucketName, Key: certificateFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+          s3.putObject({Bucket: bucketName, Key: auditReportFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+          s3.putObject({Bucket: bucketName, Key: auditorResumeFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+          s3.putObject({Bucket: bucketName, Key: statisticsFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+          s3.putObject({Bucket: bucketName, Key: privateFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+          s3.putObject({Bucket: bucketName, Key: confirmationNoticesFolderKey, Body: "", ContentType: "text/plain"}).promise(),
+          s3.putObject({Bucket: bucketName, Key: otherFolderKey, Body: "", ContentType: "text/plain"}).promise()
+        ];
+        
+        // Execute all folder creations in parallel
+        await Promise.all(folderRequests);
+      } else {
+        console.error('Error checking S3 folder existence:', error);
+        // Continue anyway - folders might still exist
+      }
+    }
 
-    console.log('Creating default folder permissions...');
-    // Create default folder permissions for protected folders
-    const currentUser = event.request.userAttributes.email; // Use email as fallback for createdBy
+    // Only create folder permissions if they don't already exist
+    console.log('Checking if folder permissions already exist...');
+    const existingPermissions = await client.models.FolderPermission.list({
+      filter: { userId: { eq: userId } },
+    });
     
-    const defaultPermissions = [
+    if (existingPermissions.data && existingPermissions.data.length > 0) {
+      console.log('Folder permissions already exist, skipping creation');
+    } else {
+      console.log('Creating default folder permissions...');
+      // Create default folder permissions for protected folders
+      const currentUser = event.request.userAttributes.email; // Use email as fallback for createdBy
+      
+      const defaultPermissions = [
       // Certificate folder - allow all operations
       {
         userId: userId,
@@ -191,12 +254,13 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
       }
     ];
 
-    // Create permissions in parallel
-    const permissionRequests = defaultPermissions.map(permission =>
-      client.models.FolderPermission.create(permission)
-    );
-    
-    await Promise.all(permissionRequests);
+      // Create permissions in parallel
+      const permissionRequests = defaultPermissions.map(permission =>
+        client.models.FolderPermission.create(permission)
+      );
+      
+      await Promise.all(permissionRequests);
+    }
     
     console.log('Post-confirmation handler completed successfully');
     return event;
